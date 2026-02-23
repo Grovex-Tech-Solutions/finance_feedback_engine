@@ -502,7 +502,7 @@ class FinanceFeedbackEngine:
                 # Check if platform has basic methods
                 has_methods = (
                     hasattr(self.trading_platform, 'get_balance') and
-                    hasattr(self.trading_platform, 'execute')
+                    hasattr(self.trading_platform, 'execute_trade')
                 )
                 if has_methods:
                     health_check_results["trading_platform"] = True
