@@ -183,4 +183,4 @@ class RetryConfig:
     @classmethod
     def get_config(cls, operation_type: str) -> dict:
         """Get retry configuration for specific operation type."""
-        return getattr(cls, operation_type.upper(), cls.API_CALL)
+        return dict(getattr(cls, operation_type.upper(), cls.API_CALL))

@@ -367,8 +367,8 @@ class TestMockTradingPlatform:
         assert "portfolio" in account_info
         assert account_info["max_leverage"] == 10.0
 
-    def test_no_position_sell_fails(self, platform):
-        """Test SELL fails when no position exists."""
+    def test_no_position_sell_opens_short(self, platform):
+        """Test SELL with no existing position opens a SHORT position (futures)."""
         decision = {
             "id": "test-no-position",
             "action": "SELL",
@@ -380,8 +380,11 @@ class TestMockTradingPlatform:
 
         result = platform.execute_trade(decision)
 
-        assert result["success"] is False
-        assert "No position to sell" in result["error"]
+        assert result["success"] is True
+        # Should have opened a SHORT position
+        positions = platform.get_positions()
+        assert "BTC-USD" in positions
+        assert positions["BTC-USD"]["side"] == "SHORT"
 
     def test_partial_position_close(self, platform):
         """Test partial position closing."""
