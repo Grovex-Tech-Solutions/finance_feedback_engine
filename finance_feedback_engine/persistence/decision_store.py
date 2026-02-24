@@ -220,7 +220,7 @@ class DecisionStore:
         for filepath in self.storage_path.glob("*.json"):
             try:
                 # Check file modification time
-                mtime = datetime.fromtimestamp(filepath.stat().st_mtime)
+                mtime = datetime.fromtimestamp(filepath.stat().st_mtime, tz=UTC)
 
                 if mtime < cutoff_date:
                     filepath.unlink()

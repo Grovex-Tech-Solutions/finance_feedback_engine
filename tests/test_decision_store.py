@@ -247,7 +247,7 @@ class TestDecisionStoreCleanup:
     def test_cleanup_old_decisions(self, tmp_path):
         """Test cleaning up old decisions."""
         import time
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, UTC, UTC
 
         config = {
             "storage_path": str(tmp_path / "decisions"),
