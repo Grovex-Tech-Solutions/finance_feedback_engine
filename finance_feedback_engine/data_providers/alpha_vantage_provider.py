@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
+import pandas as pd
 
 from ..observability.context import get_trace_headers
 from ..observability.metrics import create_histograms, get_meter
@@ -854,23 +855,94 @@ class AlphaVantageProvider:
             market_data["close_position_in_range"] = close_position_in_range
 
             # Fetch technical indicators if available.
-            # In live mode, crypto market data is sourced from Coinbase and should
-            # not trigger Alpha Vantage indicator requests during enrichment.
-            should_fetch_technical = not (
-                not self.is_backtest
-                and classify_asset_pair(asset_pair) == "crypto"
-                and market_data.get("provider") == "coinbase"
-            )
+            # Crypto pairs should compute indicators locally from Coinbase candles
+            # (no Alpha Vantage technical endpoint calls).
+            is_crypto_pair = classify_asset_pair(asset_pair) == "crypto" or asset_pair.startswith(("BTC", "ETH"))
 
-            if should_fetch_technical:
+            if is_crypto_pair:
+                technical_data = await self._get_local_crypto_technical_indicators(asset_pair)
+            else:
                 technical_data = await self._get_technical_indicators(asset_pair)
-                if technical_data:
-                    market_data.update(technical_data)
+
+            if technical_data:
+                market_data.update(technical_data)
 
         except Exception as e:  # noqa: BLE001
             logger.warning("Error enriching market data: %s", e)
 
         return market_data
+
+    async def _get_local_crypto_technical_indicators(self, asset_pair: str) -> Dict[str, Any]:
+        """Compute crypto technical indicators locally from Coinbase candles."""
+        indicators: Dict[str, Any] = {}
+
+        if not self.coinbase_provider:
+            return indicators
+
+        try:
+            candles = await self._get_coinbase_candles_with_retry(asset_pair, "1h", 200)
+            if not candles or len(candles) < 35:
+                return indicators
+
+            close_series = pd.Series(
+                [float(candle.get("close", 0.0)) for candle in candles], dtype="float64"
+            )
+
+            if close_series.empty:
+                return indicators
+
+            # RSI(14)
+            delta = close_series.diff()
+            gain = delta.clip(lower=0)
+            loss = -delta.clip(upper=0)
+            avg_gain = gain.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+            avg_loss = loss.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+            rs = avg_gain / avg_loss.replace(0, pd.NA)
+            rsi = 100 - (100 / (1 + rs))
+            # If there are no losses, RSI should saturate near 100.
+            rsi = rsi.where(rsi.notna(), 100.0)
+
+            rsi_value = rsi.iloc[-1]
+            if pd.notna(rsi_value):
+                indicators["rsi"] = float(rsi_value)
+                if indicators["rsi"] > 70:
+                    indicators["rsi_signal"] = "overbought"
+                elif indicators["rsi"] < 30:
+                    indicators["rsi_signal"] = "oversold"
+                else:
+                    indicators["rsi_signal"] = "neutral"
+
+            # MACD(12,26,9)
+            ema_12 = close_series.ewm(span=12, adjust=False).mean()
+            ema_26 = close_series.ewm(span=26, adjust=False).mean()
+            macd_line = ema_12 - ema_26
+            signal_line = macd_line.ewm(span=9, adjust=False).mean()
+            hist_line = macd_line - signal_line
+
+            if pd.notna(macd_line.iloc[-1]):
+                indicators["macd"] = float(macd_line.iloc[-1])
+            if pd.notna(signal_line.iloc[-1]):
+                indicators["macd_signal"] = float(signal_line.iloc[-1])
+            if pd.notna(hist_line.iloc[-1]):
+                indicators["macd_hist"] = float(hist_line.iloc[-1])
+
+            # Bollinger Bands(20, 2)
+            sma_20 = close_series.rolling(window=20).mean()
+            std_20 = close_series.rolling(window=20).std()
+            upper = sma_20 + 2 * std_20
+            lower = sma_20 - 2 * std_20
+
+            if pd.notna(upper.iloc[-1]):
+                indicators["bbands_upper"] = float(upper.iloc[-1])
+            if pd.notna(sma_20.iloc[-1]):
+                indicators["bbands_middle"] = float(sma_20.iloc[-1])
+            if pd.notna(lower.iloc[-1]):
+                indicators["bbands_lower"] = float(lower.iloc[-1])
+
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Could not compute local crypto indicators for %s: %s", asset_pair, e)
+
+        return indicators
 
     async def _get_technical_indicators(self, asset_pair: str) -> Dict[str, Any]:
         """

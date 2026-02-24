@@ -38,6 +38,7 @@ async def test_crypto_data_routes_to_coinbase_in_live_mode():
             assert result["provider"] == "coinbase"
             assert result["close"] == 50500.0
             mock_request.assert_not_called()
-            provider.coinbase_provider.get_candles.assert_called_once()
+            provider.coinbase_provider.get_candles.assert_any_call("BTCUSD", "1m", 300)
+            assert provider.coinbase_provider.get_candles.call_count >= 1
     finally:
         await provider.close()
