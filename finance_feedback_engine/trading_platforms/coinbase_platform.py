@@ -1101,9 +1101,24 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
 
                 try:
                     positions_response = client.list_futures_positions()
-                    futures_positions = list(
+                    raw_positions = list(
                         getattr(positions_response, "positions", None) or []
                     )
+                    # Convert FCMPosition SDK objects to plain dicts for serialization
+                    futures_positions = []
+                    for pos in raw_positions:
+                        if isinstance(pos, dict):
+                            futures_positions.append(pos)
+                        else:
+                            futures_positions.append({
+                                k: getattr(pos, k, None)
+                                for k in (
+                                    "product_id", "side", "number_of_contracts",
+                                    "current_price", "avg_entry_price", "unrealized_pnl",
+                                    "expiration_time", "contract_size",
+                                )
+                                if getattr(pos, k, None) is not None
+                            })
                 except RequestException:
                     raise
                 except Exception as e:
