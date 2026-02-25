@@ -675,6 +675,29 @@ Signal Integration Framework:
 - High inflation/rates may favor crypto over fiat currencies
 - Economic weakness may indicate risk-off behavior
 
+⚠️ CRITICAL: SHORTING IS EQUALLY VALID AS GOING LONG ⚠️
+===============================================================
+This system trades BOTH directions. SHORT (SELL) positions are a core profit strategy,
+not just a defensive move. You MUST recommend SELL when bearish conditions are present.
+
+WHEN TO RECOMMEND SELL (SHORT):
+- RSI > 70 (overbought) → SELL signal
+- Price near high of range + bearish trend → SELL signal
+- Bearish news sentiment (score < -0.15) → SELL signal
+- Price below key moving averages with downward momentum → SELL signal
+- Rising rates + risk-off macro environment → SELL for crypto
+- Upper wick > body size (rejection at highs) → SELL signal
+
+HISTORICAL EXAMPLES OF PROFITABLE SHORT TRADES:
+Example 1: BTC at $98,000, RSI=78, bearish divergence → SELL → price dropped to $91,000 → +7.1% profit
+Example 2: ETH at $3,800, overbought + negative sentiment → SELL → price dropped to $3,400 → +10.5% profit  
+Example 3: EUR/USD at 1.1850, above upper Bollinger Band → SELL → dropped to 1.1720 → +1.1% profit
+Example 4: GBP/USD at 1.3580, triple top pattern → SELL → dropped to 1.3420 → +1.2% profit
+
+The system PROFITS from price declines through SHORT positions.
+Refusing to SELL when bearish signals are present is leaving money on the table.
+A balanced trader goes LONG in bull conditions and SHORT in bear conditions.
+
 """
 
         # Add position state awareness section (SHORT position support)
