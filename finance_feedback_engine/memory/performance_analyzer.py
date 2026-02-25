@@ -11,7 +11,7 @@ Responsibilities:
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -62,7 +62,7 @@ class PerformanceAnalyzer(IPerformanceAnalyzer):
 
         if not trades:
             return PerformanceSnapshot(
-                timestamp=datetime.now().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 total_trades=0,
             )
 
@@ -102,7 +102,7 @@ class PerformanceAnalyzer(IPerformanceAnalyzer):
         regime_perf = self.calculate_regime_performance()
 
         snapshot = PerformanceSnapshot(
-            timestamp=datetime.now().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             total_trades=total_trades,
             winning_trades=winning_trades,
             losing_trades=losing_trades,

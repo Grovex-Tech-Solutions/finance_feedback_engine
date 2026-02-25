@@ -6,7 +6,7 @@ with MLflow tracking and experiment management.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -146,7 +146,7 @@ def optimize(
     use_mlflow = MLFLOW_AVAILABLE and not no_mlflow
     if use_mlflow:
         experiment_name = (
-            mlflow_experiment or f"optuna_{asset_pair}_{datetime.now():%Y%m%d}"
+            mlflow_experiment or f"optuna_{asset_pair}_{datetime.now(timezone.utc):%Y%m%d}"
         )
         mlflow.set_experiment(experiment_name)
         console.print(f"[green]✓[/green] MLflow tracking enabled: {experiment_name}")
@@ -231,7 +231,7 @@ def optimize(
     _display_optimization_results(study, multi_objective)
 
     # Save results
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     results_file = output_path / f"optuna_{asset_pair}_{timestamp}.json"
     config_file = output_path / f"best_config_{asset_pair}_{timestamp}.yaml"
 

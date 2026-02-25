@@ -9,7 +9,7 @@ Responsibilities:
 
 import logging
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from .interfaces import ITradeRecorder
@@ -120,7 +120,7 @@ class TradeRecorder(ITradeRecorder):
         if hours <= 0:
             raise ValueError(f"hours must be positive, got {hours}")
 
-        cutoff_time = datetime.now() - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         filtered_trades = []
         for trade in self.trade_outcomes:

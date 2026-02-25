@@ -410,7 +410,7 @@ class DashboardDataAggregator:
                 for event in temp_events:
                     if event.get("type") in ["decision_approved", "decision_rejected"]:
                         timestamp = event.get("timestamp", time.time())
-                        time_str = datetime.fromtimestamp(timestamp).strftime(
+                        time_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime(
                             "%H:%M:%S"
                         )
 

@@ -378,14 +378,14 @@ def setup_logging(verbose: bool = False, config: dict = None):
     level = logging.DEBUG if verbose else logging.INFO
 
     # Create JSON handler for structured logging to file
-    log_file = log_dir / f"{datetime.now().strftime('%Y-%m-%d')}_ffe.log"
+    log_file = log_dir / f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}_ffe.log"
 
     class JSONFormatter(logging.Formatter):
         """Format logs as structured JSON."""
 
         def format(self, record):
             log_entry = {
-                "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+                "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
                 "level": record.levelname,
                 "logger": record.name,
                 "message": record.getMessage(),
@@ -1369,7 +1369,7 @@ def approve(ctx, decision_id):
             decision["stop_loss"] = new_stop_loss
             decision["take_profit"] = new_take_profit
             decision["modified"] = True
-            decision["modified_at"] = datetime.now().isoformat()
+            decision["modified_at"] = datetime.now(timezone.utc).isoformat()
 
             console.print("\n[green]✓ Decision modified[/green]")
 
@@ -1478,7 +1478,7 @@ def _save_approval_response(
         "status": status,
         "approved": approved,
         "modified": modified,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "source": "cli",
         "approval_notes": decision.get("approval_notes", ""),
     }

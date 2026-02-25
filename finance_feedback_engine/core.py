@@ -5,7 +5,7 @@ import logging
 import os
 import socket
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -1470,7 +1470,7 @@ class FinanceFeedbackEngine:
                 ),
                 "amount": 0,
                 "asset_pair": asset_pair,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "ai_provider": self.decision_engine.ai_provider,
                 "ensemble_metadata": {
                     "error_type": "quorum_failure",
@@ -1565,7 +1565,7 @@ class FinanceFeedbackEngine:
             from datetime import datetime, timedelta
 
             # Calculate date range
-            end_date = datetime.now()
+            end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=lookback_days)
 
             # Query Delta Lake
@@ -1597,7 +1597,7 @@ class FinanceFeedbackEngine:
         """
         # Check cache validity
         if not force_refresh and self._portfolio_cache is not None:
-            cache_age = (datetime.now() - self._portfolio_cache_time).total_seconds()
+            cache_age = (datetime.now(timezone.utc) - self._portfolio_cache_time).total_seconds()
             if cache_age < self._portfolio_cache_ttl:
                 logger.debug(f"Portfolio cache hit (age: {cache_age:.1f}s)")
                 self._cache_metrics.record_hit("portfolio")
@@ -1614,7 +1614,7 @@ class FinanceFeedbackEngine:
 
         # Update cache
         self._portfolio_cache = portfolio
-        self._portfolio_cache_time = datetime.now()
+        self._portfolio_cache_time = datetime.now(timezone.utc)
 
         return {**portfolio, "_cached": False, "_cache_age_seconds": 0}
 
@@ -1622,7 +1622,7 @@ class FinanceFeedbackEngine:
         """Async variant of get_portfolio_breakdown to avoid event-loop blocking."""
         # Check cache first
         if self._portfolio_cache and self._portfolio_cache_time:
-            cache_age = (datetime.now() - self._portfolio_cache_time).total_seconds()
+            cache_age = (datetime.now(timezone.utc) - self._portfolio_cache_time).total_seconds()
             if cache_age < self._portfolio_cache_ttl:
                 logger.debug(
                     f"Portfolio cache hit (age: {cache_age:.1f}s, TTL: {self._portfolio_cache_ttl}s)"
@@ -1641,7 +1641,7 @@ class FinanceFeedbackEngine:
 
         # Update cache
         self._portfolio_cache = portfolio
-        self._portfolio_cache_time = datetime.now()
+        self._portfolio_cache_time = datetime.now(timezone.utc)
 
         return {**portfolio, "_cached": False, "_cache_age_seconds": 0}
 

@@ -1,7 +1,7 @@
 """Cache performance metrics collection (Phase 2 optimization)."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class CacheMetrics:
         self.misses = 0
         self.total_requests = 0
         self.cache_sizes: Dict[str, int] = {}
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
         self.cache_names: Dict[str, Dict[str, int]] = {}  # Per-cache stats
 
     def record_hit(self, cache_name: str) -> None:
@@ -102,7 +102,7 @@ class CacheMetrics:
         Returns:
             Dictionary with comprehensive cache metrics
         """
-        uptime = (datetime.now() - self.start_time).total_seconds()
+        uptime = (datetime.now(timezone.utc) - self.start_time).total_seconds()
 
         # Calculate per-cache hit rates
         per_cache_stats = {}
@@ -130,7 +130,7 @@ class CacheMetrics:
                 ),
             },
             "per_cache": per_cache_stats,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def log_summary(self) -> None:
@@ -158,7 +158,7 @@ class CacheMetrics:
         self.total_requests = 0
         self.cache_sizes.clear()
         self.cache_names.clear()
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
         logger.info("Cache metrics reset")
 
     def get_efficiency_score(self) -> float:
@@ -176,7 +176,7 @@ class CacheMetrics:
 
         # Efficiency score considers both hit rate and usage
         # Higher usage with high hit rate = better efficiency
-        uptime = (datetime.now() - self.start_time).total_seconds()
+        uptime = (datetime.now(timezone.utc) - self.start_time).total_seconds()
         requests_per_minute = (self.total_requests / uptime) * 60 if uptime > 0 else 0
 
         # Normalize requests per minute (assume 10 requests/min is good)

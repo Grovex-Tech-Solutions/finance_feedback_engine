@@ -11,7 +11,7 @@ import logging
 import os
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 import ollama
@@ -136,7 +136,7 @@ class LocalLLMProvider:
 
         # Mark as initialized and record connection time
         self._initialized = True
-        self._connection_time = datetime.now()
+        self._connection_time = datetime.now(timezone.utc)
         logger.info("Local LLM provider initialized successfully (singleton instance)")
 
     def _check_ollama_installed(self) -> bool:
@@ -700,7 +700,7 @@ class LocalLLMProvider:
             Dictionary with connection metadata
         """
         uptime_seconds = (
-            (datetime.now() - self._connection_time).total_seconds()
+            (datetime.now(timezone.utc) - self._connection_time).total_seconds()
             if self._connection_time
             else 0
         )

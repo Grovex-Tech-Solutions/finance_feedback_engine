@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 
 
@@ -123,7 +123,7 @@ class FeedbackAnalyzer:
         outcomes = self.load_trade_outcomes()
 
         # Filter decisions and outcomes to the specified window
-        cutoff_date = datetime.now() - timedelta(days=window_days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=window_days)
 
         # Create a mapping of decision_id to outcome for matching
         outcome_map = {}

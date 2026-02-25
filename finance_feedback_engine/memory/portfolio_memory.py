@@ -19,7 +19,7 @@ import json
 import logging
 from collections import defaultdict, deque
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import numpy as np
@@ -430,7 +430,7 @@ class PortfolioMemoryEngine:
         }
         data = {
             "version": "1.0",
-            "saved_at": datetime.now().isoformat(),
+            "saved_at": datetime.now(timezone.utc).isoformat(),
             "trade_history": [outcome.to_dict() for outcome in self.trade_outcomes],
             "provider_performance": dict(self.provider_performance),
             "experience_buffer": [

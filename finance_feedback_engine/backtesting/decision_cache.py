@@ -11,7 +11,7 @@ import queue
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -308,7 +308,7 @@ class DecisionCache:
         with self._get_db_connection() as conn:
             cursor = conn.cursor()
 
-            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
             cursor.execute("DELETE FROM decisions WHERE created_at < ?", (cutoff_date,))
 

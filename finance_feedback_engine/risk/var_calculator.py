@@ -1,7 +1,7 @@
 """Value at Risk (VaR) calculator with dual-portfolio support for isolated platforms."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
@@ -300,7 +300,7 @@ class VaRCalculator:
             },
             "total_portfolio_value": round(total_value, 2),
             "risk_concentration": risk_concentration,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         logger.info(

@@ -1,7 +1,7 @@
 """Telegram bot for trading decision approvals."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -448,7 +448,7 @@ class TelegramApprovalBot:
         approval_data = {
             "decision_id": decision_id,
             "approved": True,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "source": "telegram",
         }
         await self._write_approval_file(decision_id, approval_data, status="approved")
@@ -472,7 +472,7 @@ class TelegramApprovalBot:
         approval_data = {
             "decision_id": decision_id,
             "approved": False,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "source": "telegram",
         }
         await self._write_approval_file(decision_id, approval_data, status="rejected")

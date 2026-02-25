@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -31,7 +31,7 @@ class CostTracker:
         Returns:
             Path to today's cost log file
         """
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         return self.costs_dir / f"{today}.json"
 
     def log_premium_call(
@@ -59,7 +59,7 @@ class CostTracker:
         log_file = self._get_log_file()
 
         call_entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "asset": asset,
             "asset_type": asset_type,
             "phase": phase,

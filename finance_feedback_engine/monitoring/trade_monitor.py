@@ -331,7 +331,7 @@ class TradeMonitor:
         from datetime import datetime
 
         notification = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event": f"portfolio_{limit_type}_hit",
             "type": limit_type,
             "pnl_percentage": pnl_pct,

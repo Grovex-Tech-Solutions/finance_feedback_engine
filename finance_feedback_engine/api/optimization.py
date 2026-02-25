@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -124,7 +124,7 @@ async def run_experiment(request: ExperimentRequest, engine=Depends(get_engine))
         config = engine.config
         standardized_pairs = [standardize_asset_pair(p) for p in request.asset_pairs]
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         experiment_id = f"exp_{timestamp}"
 
         output_dir = Path("data/optimization")
@@ -249,7 +249,7 @@ async def run_experiment(request: ExperimentRequest, engine=Depends(get_engine))
 
         response = ExperimentResponse(
             experiment_id=experiment_id,
-            created_at=datetime.now().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             start_date=request.start_date,
             end_date=request.end_date,
             n_trials_per_asset=request.n_trials,

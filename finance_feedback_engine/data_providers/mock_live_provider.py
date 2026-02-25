@@ -1,7 +1,7 @@
 """Mock live data provider for backtesting with historical data streaming."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -507,7 +507,7 @@ class MockLiveProvider:
 
         # Current candle timestamp
         current_candle = self.get_current_candle()
-        timestamp_str = current_candle.get("date", datetime.now().isoformat())
+        timestamp_str = current_candle.get("date", datetime.now(timezone.utc).isoformat())
         current_time = pd.to_datetime(timestamp_str, utc=True)
 
         # Build multi-timeframe response

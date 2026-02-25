@@ -2,7 +2,7 @@
 
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from ..core import FinanceFeedbackEngine
@@ -34,7 +34,7 @@ def get_health_status(engine: FinanceFeedbackEngine) -> Dict[str, Any]:
 
     health_data = {
         "status": "healthy",  # Will be updated at end
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime_seconds": uptime_seconds,
         "database": {},
         "circuit_breakers": {},

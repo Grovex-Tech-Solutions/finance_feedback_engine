@@ -400,7 +400,7 @@ class TradingLoopAgent:
         """Public accessor for start time (returns datetime object)."""
         if self._start_time is None:
             return None
-        return datetime.datetime.fromtimestamp(self._start_time)
+        return datetime.datetime.fromtimestamp(self._start_time, tz=datetime.timezone.utc)
 
     @property
     def is_autonomous_enabled(self) -> bool:
@@ -679,7 +679,7 @@ class TradingLoopAgent:
         """
         import datetime
 
-        current_time = datetime.datetime.now()
+        current_time = datetime.datetime.now(datetime.timezone.utc)
         expired_keys = []
 
         for decision_id, (
@@ -1426,7 +1426,7 @@ class TradingLoopAgent:
         self._cleanup_rejected_cache()
 
         # --- Optional: Reset old failures at start of reasoning cycle (time-based decay) ---
-        current_time = datetime.datetime.now()
+        current_time = datetime.datetime.now(datetime.timezone.utc)
         for key in list(self.analysis_failures.keys()):
             last_fail = self.analysis_failure_timestamps.get(key)
             if (
@@ -1526,7 +1526,7 @@ class TradingLoopAgent:
                     logger.warning(
                         "Analysis for %s timed out, skipping this cycle.", asset_pair
                     )
-                    now = datetime.datetime.now()
+                    now = datetime.datetime.now(datetime.timezone.utc)
                     self.analysis_failure_timestamps[failure_key] = now
                     self.analysis_failures[failure_key] = (
                         self.analysis_failures.get(failure_key, 0) + 1
@@ -1534,7 +1534,7 @@ class TradingLoopAgent:
                     return index, None
                 except Exception as e:
                     logger.warning("Analysis for %s failed: %s", asset_pair, e)
-                    now = datetime.datetime.now()
+                    now = datetime.datetime.now(datetime.timezone.utc)
                     self.analysis_failure_timestamps[failure_key] = now
                     self.analysis_failures[failure_key] = (
                         self.analysis_failures.get(failure_key, 0) + 1
@@ -1705,7 +1705,7 @@ class TradingLoopAgent:
                     "Trade for %s rejected by RiskGatekeeper: %s.", asset_pair, reason
                 )
                 self._rejected_decisions_cache[decision_id] = (
-                    datetime.datetime.now(),
+                    datetime.datetime.now(datetime.timezone.utc),
                     asset_pair,
                 )  # Add to cache
 
@@ -2335,7 +2335,7 @@ class TradingLoopAgent:
             )
 
             # Store batch review timestamp
-            self._last_batch_review_time = datetime.datetime.now()
+            self._last_batch_review_time = datetime.datetime.now(datetime.timezone.utc)
             logger.info(f"\n{'='*60}\n")
 
         except Exception as e:

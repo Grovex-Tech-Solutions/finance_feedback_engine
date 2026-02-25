@@ -12,7 +12,7 @@ Responsibilities:
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import tempfile
@@ -84,7 +84,7 @@ class MemoryPersistence(IMemoryPersistence):
         try:
             # Serialize state with timestamp
             state_with_metadata = {
-                "saved_at": datetime.now().isoformat(),
+                "saved_at": datetime.now(timezone.utc).isoformat(),
                 "version": "2.0",
                 **state,
             }
@@ -207,7 +207,7 @@ class MemoryPersistence(IMemoryPersistence):
         # This is a simplified version - in production, this would
         # receive the actual state from PortfolioMemoryCoordinator
         return {
-            "snapshot_created_at": datetime.now().isoformat(),
+            "snapshot_created_at": datetime.now(timezone.utc).isoformat(),
             "version": "2.0",
         }
 
@@ -288,7 +288,7 @@ class MemoryPersistence(IMemoryPersistence):
                         "path": str(snapshot_file),
                         "size_bytes": stat.st_size,
                         "modified_at": datetime.fromtimestamp(
-                            stat.st_mtime
+                            stat.st_mtime, tz=timezone.utc
                         ).isoformat(),
                     }
                 )

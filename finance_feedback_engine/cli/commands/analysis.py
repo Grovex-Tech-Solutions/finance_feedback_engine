@@ -5,7 +5,7 @@ This module contains commands for analyzing assets and viewing decision history.
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -128,7 +128,7 @@ def analyze(ctx, asset_pair, provider, show_pulse):
 
         # Check for Phase 1 quorum failure (NO_DECISION action)
         if decision.get("action") == "NO_DECISION":
-            failure_log = f"data/failures/{datetime.now().strftime('%Y-%m-%d')}.json"
+            failure_log = f"data/failures/{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json"
             console.print("\n[bold red]⚠️ CRITICAL: ANALYSIS FAILED[/bold red]")
             console.print(
                 "[yellow]Phase 1 quorum failure: Insufficient free-tier providers succeeded.[/yellow]"
@@ -143,7 +143,7 @@ def analyze(ctx, asset_pair, provider, show_pulse):
                 failures_dir.mkdir(parents=True, exist_ok=True)
 
                 payload = {
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "asset_pair": asset_pair,
                     "reasoning": decision.get("reasoning"),
                     "context": {

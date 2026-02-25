@@ -6,7 +6,7 @@ to prevent unbounded disk growth.
 
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -175,7 +175,7 @@ class RetentionManager:
 
         deleted = []
         total_bytes = 0
-        cutoff_time = datetime.now() - timedelta(days=policy.max_age_days)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(days=policy.max_age_days)
 
         # Collect metadata once to avoid TOCTOU races
         files_with_stats = []
@@ -189,7 +189,7 @@ class RetentionManager:
                 continue  # File vanished, skip it
 
         for file_path, stat_result in files_with_stats:
-            file_mtime = datetime.fromtimestamp(stat_result.st_mtime)
+            file_mtime = datetime.fromtimestamp(stat_result.st_mtime, tz=timezone.utc)
             if file_mtime < cutoff_time:
                 file_size = stat_result.st_size
                 if not dry_run:
@@ -294,7 +294,7 @@ class RetentionManager:
                 "num_files": len([f for f in files if f.is_file()]),
                 "oldest_file": oldest_file.name if oldest_file else None,
                 "oldest_file_age_days": (
-                    (datetime.now() - datetime.fromtimestamp(oldest_file.stat().st_mtime)).days
+                    (datetime.now(timezone.utc) - datetime.fromtimestamp(oldest_file.stat().st_mtime, tz=timezone.utc)).days
                     if oldest_file
                     else 0
                 ),

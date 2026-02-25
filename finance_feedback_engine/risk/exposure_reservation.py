@@ -16,7 +16,7 @@ Flow:
 import logging
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ class ExposureReservationManager:
         Returns:
             Number of stale reservations cleared
         """
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         stale_ids = []
 
         with self._reservations_lock:

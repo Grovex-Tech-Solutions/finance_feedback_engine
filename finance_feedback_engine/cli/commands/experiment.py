@@ -11,7 +11,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -114,7 +114,7 @@ def experiment(
 
     standardized_pairs = [standardize_asset_pair(p) for p in asset_pairs]
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     output_dir = Path("data/optimization")
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -265,7 +265,7 @@ def experiment(
                 pass
 
     summary: Dict[str, Any] = {
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "start_date": start_date,
         "end_date": end_date,
         "n_trials_per_asset": n_trials,
