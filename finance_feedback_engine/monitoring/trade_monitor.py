@@ -328,7 +328,7 @@ class TradeMonitor:
             pnl_pct: Current portfolio P&L percentage
         """
         import json
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         notification = {
             "timestamp": datetime.now(timezone.utc).isoformat(),

@@ -7,7 +7,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -367,7 +367,7 @@ def setup_logging(verbose: bool = False, config: dict = None):
     - Automatic correlation with OpenTelemetry spans (if --trace enabled)
     """
     import json
-    from datetime import datetime
+    from datetime import datetime, timezone
     from pathlib import Path
 
     # Create logs directory if it doesn't exist

@@ -95,7 +95,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - OLLAMA_HOST=${OLLAMA_HOST:-http://192.168.1.75:11434}
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-ffe_user}:${POSTGRES_PASSWORD:-changeme}@ffe-postgres:5432/${POSTGRES_DB:-ffe}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ffe_user}:${POSTGRES_PASSWORD:-changeme}@ffe-postgres:5432/${POSTGRES_DB:-ffe}
       - DB_POOL_SIZE=${DB_POOL_SIZE:-20}
       - DB_POOL_OVERFLOW=${DB_POOL_OVERFLOW:-10}
       - DB_POOL_RECYCLE=${DB_POOL_RECYCLE:-3600}
@@ -175,7 +175,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-ffe_user}:${POSTGRES_PASSWORD:-changeme}@localhost:5432/${POSTGRES_DB:-ffe}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ffe_user}:${POSTGRES_PASSWORD:-changeme}@localhost:5432/${POSTGRES_DB:-ffe}
     # Run volatility monitor script
     command: /app/scripts/run_volatility_monitor.sh
     volumes:

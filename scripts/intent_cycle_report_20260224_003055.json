@@ -1,0 +1,735 @@
+{
+  "base_url": "http://localhost:8000",
+  "provider": "ensemble",
+  "asset_pairs": [
+    "BTCUSD",
+    "EURUSD",
+    "GBPUSD",
+    "ETHUSD"
+  ],
+  "start_count": 10,
+  "target_total": 300,
+  "requested_this_run": 100,
+  "processed_this_run": 100,
+  "successful_this_run": 100,
+  "failed_this_run": 0,
+  "estimated_cumulative_after_run": 110,
+  "phase4d_remaining_after_run": 190,
+  "action_counts": {
+    "BUY": 56,
+    "HOLD": 44
+  },
+  "pair_counts": {
+    "BTCUSD": 25,
+    "EURUSD": 25,
+    "GBPUSD": 25,
+    "ETHUSD": 25
+  },
+  "error_patterns": {},
+  "successes": [
+    {
+      "intent_number": 11,
+      "asset_pair": "BTCUSD",
+      "decision_id": "b0d942b0-3c91-4955-a556-26d5b26c80fb",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 12,
+      "asset_pair": "EURUSD",
+      "decision_id": "ae8590d8-cda4-4519-b87b-7d384a78ad15",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 13,
+      "asset_pair": "GBPUSD",
+      "decision_id": "616bb3aa-ee3d-440f-8508-565d07f7a39f",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 14,
+      "asset_pair": "ETHUSD",
+      "decision_id": "ed9b6a68-6e8d-48df-8da3-73ed349e87f4",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 15,
+      "asset_pair": "BTCUSD",
+      "decision_id": "b7a7a148-3917-4de8-a7c0-3817520ea02e",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 16,
+      "asset_pair": "EURUSD",
+      "decision_id": "3012b3d2-27c2-4dc6-a7f3-2f949431e192",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 17,
+      "asset_pair": "GBPUSD",
+      "decision_id": "d7fea278-c004-47ee-8d48-cf079c463208",
+      "action": "HOLD",
+      "confidence": 95
+    },
+    {
+      "intent_number": 18,
+      "asset_pair": "ETHUSD",
+      "decision_id": "cc76ee66-81ea-4188-b572-5add6c1d70cc",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 19,
+      "asset_pair": "BTCUSD",
+      "decision_id": "438d984e-1854-4617-a48d-468ebd130850",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 20,
+      "asset_pair": "EURUSD",
+      "decision_id": "59badca1-8439-4f02-836d-7c8133a20048",
+      "action": "HOLD",
+      "confidence": 50
+    },
+    {
+      "intent_number": 21,
+      "asset_pair": "GBPUSD",
+      "decision_id": "541a1f3a-c478-404a-bd92-42687fb5b6be",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 22,
+      "asset_pair": "ETHUSD",
+      "decision_id": "de47c12e-cab0-49b0-a9fc-4a99652c1a2f",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 23,
+      "asset_pair": "BTCUSD",
+      "decision_id": "e3ae5888-e764-4bf3-ad54-ea95b0cbd306",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 24,
+      "asset_pair": "EURUSD",
+      "decision_id": "83b7b0a2-2194-4719-bd37-a64a825d737e",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 25,
+      "asset_pair": "GBPUSD",
+      "decision_id": "9bbc3b0c-1b9b-4d44-9995-39da0eaa89df",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 26,
+      "asset_pair": "ETHUSD",
+      "decision_id": "c1b910b0-2b8a-4799-90e4-7fc7f8eb3aa6",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 27,
+      "asset_pair": "BTCUSD",
+      "decision_id": "4d170a56-8a81-477a-adfe-5cf896d7fd59",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 28,
+      "asset_pair": "EURUSD",
+      "decision_id": "43dcd3d4-b877-4748-858d-b3d615b59baa",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 29,
+      "asset_pair": "GBPUSD",
+      "decision_id": "c82b33fa-221d-4204-9051-305db22cb353",
+      "action": "BUY",
+      "confidence": 60
+    },
+    {
+      "intent_number": 30,
+      "asset_pair": "ETHUSD",
+      "decision_id": "6de2b227-6888-49a1-aca2-d89554e17236",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 31,
+      "asset_pair": "BTCUSD",
+      "decision_id": "b57eddf4-a87c-4d72-b05f-9a82a47871da",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 32,
+      "asset_pair": "EURUSD",
+      "decision_id": "6547b848-fa4f-4def-9059-9e036404e7d0",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 33,
+      "asset_pair": "GBPUSD",
+      "decision_id": "873577a3-73e7-40b1-ac33-26bff274d0a3",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 34,
+      "asset_pair": "ETHUSD",
+      "decision_id": "c40b5bde-ffe5-49e3-96fb-8114588bcdd4",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 35,
+      "asset_pair": "BTCUSD",
+      "decision_id": "eab897ed-a8f1-4727-8dbf-ef0f337b7a98",
+      "action": "BUY",
+      "confidence": 90
+    },
+    {
+      "intent_number": 36,
+      "asset_pair": "EURUSD",
+      "decision_id": "6281a0e2-dcc7-4dc7-9be5-370fdacf672c",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 37,
+      "asset_pair": "GBPUSD",
+      "decision_id": "dd8edf2e-ef16-4b34-8608-b1c0ef838b3a",
+      "action": "BUY",
+      "confidence": 60
+    },
+    {
+      "intent_number": 38,
+      "asset_pair": "ETHUSD",
+      "decision_id": "0974f05d-8dc1-48c1-bfe7-c29dec796c82",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 39,
+      "asset_pair": "BTCUSD",
+      "decision_id": "a0000ac3-3ddb-4a6b-8edb-1ed70567d6db",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 40,
+      "asset_pair": "EURUSD",
+      "decision_id": "c9b06b22-1db1-4c23-851c-27878809192f",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 41,
+      "asset_pair": "GBPUSD",
+      "decision_id": "7aa51568-ff4a-4a65-bbc9-0a986bcc257b",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 42,
+      "asset_pair": "ETHUSD",
+      "decision_id": "f89ebddf-912f-4fa7-9c05-e6e25920a077",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 43,
+      "asset_pair": "BTCUSD",
+      "decision_id": "0077442d-6d59-49f3-8330-4e78c2632514",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 44,
+      "asset_pair": "EURUSD",
+      "decision_id": "f353d36d-4f2f-491c-8762-d38ff7b67593",
+      "action": "HOLD",
+      "confidence": 90
+    },
+    {
+      "intent_number": 45,
+      "asset_pair": "GBPUSD",
+      "decision_id": "7187601f-8a97-463c-be58-7c809f02e217",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 46,
+      "asset_pair": "ETHUSD",
+      "decision_id": "ca93db29-b9ee-4875-8607-85af77eb2bb2",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 47,
+      "asset_pair": "BTCUSD",
+      "decision_id": "6b6a9ff3-f26c-46fb-99b4-a0a7a840de16",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 48,
+      "asset_pair": "EURUSD",
+      "decision_id": "79479906-992e-41bc-9d5d-22af68d86816",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 49,
+      "asset_pair": "GBPUSD",
+      "decision_id": "6a515470-a8e8-4e79-a659-75c2784156b6",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 50,
+      "asset_pair": "ETHUSD",
+      "decision_id": "02f4a40d-fdf8-4b67-a9f9-d0eacf81f58f",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 51,
+      "asset_pair": "BTCUSD",
+      "decision_id": "aa2072e9-6199-42ae-a1b1-2ca539a135a8",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 52,
+      "asset_pair": "EURUSD",
+      "decision_id": "de3ff199-cbec-40a6-9c40-b6630172b662",
+      "action": "BUY",
+      "confidence": 70
+    },
+    {
+      "intent_number": 53,
+      "asset_pair": "GBPUSD",
+      "decision_id": "2a316b90-670b-44ee-9118-4f32a2fd4ce2",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 54,
+      "asset_pair": "ETHUSD",
+      "decision_id": "2cef139f-0dbe-42ca-bae9-2d28f13faf21",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 55,
+      "asset_pair": "BTCUSD",
+      "decision_id": "e5aa7862-85fa-4273-8e58-153f9c21138e",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 56,
+      "asset_pair": "EURUSD",
+      "decision_id": "c58d1047-4b4a-4521-bea1-e98968743ad9",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 57,
+      "asset_pair": "GBPUSD",
+      "decision_id": "202e5b93-d932-42f6-a320-9938593293cb",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 58,
+      "asset_pair": "ETHUSD",
+      "decision_id": "6f0b0f78-bf01-47c4-b69e-77e1fc5e8337",
+      "action": "HOLD",
+      "confidence": 90
+    },
+    {
+      "intent_number": 59,
+      "asset_pair": "BTCUSD",
+      "decision_id": "c0c3ee41-9fab-43f8-84bd-5e4bfcaed2bb",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 60,
+      "asset_pair": "EURUSD",
+      "decision_id": "653f52ac-3d16-4969-929e-f28cd2d6fe4b",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 61,
+      "asset_pair": "GBPUSD",
+      "decision_id": "a31076dd-7a49-4eab-a815-ec15755e7c3c",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 62,
+      "asset_pair": "ETHUSD",
+      "decision_id": "891f11da-f85d-499b-b34a-1c2e39909947",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 63,
+      "asset_pair": "BTCUSD",
+      "decision_id": "fe9ffc8a-eef1-4c3e-8f8a-ccda76810ae2",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 64,
+      "asset_pair": "EURUSD",
+      "decision_id": "b0346674-70a1-4ac6-a73f-0f3e2a962a1e",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 65,
+      "asset_pair": "GBPUSD",
+      "decision_id": "35b3162f-d41d-47b4-925c-f9d09f000657",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 66,
+      "asset_pair": "ETHUSD",
+      "decision_id": "ab966d23-79e4-428a-8466-532b9d83c430",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 67,
+      "asset_pair": "BTCUSD",
+      "decision_id": "5941a035-fb25-44b1-980f-fd1cf0f03cf1",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 68,
+      "asset_pair": "EURUSD",
+      "decision_id": "330675a7-1aa6-49d0-96ae-09504ea920f9",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 69,
+      "asset_pair": "GBPUSD",
+      "decision_id": "8b199e14-ac3d-440e-ab27-74e964456d1e",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 70,
+      "asset_pair": "ETHUSD",
+      "decision_id": "4ac0bbf2-7057-4f21-ae9e-797f1cad1a54",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 71,
+      "asset_pair": "BTCUSD",
+      "decision_id": "a9c4d8d6-df97-4e46-93a4-56069a297724",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 72,
+      "asset_pair": "EURUSD",
+      "decision_id": "0d70caa5-7f65-4397-ad45-4a7a49b0f953",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 73,
+      "asset_pair": "GBPUSD",
+      "decision_id": "35a19dfa-ef3f-40c4-8a81-8b0064d41ae6",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 74,
+      "asset_pair": "ETHUSD",
+      "decision_id": "d1fd9516-eef5-4abd-b7a7-2a0b14e6d98c",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 75,
+      "asset_pair": "BTCUSD",
+      "decision_id": "f46cdfb2-202c-4793-9012-2e275fe619d7",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 76,
+      "asset_pair": "EURUSD",
+      "decision_id": "ff8aa60a-f485-4332-bea2-146ff432fde4",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 77,
+      "asset_pair": "GBPUSD",
+      "decision_id": "7a4b22ef-7b03-453c-8211-4b271f402a33",
+      "action": "BUY",
+      "confidence": 60
+    },
+    {
+      "intent_number": 78,
+      "asset_pair": "ETHUSD",
+      "decision_id": "e8021011-05f6-446f-adb6-c2983bc36d62",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 79,
+      "asset_pair": "BTCUSD",
+      "decision_id": "c9e1d2d1-2ddb-4fe4-ad5d-2cf27b20bd77",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 80,
+      "asset_pair": "EURUSD",
+      "decision_id": "dc6a4d09-a3ee-4fbc-8dc5-bd4560dba30c",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 81,
+      "asset_pair": "GBPUSD",
+      "decision_id": "13537fda-7261-4fac-ab65-e6f634b58bea",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 82,
+      "asset_pair": "ETHUSD",
+      "decision_id": "d07c1abb-5dca-4455-9de8-0809c9ddc8eb",
+      "action": "HOLD",
+      "confidence": 95
+    },
+    {
+      "intent_number": 83,
+      "asset_pair": "BTCUSD",
+      "decision_id": "ad64eb5e-bc58-4326-9fe7-9f64cc2c85d1",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 84,
+      "asset_pair": "EURUSD",
+      "decision_id": "ce817c81-8909-4c59-ad33-8914a0ab8a28",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 85,
+      "asset_pair": "GBPUSD",
+      "decision_id": "257b42a5-1de5-4c3f-81b0-db0cdecf4a90",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 86,
+      "asset_pair": "ETHUSD",
+      "decision_id": "41aea3ea-59e1-4660-ac15-539a19787225",
+      "action": "HOLD",
+      "confidence": 90
+    },
+    {
+      "intent_number": 87,
+      "asset_pair": "BTCUSD",
+      "decision_id": "129d8d1b-326a-4829-8cca-811b380e4af9",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 88,
+      "asset_pair": "EURUSD",
+      "decision_id": "6051b418-aef6-4468-8e4a-c7974b6a30de",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 89,
+      "asset_pair": "GBPUSD",
+      "decision_id": "36f5706c-d841-4bea-a3da-3e79c368539c",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 90,
+      "asset_pair": "ETHUSD",
+      "decision_id": "18378bfe-7f4d-4d61-b220-1c9783b3147c",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 91,
+      "asset_pair": "BTCUSD",
+      "decision_id": "132e2b8d-f7b0-441c-a304-c38d8deb0069",
+      "action": "HOLD",
+      "confidence": 95
+    },
+    {
+      "intent_number": 92,
+      "asset_pair": "EURUSD",
+      "decision_id": "dfadb545-efaa-4573-9bd5-686217a7508a",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 93,
+      "asset_pair": "GBPUSD",
+      "decision_id": "3e447f7f-b165-45ed-b0a0-5bb4b053a322",
+      "action": "BUY",
+      "confidence": 85
+    },
+    {
+      "intent_number": 94,
+      "asset_pair": "ETHUSD",
+      "decision_id": "1022a617-ab27-4ab5-bb02-e6aba01239bd",
+      "action": "BUY",
+      "confidence": 70
+    },
+    {
+      "intent_number": 95,
+      "asset_pair": "BTCUSD",
+      "decision_id": "87bcb335-6bf8-44df-a496-6840e8ca84de",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 96,
+      "asset_pair": "EURUSD",
+      "decision_id": "8021f262-102f-42aa-a851-73d87b0cc7f4",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 97,
+      "asset_pair": "GBPUSD",
+      "decision_id": "7fb9bfb8-cd69-428b-9dc2-5a9e0165d304",
+      "action": "BUY",
+      "confidence": 75
+    },
+    {
+      "intent_number": 98,
+      "asset_pair": "ETHUSD",
+      "decision_id": "c0ec9139-aa7e-450d-9d91-00610bbaf8f9",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 99,
+      "asset_pair": "BTCUSD",
+      "decision_id": "15307191-c243-4c9d-b011-96f5cf554d24",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 100,
+      "asset_pair": "EURUSD",
+      "decision_id": "78b12dd9-381b-4043-add4-d2a4829029da",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 101,
+      "asset_pair": "GBPUSD",
+      "decision_id": "1a6dbae1-262a-49cd-8c8e-952572e11c3e",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 102,
+      "asset_pair": "ETHUSD",
+      "decision_id": "c9d3d251-9a79-44c7-af59-5a46f0524c2f",
+      "action": "HOLD",
+      "confidence": 90
+    },
+    {
+      "intent_number": 103,
+      "asset_pair": "BTCUSD",
+      "decision_id": "5bf59434-bdd3-4c27-8e18-dda892ee1e98",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 104,
+      "asset_pair": "EURUSD",
+      "decision_id": "29fb8baf-2c00-4d88-b62c-08d272705b3a",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 105,
+      "asset_pair": "GBPUSD",
+      "decision_id": "c83d2d18-e7a7-40a4-868a-9cfa42e16463",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 106,
+      "asset_pair": "ETHUSD",
+      "decision_id": "06b02b05-e859-445f-b4d0-b3fbb45bdeeb",
+      "action": "BUY",
+      "confidence": 70
+    },
+    {
+      "intent_number": 107,
+      "asset_pair": "BTCUSD",
+      "decision_id": "f8a67c91-4cfb-41ce-b26f-c40b4ea27cfd",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 108,
+      "asset_pair": "EURUSD",
+      "decision_id": "dea24158-62ae-4eb3-871f-542c68effc6b",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 109,
+      "asset_pair": "GBPUSD",
+      "decision_id": "ab78972e-024c-48ac-8181-b24a76d3b939",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 110,
+      "asset_pair": "ETHUSD",
+      "decision_id": "ab353f24-55fb-4794-8e2e-334e153a3caa",
+      "action": "BUY",
+      "confidence": 80
+    }
+  ],
+  "failures": [],
+  "started_at_utc": "2026-02-24T04:01:21.014958+00:00",
+  "ended_at_utc": "2026-02-24T05:30:55.449559+00:00",
+  "duration_seconds": 5374.434601
+}

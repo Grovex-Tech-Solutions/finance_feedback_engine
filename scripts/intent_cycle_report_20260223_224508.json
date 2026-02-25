@@ -1,0 +1,91 @@
+{
+  "base_url": "http://localhost:8000",
+  "provider": "ensemble",
+  "asset_pairs": [
+    "BTCUSD",
+    "EURUSD",
+    "GBPUSD",
+    "ETHUSD"
+  ],
+  "start_count": 2,
+  "target_total": 300,
+  "requested_this_run": 8,
+  "processed_this_run": 8,
+  "successful_this_run": 8,
+  "failed_this_run": 0,
+  "estimated_cumulative_after_run": 10,
+  "phase4d_remaining_after_run": 290,
+  "action_counts": {
+    "BUY": 6,
+    "HOLD": 2
+  },
+  "pair_counts": {
+    "BTCUSD": 2,
+    "EURUSD": 2,
+    "GBPUSD": 2,
+    "ETHUSD": 2
+  },
+  "error_patterns": {},
+  "successes": [
+    {
+      "intent_number": 3,
+      "asset_pair": "BTCUSD",
+      "decision_id": "86b4a569-06de-420f-b08f-a1091db5dbb8",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 4,
+      "asset_pair": "EURUSD",
+      "decision_id": "5a326045-5914-45a0-a919-246207dadcfa",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 5,
+      "asset_pair": "GBPUSD",
+      "decision_id": "2f42546e-7672-4c11-9b80-f989ae984c49",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 6,
+      "asset_pair": "ETHUSD",
+      "decision_id": "35bbff9d-b905-4951-854c-0f51fa7e967b",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 7,
+      "asset_pair": "BTCUSD",
+      "decision_id": "6b68dca0-87b9-4584-adcc-56f40cf6dc6e",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 8,
+      "asset_pair": "EURUSD",
+      "decision_id": "9544bb68-96f2-4db5-82fc-9f15a539c0fc",
+      "action": "BUY",
+      "confidence": 80
+    },
+    {
+      "intent_number": 9,
+      "asset_pair": "GBPUSD",
+      "decision_id": "51cb9cef-65cc-46a6-bf23-ba5622949f19",
+      "action": "HOLD",
+      "confidence": 100
+    },
+    {
+      "intent_number": 10,
+      "asset_pair": "ETHUSD",
+      "decision_id": "b61eba81-c22a-42a4-9873-03d8f8aed6b7",
+      "action": "BUY",
+      "confidence": 90
+    }
+  ],
+  "failures": [],
+  "started_at_utc": "2026-02-24T03:38:18.729067+00:00",
+  "ended_at_utc": "2026-02-24T03:45:08.222769+00:00",
+  "duration_seconds": 409.493702
+}
