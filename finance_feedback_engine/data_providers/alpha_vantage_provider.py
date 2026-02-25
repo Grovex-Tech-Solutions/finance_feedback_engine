@@ -450,8 +450,8 @@ class AlphaVantageProvider:
             timeframe = "1h"
 
         try:
-            start_dt = datetime.strptime(start, "%Y-%m-%d").date()
-            end_dt = datetime.strptime(end, "%Y-%m-%d").date()
+            start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+            end_dt = datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
             if end_dt < start_dt:
                 raise ValueError("End date precedes start date")
 
@@ -597,10 +597,10 @@ class AlphaVantageProvider:
             for timestamp_str, candle_data in time_series.items():
                 try:
                     if timeframe == "1d":
-                        candle_dt = datetime.strptime(timestamp_str, date_format).date()
+                        candle_dt = datetime.strptime(timestamp_str, date_format).replace(tzinfo=timezone.utc).date()
                     else:
                         # Parse full timestamp for intraday data (assume UTC)
-                        candle_timestamp = datetime.strptime(timestamp_str, date_format).replace(tzinfo=UTC)
+                        candle_timestamp = datetime.strptime(timestamp_str, date_format).replace(tzinfo=timezone.utc)
                         candle_dt = candle_timestamp.date()
 
                         # Track latest timestamp for staleness check
@@ -718,8 +718,8 @@ class AlphaVantageProvider:
                 e,
             )
             try:
-                start_dt = datetime.strptime(start, "%Y-%m-%d").date()
-                end_dt = datetime.strptime(end, "%Y-%m-%d").date()
+                start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
+                end_dt = datetime.strptime(end, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
                 return self._generate_mock_series(start_dt, end_dt, timeframe)
             except (ValueError, TypeError):
                 return []
@@ -1844,7 +1844,7 @@ class AlphaVantageProvider:
                     from ..utils.validation import validate_data_freshness
 
                     # Parse the date and create an ISO timestamp
-                    data_date = datetime.strptime(latest_date, date_format)
+                    data_date = datetime.strptime(latest_date, date_format).replace(tzinfo=timezone.utc)
                     if timeframe == "daily":
                         # Daily: use end of day
                         ts = data_date.replace(hour=23, minute=59, second=0).isoformat()
@@ -2014,7 +2014,7 @@ class AlphaVantageProvider:
                     from ..utils.validation import validate_data_freshness
 
                     # Parse the date and create an ISO timestamp at market close (assume 23:59 UTC)
-                    data_date = datetime.strptime(latest_date, "%Y-%m-%d")
+                    data_date = datetime.strptime(latest_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
                     ts = data_date.replace(hour=23, minute=59, second=0).isoformat()
                     data_timestamp = ts.replace('+00:00', 'Z') if data_date.tzinfo else ts + 'Z'
 
