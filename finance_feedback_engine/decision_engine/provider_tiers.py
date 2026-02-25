@@ -2,13 +2,14 @@
 
 from typing import Dict, List, Literal
 
-# Free tier: 5 Ollama models (zero cost, runs locally)
+# Free tier: 3 Ollama models (zero cost, runs on GTX 1070 8GB VRAM)
+# Three diverse 7-8B models for uncorrelated voting — all fit in 8GB.
+# Removed llama3.2:3b (too small for SHORT signal instructions) and
+# gemma2:9b (tight VRAM fit, less instruction-following).
 FREE_TIER = [
-    "llama3.2:3b-instruct-fp16",
-    "deepseek-r1:8b",
-    "mistral:7b-instruct",
-    "qwen2.5:7b-instruct",
-    "gemma2:9b",
+    "llama3.1:8b",           # Meta — strong instruction following
+    "mistral:latest",         # Mistral 7B — different architecture/training
+    "qwen2.5:7b",            # Alibaba — best structured output
 ]
 
 # Premium tier: Cloud-based CLI providers (free tier with rate limits or paid)
@@ -20,22 +21,18 @@ PREMIUM_TIER = [
 ]
 
 # VRAM requirements for Ollama models (in GB)
-# All models selected to run on consumer GPU with 8GB VRAM
+# All models selected to run on consumer GPU with 8GB VRAM (GTX 1070)
 MODEL_VRAM_REQUIREMENTS: Dict[str, float] = {
-    "llama3.2:3b-instruct-fp16": 3.2,
-    "deepseek-r1:8b": 8.0,
-    "mistral:7b-instruct": 7.0,
-    "qwen2.5:7b-instruct": 7.0,
-    "gemma2:9b": 7.5,  # 9B model fits in 8GB due to quantization
+    "llama3.1:8b": 4.9,
+    "mistral:latest": 4.4,
+    "qwen2.5:7b": 4.7,
 }
 
 # Approximate download sizes (in GB)
 MODEL_DOWNLOAD_SIZES: Dict[str, float] = {
-    "llama3.2:3b-instruct-fp16": 3.2,
-    "deepseek-r1:8b": 4.9,
-    "mistral:7b-instruct": 4.1,
-    "qwen2.5:7b-instruct": 4.4,
-    "gemma2:9b": 5.4,
+    "llama3.1:8b": 4.9,
+    "mistral:latest": 4.4,
+    "qwen2.5:7b": 4.7,
 }
 
 

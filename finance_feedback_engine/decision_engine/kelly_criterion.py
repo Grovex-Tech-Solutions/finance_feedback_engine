@@ -34,17 +34,19 @@ class KellyCriterionCalculator:
         # Kelly fraction cap to prevent overbetting
         self.kelly_fraction_cap = self.kelly_config.get("kelly_fraction_cap", 0.25)
 
-        # Kelly fraction multiplier to reduce optimal bet size for safety
+        # Kelly fraction multiplier: quarter-Kelly for conservative risk management.
+        # Quarter-Kelly reduces variance significantly while capturing ~75% of
+        # optimal geometric growth rate. Appropriate for a learning system.
         self.kelly_fraction_multiplier = self.kelly_config.get(
-            "kelly_fraction_multiplier", 0.5
+            "kelly_fraction_multiplier", 0.25
         )
 
         # Minimum Kelly fraction to prevent zero position sizes
         self.min_kelly_fraction = self.kelly_config.get("min_kelly_fraction", 0.001)
 
-        # Maximum position size in percentage of account
+        # Maximum position size in percentage of account (5% hard cap)
         self.max_position_size_pct = self.kelly_config.get(
-            "max_position_size_pct", 0.10
+            "max_position_size_pct", 0.05
         )
 
     def calculate_kelly_fraction(

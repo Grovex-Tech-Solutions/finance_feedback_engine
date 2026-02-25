@@ -164,7 +164,7 @@ class TwoPhaseAggregator:
         logger.info(f"=== TWO-PHASE: Running Phase 1 providers for {asset_pair} ===")
 
         free_tier = get_free_providers()
-        phase1_quorum = self.two_phase_config.get("phase1_min_quorum", 3)
+        phase1_quorum = self.two_phase_config.get("phase1_min_quorum", 2)
 
         # Create tasks for Phase 1 providers only
         phase1_tasks = [query_function(provider, prompt) for provider in free_tier]
