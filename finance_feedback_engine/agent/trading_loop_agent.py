@@ -1393,22 +1393,16 @@ class TradingLoopAgent:
         logger.info("State: REASONING - Running DecisionEngine...")
         logger.info("=" * 80)
 
-        # Guard against empty or missing core pairs
-        core_pairs = ["BTCUSD", "EURUSD"]
+        # Guard against empty pair configuration only.
+        # IMPORTANT: do not forcibly re-add hardcoded pairs here; API callers may
+        # intentionally run focused universes (e.g., BTC/ETH long-short only).
+        core_pairs = ["BTCUSD", "ETHUSD"]
         if not self.config.asset_pairs:
             logger.error(
-                "CRITICAL: No asset pairs configured! Restoring core pairs."
+                "CRITICAL: No asset pairs configured! Restoring default core pairs: %s",
+                core_pairs,
             )
             self.config.asset_pairs = core_pairs
-
-        # Validate core pairs are present
-        missing_core_pairs = [p for p in core_pairs if p not in self.config.asset_pairs]
-        if missing_core_pairs:
-            logger.warning(
-                "Core pairs missing from asset_pairs: %s. Restoring them.",
-                missing_core_pairs,
-            )
-            self.config.asset_pairs.extend(missing_core_pairs)
 
         # Create a snapshot copy for iteration (prevents race conditions)
         asset_pairs_snapshot = list(self.config.asset_pairs)
