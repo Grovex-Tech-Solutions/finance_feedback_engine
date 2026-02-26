@@ -1172,8 +1172,10 @@ async def execute_manual_trade(
             "order_type": "LIMIT" if request.price else "MARKET",
         }
 
-        if request.size:
-            trade_params["size"] = request.size
+        # Normalize manual size into decision-engine field expected by platform adapters.
+        # Oanda/Coinbase execution paths consume `recommended_position_size`.
+        if request.size is not None:
+            trade_params["recommended_position_size"] = float(request.size)
 
         if request.price:
             trade_params["price"] = request.price
@@ -1363,11 +1365,20 @@ async def close_position(
     Close a specific open position.
     """
     try:
-        # Get position details
-        breakdown = await engine.trading_platform.aget_portfolio_breakdown()
-        positions = breakdown.get("positions", [])
+        # Get active positions via standardized adapter output
+        active = await engine.trading_platform.aget_active_positions()
+        positions = active.get("positions", []) if isinstance(active, dict) else []
 
-        position = next((p for p in positions if p.get("id") == position_id), None)
+        # Match by id first, then instrument/product_id fallback
+        position = next(
+            (
+                p
+                for p in positions
+                if str(p.get("id") or "") == position_id
+                or str(p.get("instrument") or p.get("product_id") or "") == position_id
+            ),
+            None,
+        )
 
         if not position:
             raise HTTPException(
@@ -1375,7 +1386,9 @@ async def close_position(
                 detail=f"Position {position_id} not found",
             )
 
-        size = position.get("size")
+        raw_units = position.get("units")
+        raw_contracts = position.get("number_of_contracts") or position.get("contracts")
+        size = abs(float(raw_units if raw_units not in (None, "") else (raw_contracts or 0)))
         if not size or size <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1390,11 +1403,21 @@ async def close_position(
             )
 
         # Execute closing trade
+        asset_pair = (
+            position.get("asset_pair")
+            or position.get("instrument")
+            or position.get("product_id")
+        )
+        side = str(position.get("side") or "").upper()
+        if not side:
+            # derive side from units when side field missing
+            side = "LONG" if float(position.get("units", 0) or 0) >= 0 else "SHORT"
+
         result = await engine.trading_platform.aexecute_trade(
             {
-                "asset_pair": position["asset_pair"],
-                "action": "SELL" if position.get("side") == "LONG" else "BUY",
-                "size": size,
+                "asset_pair": asset_pair,
+                "action": "SELL" if side == "LONG" else "BUY",
+                "recommended_position_size": size,
                 "order_type": "MARKET",
             }
         )
