@@ -88,6 +88,13 @@ class FinanceFeedbackEngine:
         # Keep last known-good consolidated balance snapshot to avoid temporary
         # balance context loss during transient upstream issues.
         self._last_good_balance: Dict[str, float] = {}
+        self._last_balance_telemetry: Dict[str, Any] = {
+            "balance_source": None,
+            "used_cached_balance": False,
+            "balance_total": None,
+            "balance_keys": [],
+            "updated_at": None,
+        }
 
         # Ensure Ollama models are installed (one-time setup)
         try:
@@ -1285,6 +1292,8 @@ class FinanceFeedbackEngine:
         # This replaces the separate get_balance() call (which was redundant)
         portfolio = None
         balance = {}  # Will be derived from portfolio if available
+        balance_source_mode = "none"
+        used_cached_balance = False
 
         if hasattr(self.trading_platform, "get_portfolio_breakdown"):
             try:
@@ -1338,6 +1347,7 @@ class FinanceFeedbackEngine:
                 # Persist last known-good positive snapshot for resilience.
                 if any(float(v or 0) > 0 for v in balance.values()):
                     self._last_good_balance = dict(balance)
+                balance_source_mode = "portfolio_breakdown"
 
             except (AttributeError, TypeError) as e:
                 logger.error(
@@ -1400,6 +1410,7 @@ class FinanceFeedbackEngine:
                 )
                 if any(float(v or 0) > 0 for v in balance.values()):
                     self._last_good_balance = dict(balance)
+                balance_source_mode = "direct_platform_balance"
             except Exception as e:
                 logger.warning(
                     "Direct balance fallback failed; sizing may use minimum order: %s",
@@ -1407,10 +1418,25 @@ class FinanceFeedbackEngine:
                 )
                 if self._last_good_balance:
                     balance = dict(self._last_good_balance)
+                    used_cached_balance = True
+                    balance_source_mode = "last_known_good_cache"
                     logger.warning(
                         "Using cached last-known-good balance snapshot for sizing: %s",
                         balance,
                     )
+
+        # Publish balance telemetry for status/observability
+        try:
+            numeric_vals = [float(v) for v in balance.values() if isinstance(v, (int, float))]
+            self._last_balance_telemetry = {
+                "balance_source": balance_source_mode,
+                "used_cached_balance": used_cached_balance,
+                "balance_total": float(sum(numeric_vals)) if numeric_vals else None,
+                "balance_keys": sorted(list(balance.keys())),
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+        except Exception:
+            pass
 
         # Get memory context if enabled
         memory_context = None

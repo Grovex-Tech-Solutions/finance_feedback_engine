@@ -125,6 +125,8 @@ class AgentStatusResponse(BaseModel):
     # Optional enriched portfolio payload (development mode)
     balances: Optional[Dict[str, float]] = None
     portfolio: Optional[Dict[str, Any]] = None
+    balance_source: Optional[str] = None
+    used_cached_balance: Optional[bool] = None
 
 
 class ManualTradeRequest(BaseModel):
@@ -775,6 +777,9 @@ async def _get_agent_status_internal(engine: FinanceFeedbackEngine) -> AgentStat
         # Calculate unified status from both states
         unified_status = AgentStateMapper.get_unified_status(bot_state, agent_state)
 
+        # Attach balance telemetry from engine (if available)
+        balance_telemetry = getattr(engine, "_last_balance_telemetry", {}) or {}
+
         # Build response
         resp = AgentStatusResponse(
             state=bot_state, # For backward compatibility
@@ -792,6 +797,8 @@ async def _get_agent_status_internal(engine: FinanceFeedbackEngine) -> AgentStat
                 "asset_pairs": asset_pairs,
                 "autonomous": True,
             },
+            balance_source=balance_telemetry.get("balance_source"),
+            used_cached_balance=balance_telemetry.get("used_cached_balance"),
         )
 
         # Enrich payload in development mode
