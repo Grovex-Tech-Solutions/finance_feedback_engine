@@ -34,6 +34,9 @@ class UnifiedTradingPlatform(BaseTradingPlatform):
         super().__init__(credentials)
         self.config = config or {}
         self.platforms: Dict[str, BaseTradingPlatform] = {}
+        # Cache last known-good per-platform balances to preserve context during
+        # transient upstream/auth/network failures.
+        self._last_good_balances: Dict[str, Dict[str, float]] = {}
 
         # Support both 'coinbase' and 'coinbase_advanced' keys
         coinbase_creds = credentials.get("coinbase") or credentials.get(
@@ -97,7 +100,10 @@ class UnifiedTradingPlatform(BaseTradingPlatform):
         combined_balances = {}
         for name, platform in self.platforms.items():
             try:
-                balances = platform.get_balance()
+                balances = platform.get_balance() or {}
+                if balances:
+                    # Keep a per-platform last known-good snapshot for fail-closed context continuity
+                    self._last_good_balances[name] = dict(balances)
                 for asset, balance in balances.items():
                     combined_balances[f"{name}_{asset}"] = balance
             except ConnectionError as e:
@@ -111,6 +117,14 @@ class UnifiedTradingPlatform(BaseTradingPlatform):
                     },
                     exc_info=True
                 )
+                cached = self._last_good_balances.get(name)
+                if cached:
+                    logger.warning(
+                        "Using cached %s balance snapshot after connection error",
+                        name,
+                    )
+                    for asset, balance in cached.items():
+                        combined_balances[f"{name}_{asset}"] = balance
                 # TODO: Alert on repeated platform connection failures (THR-XXX)
             except (ValueError, TypeError, KeyError) as e:
                 logger.error(
@@ -122,6 +136,14 @@ class UnifiedTradingPlatform(BaseTradingPlatform):
                         "error_type": "validation"
                     }
                 )
+                cached = self._last_good_balances.get(name)
+                if cached:
+                    logger.warning(
+                        "Using cached %s balance snapshot after validation error",
+                        name,
+                    )
+                    for asset, balance in cached.items():
+                        combined_balances[f"{name}_{asset}"] = balance
                 # TODO: Track data validation errors for platform health monitoring (THR-XXX)
             except Exception as e:
                 logger.error(
@@ -134,6 +156,14 @@ class UnifiedTradingPlatform(BaseTradingPlatform):
                     },
                     exc_info=True
                 )
+                cached = self._last_good_balances.get(name)
+                if cached:
+                    logger.warning(
+                        "Using cached %s balance snapshot after unexpected error",
+                        name,
+                    )
+                    for asset, balance in cached.items():
+                        combined_balances[f"{name}_{asset}"] = balance
                 # TODO: Alert on unknown platform errors (THR-XXX)
 
         return combined_balances

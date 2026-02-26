@@ -85,6 +85,9 @@ class FinanceFeedbackEngine:
         self._portfolio_cache_time = None
         self._portfolio_cache_ttl = 60  # 60 seconds
         self._cache_metrics = CacheMetrics()  # Track cache performance
+        # Keep last known-good consolidated balance snapshot to avoid temporary
+        # balance context loss during transient upstream issues.
+        self._last_good_balance: Dict[str, float] = {}
 
         # Ensure Ollama models are installed (one-time setup)
         try:
@@ -1298,17 +1301,43 @@ class FinanceFeedbackEngine:
                 )
 
                 # Derive balance from portfolio breakdown to avoid redundant API call
-                # Portfolio contains futures_value_usd and spot_value_usd from the same
-                # API calls that get_balance() would make separately
+                # and preserve platform-specific sizing context.
                 if portfolio.get("futures_value_usd") is not None:
-                    balance["FUTURES_USD"] = portfolio.get("futures_value_usd", 0)
+                    balance["FUTURES_USD"] = float(portfolio.get("futures_value_usd", 0) or 0)
                 if portfolio.get("spot_value_usd") is not None:
-                    balance["SPOT_USD"] = portfolio.get("spot_value_usd", 0)
+                    balance["SPOT_USD"] = float(portfolio.get("spot_value_usd", 0) or 0)
 
-                logger.debug(
-                    "Balance derived from portfolio: %s",
-                    balance,
-                )
+                # Include per-platform cash balances if present.
+                for platform_name, cash_val in (portfolio.get("per_platform_cash") or {}).items():
+                    try:
+                        balance[f"{platform_name}_USD"] = float(cash_val or 0)
+                    except (TypeError, ValueError):
+                        pass
+
+                # Include platform breakdown totals for robust platform routing.
+                platform_breakdowns = portfolio.get("platform_breakdowns") or {}
+                coinbase_bd = platform_breakdowns.get("coinbase") or {}
+                oanda_bd = platform_breakdowns.get("oanda") or {}
+
+                coinbase_total = coinbase_bd.get("total_value_usd")
+                if coinbase_total is not None:
+                    try:
+                        balance["coinbase_FUTURES_USD"] = float(coinbase_total or 0)
+                    except (TypeError, ValueError):
+                        pass
+
+                oanda_balance = oanda_bd.get("balance")
+                if oanda_balance is not None:
+                    try:
+                        balance["oanda_USD"] = float(oanda_balance or 0)
+                    except (TypeError, ValueError):
+                        pass
+
+                logger.debug("Balance derived from portfolio: %s", balance)
+
+                # Persist last known-good positive snapshot for resilience.
+                if any(float(v or 0) > 0 for v in balance.values()):
+                    self._last_good_balance = dict(balance)
 
             except (AttributeError, TypeError) as e:
                 logger.error(
@@ -1369,11 +1398,19 @@ class FinanceFeedbackEngine:
                     "Using direct platform balance fallback for sizing: %s",
                     balance,
                 )
+                if any(float(v or 0) > 0 for v in balance.values()):
+                    self._last_good_balance = dict(balance)
             except Exception as e:
                 logger.warning(
                     "Direct balance fallback failed; sizing may use minimum order: %s",
                     e,
                 )
+                if self._last_good_balance:
+                    balance = dict(self._last_good_balance)
+                    logger.warning(
+                        "Using cached last-known-good balance snapshot for sizing: %s",
+                        balance,
+                    )
 
         # Get memory context if enabled
         memory_context = None
