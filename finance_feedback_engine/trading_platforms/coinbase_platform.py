@@ -901,13 +901,14 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
                     balances["FUTURES_USD"] = futures_buying_power
 
             if not balances:
-                logger.warning(
-                    "No Coinbase balances returned. This may indicate:\n"
-                    "  1. Invalid/expired API credentials\n"
-                    "  2. Account has $0 balance\n"
-                    "  3. API permissions insufficient (needs 'wallet:accounts:read' scope)\n"
-                    "  Check credentials in config/config.local.yaml or environment variables"
+                # Not always an error: some futures accounts report little/no spendable
+                # wallet balance while collateral/value is represented in portfolio/position
+                # endpoints. Keep signal low-noise unless auth actually fails above.
+                logger.info(
+                    "Coinbase get_balance returned no spendable USD/USDC buckets; "
+                    "continuing (portfolio breakdown remains source of truth for valuation)."
                 )
+
 
             return balances
 
