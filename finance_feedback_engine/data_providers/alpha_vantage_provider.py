@@ -795,6 +795,94 @@ class AlphaVantageProvider:
 
         return out
 
+    async def _calculate_multi_timeframe_trend(
+        self, asset_pair: str
+    ) -> Dict[str, Any]:
+        """
+        Calculate weighted trend score across multiple timeframes.
+        
+        Returns trend consensus from 1h, 4h, 1d candles with weighted scoring:
+        - Daily (1d): 50% weight (primary trend)
+        - 4-hour (4h): 30% weight (intermediate)  
+        - 1-hour (1h): 20% weight (short-term)
+        
+        Args:
+            asset_pair: Asset pair to analyze
+            
+        Returns:
+            Dict with trend score (-100 to +100), timeframe breakdown, consensus label
+        """
+        timeframes_to_check = ["1h", "4h", "1d"]
+        timeframe_weights = {"1d": 0.5, "4h": 0.3, "1h": 0.2}
+        timeframe_trends = {}
+        weighted_score = 0.0
+        
+        is_crypto = classify_asset_pair(asset_pair) == "crypto" or asset_pair.startswith(("BTC", "ETH"))
+        
+        for tf in timeframes_to_check:
+            try:
+                # Fetch candles for this timeframe
+                if is_crypto and self.coinbase_provider:
+                    candles = await self._get_coinbase_candles_with_retry(asset_pair, tf, limit=20)
+                else:
+                    # For forex, use oanda or skip
+                    candles = None
+                    
+                if not candles or len(candles) < 10:
+                    # Not enough data - skip this timeframe
+                    timeframe_trends[tf] = {"direction": "unknown", "score": 0, "weight": 0}
+                    continue
+                    
+                # Calculate trend for this timeframe (simple: current vs 10 periods ago)
+                recent_close = candles[-1].get("close", 0)
+                older_close = candles[-10].get("close", 0) if len(candles) >= 10 else recent_close
+                
+                if older_close == 0:
+                    trend_score = 0
+                else:
+                    pct_change = ((recent_close - older_close) / older_close) * 100
+                    # Normalize to -100 to +100 scale (cap at +/- 10% = +/- 100)
+                    trend_score = max(-100, min(100, pct_change * 10))
+                
+                # Classify direction
+                if trend_score > 5:
+                    direction = "bullish"
+                elif trend_score < -5:
+                    direction = "bearish"
+                else:
+                    direction = "neutral"
+                    
+                timeframe_trends[tf] = {
+                    "direction": direction,
+                    "score": round(trend_score, 1),
+                    "weight": timeframe_weights.get(tf, 0),
+                }
+                
+                # Add to weighted score
+                weighted_score += trend_score * timeframe_weights.get(tf, 0)
+                
+            except Exception as e:
+                logger.debug(f"Could not fetch {tf} candles for {asset_pair}: {e}")
+                timeframe_trends[tf] = {"direction": "unknown", "score": 0, "weight": 0}
+        
+        # Determine consensus label
+        if weighted_score > 60:
+            consensus = "strong_bullish"
+        elif weighted_score > 20:
+            consensus = "bullish"  
+        elif weighted_score > -20:
+            consensus = "neutral"
+        elif weighted_score > -60:
+            consensus = "bearish"
+        else:
+            consensus = "strong_bearish"
+            
+        return {
+            "score": round(weighted_score, 2),
+            "consensus": consensus,
+            "timeframes": timeframe_trends,
+        }
+
     async def _enrich_market_data(
         self, market_data: Dict[str, Any], asset_pair: str
     ) -> Dict[str, Any]:
@@ -853,6 +941,18 @@ class AlphaVantageProvider:
             market_data["trend"] = trend
             market_data["is_bullish"] = is_bullish
             market_data["close_position_in_range"] = close_position_in_range
+            # Multi-timeframe trend analysis
+            try:
+                multi_tf_trend = await self._calculate_multi_timeframe_trend(asset_pair)
+                market_data["multi_timeframe_trend"] = multi_tf_trend
+            except Exception as e:
+                logger.debug(f"Multi-timeframe trend calculation failed for {asset_pair}: {e}")
+                market_data["multi_timeframe_trend"] = {
+                    "score": 0,
+                    "consensus": "unknown",
+                    "timeframes": {}
+                }
+
 
             # Fetch technical indicators if available.
             # Crypto pairs should compute indicators locally from Coinbase candles
