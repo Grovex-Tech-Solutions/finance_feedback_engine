@@ -1174,6 +1174,57 @@ class FinanceFeedbackEngine:
             include_macro=include_macro,
         )
 
+        # Deep-live overlay: for tradeable crypto/forex, force fresh exchange intraday
+        # context from unified provider (1m/5m/15m) so decisions are not anchored to
+        # delayed aggregator feeds.
+        try:
+            if self.unified_provider and (
+                self.unified_provider._is_crypto(asset_pair)
+                or self.unified_provider._is_forex(asset_pair)
+            ):
+                mtf = self.unified_provider.aggregate_all_timeframes(
+                    asset_pair, ["1m", "5m", "15m"]
+                )
+                tf_data = mtf.get("timeframes", {}) if isinstance(mtf, dict) else {}
+
+                latest_candle = None
+                latest_provider = None
+                latest_ts = None
+                for tf in ("1m", "5m", "15m"):
+                    tf_entry = tf_data.get(tf) or {}
+                    candles = tf_entry.get("candles") or []
+                    if candles:
+                        c = candles[-1]
+                        ts = c.get("date") or c.get("timestamp")
+                        if ts and (latest_ts is None or str(ts) > str(latest_ts)):
+                            latest_ts = ts
+                            latest_candle = c
+                            latest_provider = tf_entry.get("source_provider")
+
+                if latest_candle:
+                    market_data["close"] = float(latest_candle.get("close", market_data.get("close", 0.0)))
+                    market_data["open"] = float(latest_candle.get("open", market_data.get("open", market_data.get("close", 0.0))))
+                    market_data["high"] = float(latest_candle.get("high", market_data.get("high", market_data.get("close", 0.0))))
+                    market_data["low"] = float(latest_candle.get("low", market_data.get("low", market_data.get("close", 0.0))))
+                    market_data["volume"] = float(latest_candle.get("volume", market_data.get("volume", 0.0)) or 0.0)
+                    market_data["timestamp"] = latest_ts
+                    market_data["date"] = latest_ts
+                    market_data["data_age_seconds"] = 0
+                    market_data["data_age_hours"] = 0
+                    market_data["stale_data"] = False
+                    market_data["live_intraday_provider"] = latest_provider or "unified_provider"
+                    market_data["intraday_timeframes"] = {
+                        tf: {
+                            "provider": (tf_data.get(tf) or {}).get("source_provider"),
+                            "candles": int((tf_data.get(tf) or {}).get("candles_count", 0)),
+                        }
+                        for tf in ("1m", "5m", "15m")
+                    }
+        except Exception as live_overlay_err:
+            logger.warning(
+                "Unified intraday overlay failed for %s: %s", asset_pair, live_overlay_err
+            )
+
         # If provider reported stale data, force one cache-bypassing refresh before
         # decisioning. This prevents cache age from repeatedly triggering HOLD.
         if market_data.get("stale_data"):
