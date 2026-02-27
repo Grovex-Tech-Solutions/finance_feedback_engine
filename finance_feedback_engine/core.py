@@ -1231,6 +1231,15 @@ class FinanceFeedbackEngine:
                     current_ts = market_data.get("timestamp") or market_data.get("date")
                     current_epoch = _to_epoch_seconds(current_ts)
 
+                    # Normalize overlay timestamp to ISO-8601 string to satisfy
+                    # downstream freshness validation contract.
+                    if isinstance(latest_ts, (int, float)):
+                        latest_ts_iso = datetime.fromtimestamp(float(latest_epoch), timezone.utc).isoformat().replace('+00:00', 'Z')
+                    elif isinstance(latest_ts, str):
+                        latest_ts_iso = latest_ts
+                    else:
+                        latest_ts_iso = datetime.fromtimestamp(float(latest_epoch), timezone.utc).isoformat().replace('+00:00', 'Z')
+
                     # Only overlay if unified intraday data is newer than current market_data
                     if current_epoch is None or latest_epoch >= current_epoch:
                         market_data["close"] = float(latest_candle.get("close", market_data.get("close", 0.0)))
@@ -1238,8 +1247,8 @@ class FinanceFeedbackEngine:
                         market_data["high"] = float(latest_candle.get("high", market_data.get("high", market_data.get("close", 0.0))))
                         market_data["low"] = float(latest_candle.get("low", market_data.get("low", market_data.get("close", 0.0))))
                         market_data["volume"] = float(latest_candle.get("volume", market_data.get("volume", 0.0)) or 0.0)
-                        market_data["timestamp"] = latest_ts
-                        market_data["date"] = latest_ts
+                        market_data["timestamp"] = latest_ts_iso
+                        market_data["date"] = latest_ts_iso
 
                         now_epoch = datetime.now(timezone.utc).timestamp()
                         age_seconds = max(0.0, now_epoch - latest_epoch)
