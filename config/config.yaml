@@ -216,8 +216,8 @@ agent:
   max_daily_trades: 6
   strategic_goal: capital_preservation
   risk_appetite: low
-  analysis_frequency_seconds: 60
-  main_loop_error_backoff_seconds: 60
+  analysis_frequency_seconds: 300
+  main_loop_error_backoff_seconds: 300
   reasoning_retry_delay_seconds: 20
   reasoning_max_concurrent_assets: 2
   autonomous:
