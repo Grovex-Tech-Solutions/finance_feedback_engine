@@ -214,8 +214,8 @@ agent:
   autonomous_execution: true
   approval_policy: on_new_asset
   max_daily_trades: 6
-  strategic_goal: balanced
-  risk_appetite: medium
+  strategic_goal: capital_preservation
+  risk_appetite: low
   analysis_frequency_seconds: 60
   main_loop_error_backoff_seconds: 60
   reasoning_retry_delay_seconds: 20
