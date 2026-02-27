@@ -95,8 +95,12 @@ class PositionSizingCalculator:
                 if isinstance(bs, dict):
                     for k in ("coinbase_FUTURES_USD", "FUTURES_USD", "coinbase_SPOT_USD", "SPOT_USD"):
                         v = bs.get(k)
-                        if isinstance(v, (int, float)) and v > 0:
-                            fallback_val = float(v)
+                        try:
+                            v_num = float(v)
+                        except (TypeError, ValueError):
+                            v_num = 0.0
+                        if v_num > 0:
+                            fallback_val = v_num
                             break
 
                 # 2) Portfolio breakdown futures summary (buying power or total balance)
@@ -107,8 +111,12 @@ class PositionSizingCalculator:
                         fs = cb.get("futures_summary") or {}
                         for k in ("buying_power", "total_balance_usd"):
                             v = fs.get(k)
-                            if isinstance(v, (int, float)) and v > 0:
-                                fallback_val = float(v)
+                            try:
+                                v_num = float(v)
+                            except (TypeError, ValueError):
+                                v_num = 0.0
+                            if v_num > 0:
+                                fallback_val = v_num
                                 break
 
                 if fallback_val is not None:
