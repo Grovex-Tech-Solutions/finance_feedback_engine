@@ -421,7 +421,8 @@ class LocalLLMProvider:
         """
         # Ollama HTTP API doesn't expose a stop/unload endpoint
         # The Ollama server manages model memory automatically
-        logger.debug(f"Model {self.model_name} memory managed by Ollama (no explicit unload needed)")
+        # Note: active_model not in scope here, would need to be passed or stored
+        logger.debug(f"Model memory managed by Ollama (no explicit unload needed)")
 
     def _is_model_available(self, model_name: str) -> bool:
         """Check if model is available locally via HTTP API."""
@@ -493,7 +494,7 @@ class LocalLLMProvider:
 
             logger.info("LLM connection restored")
 
-    def query(self, prompt: str) -> Dict[str, Any]:
+    def query(self, prompt: str, model_name: str = None) -> Dict[str, Any]:
         """
         Query local LLM with connection pooling (Phase 2 optimization).
 
@@ -501,10 +502,22 @@ class LocalLLMProvider:
 
         Args:
             prompt: Trading analysis prompt
+            model_name: Optional model override (defaults to instance model_name)
 
         Returns:
             Dictionary with action, confidence, reasoning, amount
         """
+        # Use provided model or fall back to instance default
+        active_model = model_name or self.model_name
+        
+        # Ensure the requested model is available (auto-download if needed)
+        if active_model != self.model_name and not self._is_model_available(active_model):
+            logger.warning(f"Requested model {active_model} not available, downloading...")
+            if not self._download_model(active_model):
+                logger.error(f"Failed to download {active_model}, falling back to {self.model_name}")
+                active_model = self.model_name
+        
+        logger.info(f"Using model: {active_model} (instance default: {self.model_name})")
         # Verify connection before query (Phase 2 optimization)
         self.ensure_connection()
 
@@ -513,7 +526,7 @@ class LocalLLMProvider:
         for attempt in range(max_retries):
             try:
                 logger.info(
-                    f"Querying local LLM: {self.model_name} (attempt {attempt + 1}/{max_retries})"
+                    f"Querying local LLM: {active_model} (attempt {attempt + 1}/{max_retries})"
                 )
 
                 # Create system prompt for trading
@@ -540,7 +553,7 @@ class LocalLLMProvider:
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(
                             self.ollama_client.generate,
-                            model=self.model_name,
+                            model=active_model,  # Use active_model instead of self.model_name
                             prompt=full_prompt,
                             format="json",
                             options={

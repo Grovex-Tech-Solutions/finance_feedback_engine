@@ -553,7 +553,8 @@ Make your decision based on evidence, not emotion. Acknowledge when data is conf
             )
             provider = LocalLLMProvider(provider_config)
             # Run synchronous query in a separate thread
-            response = await asyncio.to_thread(provider.query, prompt)
+            # Pass model_name directly to provider.query() for per-query model selection
+            response = await asyncio.to_thread(provider.query, prompt, model_name)
             # Add model_name to response for debate tracking
             if isinstance(response, dict):
                 response["model_name"] = model_name or self.config.get("model_name", "llama3.1:8b")
