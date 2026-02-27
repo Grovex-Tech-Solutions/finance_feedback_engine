@@ -1552,14 +1552,29 @@ class TradingLoopAgent:
         # on the same standardized asset pair during decision collection.
         open_asset_pairs: set[str] = set()
         open_position_side: dict[str, str] = {}
+        margin_usage_pct = 0.0
+        margin_usage_limit_pct = 0.50
         try:
             portfolio_snapshot = await self.engine.get_portfolio_breakdown_async()
             candidate_positions = []
 
             if "platform_breakdowns" in portfolio_snapshot:
-                for _, pdata in portfolio_snapshot["platform_breakdowns"].items():
+                for name, pdata in portfolio_snapshot["platform_breakdowns"].items():
                     candidate_positions.extend(pdata.get("futures_positions", []))
                     candidate_positions.extend(pdata.get("positions", []))
+                    if str(name).lower() == "coinbase":
+                        try:
+                            fs = pdata.get("futures_summary", {}) or {}
+                            initial_margin = float(fs.get("initial_margin", 0.0) or 0.0)
+                            total_balance = float(
+                                fs.get("total_balance_usd", 0.0)
+                                or pdata.get("total_value_usd", 0.0)
+                                or 0.0
+                            )
+                            if total_balance > 0:
+                                margin_usage_pct = initial_margin / total_balance
+                        except Exception:
+                            pass
             else:
                 candidate_positions.extend(portfolio_snapshot.get("futures_positions", []))
                 candidate_positions.extend(portfolio_snapshot.get("positions", []))
@@ -1622,8 +1637,10 @@ class TradingLoopAgent:
 
             if open_asset_pairs:
                 logger.info(
-                    "Open position assets detected (duplicate-entry guard active): %s",
+                    "Open position assets detected (duplicate-entry guard active): %s | margin_usage=%.2f%% (limit %.2f%%)",
                     sorted(open_asset_pairs),
+                    margin_usage_pct * 100,
+                    margin_usage_limit_pct * 100,
                 )
         except Exception as e:
             logger.warning("Unable to load open positions for duplicate-entry guard: %s", e)
@@ -1644,15 +1661,29 @@ class TradingLoopAgent:
                     # Block only same-direction stacking; allow opposite-side signals
                     # to reduce/close/reverse existing exposure.
                     if existing_side == requested_side:
-                        reason = f"Duplicate entry blocked: existing {existing_side} for {decision_pair}"
-                        self._mark_decision_not_executed(decision, "DUPLICATE_ENTRY_GUARD", reason)
-                        logger.info(
-                            "Skipping %s for %s: %s position already exists (duplicate-entry guard).",
-                            decision.get("action"),
-                            decision_pair,
-                            existing_side,
-                        )
-                        continue
+                        # Allow same-direction scaling on BTC/ETH futures rails until margin usage reaches 50%.
+                        if decision_pair in {"BTCUSD", "ETHUSD"} and margin_usage_pct < margin_usage_limit_pct:
+                            logger.info(
+                                "Allowing scale-in %s for %s: existing side=%s, margin usage %.2f%% < %.2f%% limit.",
+                                decision.get("action"),
+                                decision_pair,
+                                existing_side,
+                                margin_usage_pct * 100,
+                                margin_usage_limit_pct * 100,
+                            )
+                        else:
+                            reason = (
+                                f"Duplicate entry blocked: existing {existing_side} for {decision_pair}; "
+                                f"margin usage {margin_usage_pct*100:.2f}% (limit {margin_usage_limit_pct*100:.2f}%)"
+                            )
+                            self._mark_decision_not_executed(decision, "DUPLICATE_ENTRY_GUARD", reason)
+                            logger.info(
+                                "Skipping %s for %s: %s position already exists (duplicate-entry guard).",
+                                decision.get("action"),
+                                decision_pair,
+                                existing_side,
+                            )
+                            continue
                     logger.info(
                         "Allowing %s for %s: existing side=%s (opposite-side action for reversal/reduction).",
                         decision.get("action"),
