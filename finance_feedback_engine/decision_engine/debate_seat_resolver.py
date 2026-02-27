@@ -39,7 +39,8 @@ def get_available_local_models() -> list[str]:
     try:
         import requests
 
-        ollama_host = "http://localhost:11434"
+        import os
+        ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
         response = requests.get(
             f"{ollama_host}/api/tags",
             timeout=2.0
