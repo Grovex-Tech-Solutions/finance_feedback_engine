@@ -1473,6 +1473,31 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
         requested_size_usd = decision.get("suggested_amount", 0)
         client_order_id = f"ffe-{decision.get('id', uuid.uuid4().hex)}"
 
+        # Hard routing guard: BTC/ETH USD rails must resolve to Coinbase futures (CFM/INTX)
+        # before any product metadata fetch, so spot fallbacks can never slip through.
+        if self._must_use_futures_path(decision):
+            try:
+                resolved_product_id, _ = self._resolve_futures_product(client=client, asset_pair=asset_pair)
+                if resolved_product_id != product_id:
+                    logger.info(
+                        "[FUTURES_HARD_ROUTE] decision=%s asset_pair=%s initial=%s resolved=%s",
+                        decision.get("id"), asset_pair, product_id, resolved_product_id
+                    )
+                product_id = resolved_product_id
+            except Exception as hard_route_err:
+                logger.error(
+                    "[FUTURES_HARD_ROUTE] FAIL decision=%s asset_pair=%s error=%s",
+                    decision.get("id"), asset_pair, hard_route_err
+                )
+                return {
+                    "success": False,
+                    "platform": "coinbase_advanced",
+                    "decision_id": decision.get("id"),
+                    "error": "Futures hard routing failed",
+                    "error_details": str(hard_route_err),
+                    "timestamp": decision.get("timestamp"),
+                }
+
         # Check for existing order with the same client_order_id to avoid duplicates
         try:
             existing_orders = client.list_orders(client_order_id=client_order_id)
