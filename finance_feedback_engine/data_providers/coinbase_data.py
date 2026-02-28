@@ -192,6 +192,45 @@ class CoinbaseDataProvider:
             logger.error(f"Failed to fetch Coinbase candles: {e}")
             raise
 
+
+    def _aggregate_candles(
+        self, candles: List[Dict[str, Any]], source_granularity: int, target_granularity: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Aggregate smaller-timeframe candles into larger timeframe.
+        
+        Args:
+            candles: List of candles to aggregate
+            source_granularity: Source granularity in seconds (e.g., 3600 for 1h)
+            target_granularity: Target granularity in seconds (e.g., 14400 for 4h)
+            
+        Returns:
+            Aggregated candles
+        """
+        if not candles or source_granularity >= target_granularity:
+            return candles
+        
+        ratio = target_granularity // source_granularity
+        aggregated = []
+        
+        for i in range(0, len(candles), ratio):
+            chunk = candles[i:i + ratio]
+            if not chunk:
+                continue
+            
+            # Aggregate: open from first, close from last, high/low from all, sum volume
+            agg_candle = {
+                "timestamp": chunk[0]["timestamp"],
+                "open": chunk[0]["open"],
+                "close": chunk[-1]["close"],
+                "high": max(c["high"] for c in chunk),
+                "low": min(c["low"] for c in chunk),
+                "volume": sum(c["volume"] for c in chunk),
+            }
+            aggregated.append(agg_candle)
+        
+        return aggregated
+
     def _fetch_candles_from_api(
         self, product_id: str, start: int, end: int, granularity: int
     ) -> List[Dict[str, Any]]:
@@ -245,6 +284,13 @@ class CoinbaseDataProvider:
 
         # Sort by timestamp (oldest first)
         candles.sort(key=lambda x: x["timestamp"])
+        
+        # If we fetched a different granularity for aggregation, aggregate now
+        # This handles unsupported granularities like 4h (14400s)
+        if hasattr(self, '_aggregate_candles_needed'):
+            target_granularity = self._aggregate_candles_needed
+            delattr(self, '_aggregate_candles_needed')
+            candles = self._aggregate_candles(candles, granularity, target_granularity)
 
         return candles
 
