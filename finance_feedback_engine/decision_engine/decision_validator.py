@@ -192,7 +192,7 @@ class DecisionValidator:
             "portfolio_stop_loss_percentage": self.portfolio_stop_loss_percentage,
             "portfolio_take_profit_percentage": self.portfolio_take_profit_percentage,
             "market_data": context["market_data"],
-            "balance_snapshot": context["balance"],
+            "balance_snapshot": context.get("balance_snapshot", context.get("balance", {})),
             "price_change": context["price_change"],
             "volatility": context["volatility"],
             # Surface portfolio unrealized P&L if available from platform data
