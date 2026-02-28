@@ -1749,6 +1749,8 @@ Format response as a structured technical analysis demonstration.
         )
 
         # Delegating to the decision validator
+        logger.critical("🔍 ENGINE_CONTEXT_BEFORE_VALIDATOR: balance=%s, balance_snapshot=%s, keys=%s", 
+                       context.get("balance"), context.get("balance_snapshot"), list(context.keys()))
         decision = self.validator.create_decision(
             asset_pair=asset_pair,
             context=context,
