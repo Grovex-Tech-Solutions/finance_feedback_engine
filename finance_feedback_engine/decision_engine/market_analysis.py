@@ -386,6 +386,7 @@ class MarketAnalysisContext:
             "asset_pair": asset_pair,
             "market_data": market_data,
             "balance": balance,
+            "balance_snapshot": balance,  # FIX: Add for position_sizing fallback
             "portfolio": portfolio,
             "memory_context": memory_context,
             "monitoring_context": monitoring_context,
