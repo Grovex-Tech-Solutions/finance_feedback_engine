@@ -257,7 +257,7 @@ class CoinbaseDataProvider:
             1800: "THIRTY_MINUTE", 3600: "ONE_HOUR", 7200: "TWO_HOUR",
             14400: "FOUR_HOUR", 21600: "SIX_HOUR", 86400: "ONE_DAY",
         }
-        granularity_name = GRANULARITY_NAMES.get(int(granularity), str(granularity))
+        granularity_name = GRANULARITY_NAMES.get(int(granularity), "ONE_HOUR")
         params = {"start": start, "end": end, "granularity": granularity_name}
 
         # Build auth headers (JWT for Cloud keys, HMAC for legacy keys)

@@ -1,5 +1,6 @@
 """FastAPI application with lifespan management for Finance Feedback Engine."""
 
+import asyncio
 import logging
 import os
 
@@ -157,7 +158,7 @@ async def lifespan(app: FastAPI):
             try:
                 from .bot_control import _enqueue_or_start_agent, AgentControlRequest
                 req = AgentControlRequest(autonomous=True)
-                await _enqueue_or_start_agent(req, engine)
+                asyncio.create_task(_enqueue_or_start_agent(req, engine))
                 logger.info("Bot auto-started in autonomous mode")
             except Exception as e:
                 logger.warning(f"Auto-start failed - manual start required: {e}")

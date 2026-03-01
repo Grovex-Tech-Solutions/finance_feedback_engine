@@ -943,8 +943,8 @@ class TradingLoopAgent:
                         "closed_excess": [],
                         "timestamp": time.time(),
                     })
-                    self._startup_complete.set()
                     await self._transition_to(AgentState.PERCEPTION)
+                    self._startup_complete.set()
                     return
 
                 # Sort by unrealized P&L (descending) and keep top 2
@@ -988,8 +988,8 @@ class TradingLoopAgent:
                                 }],
                                 "timestamp": time.time(),
                             })
-                            self._startup_complete.set()
                             await self._transition_to(AgentState.PERCEPTION)
+                            self._startup_complete.set()
                             return
 
                 # Normalize and validate kept positions
@@ -1017,6 +1017,8 @@ class TradingLoopAgent:
                             "confidence": 75,  # Default confidence for recovered positions
                             "recommended_position_size": pos["size"],
                             "entry_price": entry_price,
+                            "stop_loss_price": stop_loss_price,
+                            "take_profit_price": take_profit_price,
                             "stop_loss_pct": 0.02,
                             "take_profit_pct": 0.05,
                             "reasoning": f"Recovered existing {pos['side']} position from {pos['platform']} platform",
@@ -1060,7 +1062,12 @@ class TradingLoopAgent:
                         self.portfolio_memory.trade_outcomes.append(outcome)
 
                         # Associate with trade monitor
-                        self.trade_monitor.associate_decision_to_trade(decision_id, asset_pair)
+                        self.trade_monitor.associate_decision_to_trade(
+                            decision_id=decision_id,
+                            asset_pair=asset_pair,
+                            stop_loss_price=stop_loss_price,
+                            take_profit_price=take_profit_price,
+                        )
 
                         normalized_positions.append({
                             "decision_id": decision_id,
@@ -1088,8 +1095,8 @@ class TradingLoopAgent:
                         "failed_positions": validation_errors,
                         "timestamp": time.time(),
                     })
-                    self._startup_complete.set()
                     await self._transition_to(AgentState.PERCEPTION)
+                    self._startup_complete.set()
                     return
 
                 # Recovery successful!
@@ -1108,8 +1115,8 @@ class TradingLoopAgent:
                     "timestamp": time.time(),
                 })
 
-                self._startup_complete.set()
                 await self._transition_to(AgentState.PERCEPTION)
+                self._startup_complete.set()
                 return
 
             except Exception as e:
@@ -1126,8 +1133,8 @@ class TradingLoopAgent:
                         "error": str(e),
                         "timestamp": time.time(),
                     })
-                    self._startup_complete.set()
                     await self._transition_to(AgentState.PERCEPTION)
+                    self._startup_complete.set()
                     return
 
     async def handle_recovering_state(self) -> None:
