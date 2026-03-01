@@ -191,6 +191,7 @@ class MonitoringContextProvider:
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(
                 "Failed to fetch active positions - data validation error",
+                exc_info=True,
                 extra={
                     "asset_pair": asset_pair,
                     "error": str(e),
@@ -338,13 +339,13 @@ class MonitoringContextProvider:
         short_exposure = 0.0
 
         for pos in futures_positions:
-            contracts = pos.get("contracts", 0)
-            current_price = pos.get("current_price", 0)
+            contracts = float(pos.get("number_of_contracts") or pos.get("contracts") or 0)
+            current_price = float(pos.get("current_price") or 0)
             side = pos.get("side", "LONG")
 
             notional = abs(contracts * current_price)
             total_exposure += notional
-            unrealized_pnl += pos.get("unrealized_pnl", 0)
+            unrealized_pnl += float(pos.get("unrealized_pnl") or 0)
 
             if side == "LONG":
                 long_exposure += notional
@@ -389,8 +390,8 @@ class MonitoringContextProvider:
         # Calculate position sizes as % of portfolio
         position_sizes = []
         for pos in futures_positions:
-            contracts = abs(pos.get("contracts", 0))
-            current_price = pos.get("current_price", 0)
+            contracts = abs(float(pos.get("number_of_contracts") or pos.get("contracts") or 0))
+            current_price = float(pos.get("current_price") or 0)
             notional = contracts * current_price
             pct = (notional / total_value) * 100
             position_sizes.append(pct)
@@ -681,10 +682,10 @@ class MonitoringContextProvider:
             for pos in futures:
                 side = pos.get("side", "UNKNOWN")
                 product = pos.get("product_id", "N/A")
-                contracts = pos.get("contracts", 0)
-                entry = pos.get("entry_price", 0)
-                current = pos.get("current_price", 0)
-                pnl = pos.get("unrealized_pnl", 0)
+                contracts = float(pos.get("number_of_contracts") or pos.get("contracts") or 0)
+                entry = float(pos.get("entry_price") or pos.get("avg_entry_price") or 0)
+                current = float(pos.get("current_price") or 0)
+                pnl = float(pos.get("unrealized_pnl") or 0)
 
                 pnl_sign = "+" if pnl >= 0 else ""
                 lines.append(
