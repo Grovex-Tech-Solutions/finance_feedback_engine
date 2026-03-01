@@ -143,7 +143,13 @@ class MonitoringContextProvider:
                 portfolio = self.platform.get_portfolio_breakdown()
 
                 # Extract active positions
-                futures_positions = portfolio.get("futures_positions", [])
+                # futures_positions may be at top level (CoinbasePlatform direct)
+                # or nested under platform_breakdowns.coinbase (UnifiedPlatform)
+                futures_positions = portfolio.get("futures_positions") or (
+                    portfolio.get("platform_breakdowns", {})
+                    .get("coinbase", {})
+                    .get("futures_positions", [])
+                )
                 holdings = portfolio.get("holdings", [])
 
                 # Filter by asset pair if specified
