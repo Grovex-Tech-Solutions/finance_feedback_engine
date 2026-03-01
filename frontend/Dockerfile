@@ -41,6 +41,7 @@ RUN apk add --no-cache gettext
 
 # Copy Nginx configuration template
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+COPY .htpasswd /etc/nginx/.htpasswd
 
 # Create non-root nginx user and set permissions
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
