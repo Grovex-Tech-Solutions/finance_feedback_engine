@@ -80,9 +80,10 @@ class MonitoringContextProvider:
                 }
                 context["has_monitoring_data"] = True
 
-            # Active trades count from monitor
-            if self.trade_monitor:
-                context["active_trades_count"] = len(self.trade_monitor.active_trackers)
+            # Active trades count: use live futures positions if available, else trade_monitor
+            live_futures = context.get("active_positions", {}).get("futures", [])
+            live_count = len(live_futures)
+            context["active_trades_count"] = live_count
 
             # Recent performance from metrics collector
             if self.metrics_collector:
@@ -215,14 +216,16 @@ class MonitoringContextProvider:
         # Get active trade monitoring data
         if self.trade_monitor:
             try:
-                context["active_trades_count"] = len(self.trade_monitor.active_trackers)
-                context["max_concurrent_trades"] = (
-                    self.trade_monitor.MAX_CONCURRENT_TRADES
+                # Use live platform positions for slot calculation (includes recovered positions)
+                live_futures = context.get("active_positions", {}).get("futures", [])
+                live_count = max(
+                    len(live_futures),
+                    len(self.trade_monitor.active_trackers)
                 )
-                context["slots_available"] = (
-                    self.trade_monitor.MAX_CONCURRENT_TRADES
-                    - len(self.trade_monitor.active_trackers)
-                )
+                max_trades = self.trade_monitor.MAX_CONCURRENT_TRADES
+                context["active_trades_count"] = live_count
+                context["max_concurrent_trades"] = max_trades
+                context["slots_available"] = max(0, max_trades - live_count)
             except (AttributeError, TypeError) as e:
                 logger.warning(
                     "Failed to fetch active trades - attribute error",

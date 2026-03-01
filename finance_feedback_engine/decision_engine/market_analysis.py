@@ -382,7 +382,6 @@ class MarketAnalysisContext:
         Returns:
             Decision context
         """
-        logger.critical("🔍 BALANCE_SNAPSHOT: balance=%s, type=%s, keys=%s", balance, type(balance), list(balance.keys()) if isinstance(balance, dict) else "N/A")
         context = {
             "asset_pair": asset_pair,
             "market_data": market_data,
