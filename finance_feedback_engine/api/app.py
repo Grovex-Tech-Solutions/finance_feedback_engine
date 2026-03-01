@@ -155,7 +155,9 @@ async def lifespan(app: FastAPI):
         autonomous_cfg = config.get("decision_engine", {}).get("autonomous_execution", False)
         if autonomous_cfg:
             try:
-                await engine.start_autonomous_trading()
+                from .bot_control import _enqueue_or_start_agent, AgentControlRequest
+                req = AgentControlRequest(autonomous=True)
+                await _enqueue_or_start_agent(req, engine)
                 logger.info("Bot auto-started in autonomous mode")
             except Exception as e:
                 logger.warning(f"Auto-start failed - manual start required: {e}")
