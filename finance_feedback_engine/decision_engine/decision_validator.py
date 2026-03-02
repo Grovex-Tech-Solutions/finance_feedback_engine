@@ -237,6 +237,12 @@ class DecisionValidator:
         if "meta_features" in ai_response:
             decision["meta_features"] = ai_response["meta_features"]
 
+        # Hard enforcement: override BUY to HOLD when portfolio is at max capacity
+        monitoring_ctx = context.get("monitoring_context")
+        if monitoring_ctx:
+            from ..monitoring.context_provider import enforce_slot_constraints
+            decision = enforce_slot_constraints(decision, monitoring_ctx)
+
         logger.info(
             "Decision created: %s %s (confidence: %s%%)",
             decision["action"],

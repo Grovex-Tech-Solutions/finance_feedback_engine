@@ -677,12 +677,25 @@ class MonitoringContextProvider:
         if not context.get("has_monitoring_data"):
             return "\nNo active trading positions currently.\n"
 
-        lines = ["\n=== LIVE TRADING CONTEXT ==="]
-
-        # Active positions summary
         active_pos = context.get("active_positions", {})
         futures = active_pos.get("futures", [])
+        slots_available = context.get("slots_available", None)
 
+        lines = ["\n=== LIVE TRADING CONTEXT ==="]
+
+        # POSITION AWARENESS DIRECTIVES — injected first to avoid lost-in-the-middle
+        if futures:
+            directive_lines = [
+                "\nPOSITION AWARENESS DIRECTIVES:",
+                "- You currently hold the above position(s). A HOLD decision maintains the existing position. A SELL decision closes it. A BUY decision adds a NEW position.",
+                "- If slots_available = 0: do NOT recommend BUY. The portfolio is at maximum capacity. Instead, focus on managing or optimizing existing positions.",
+                "- If unrealized P&L is negative and trend is bearish: factor the existing loss into your confidence. A weak bullish signal is insufficient to justify adding risk or maintaining high confidence in HOLD.",
+                "- If unrealized P&L is positive: factor the unrealized gain. Consider SELL to lock in profit if there is a strong bearish reversal, otherwise evaluate HOLD to maximize gains during an ongoing bullish trend.",
+                "- Your confidence score should reflect BOTH the market signal AND the current position risk. High leverage + negative P&L should reduce confidence in HOLD.",
+            ]
+            lines.extend(directive_lines)
+
+        # Active positions summary
         if futures:
             lines.append(f"\nActive Positions: {len(futures)}")
             for pos in futures:
@@ -760,3 +773,30 @@ class MonitoringContextProvider:
                 lines.append(pulse_text)
 
         return "\n".join(lines)
+
+def enforce_slot_constraints(
+    decision: dict,
+    monitoring_context: dict | None,
+) -> dict:
+    """
+    Hard code enforcement: override BUY to HOLD when slots_available == 0.
+
+    This is a deterministic safety gate — the LLM prompt informs, this enforces.
+    Returns the (possibly modified) decision dict.
+    """
+    if not monitoring_context:
+        return decision
+
+    slots = monitoring_context.get("slots_available")
+    if slots is None:
+        return decision
+
+    if decision.get("action") == "BUY" and slots <= 0:
+        return {
+            **decision,
+            "action": "HOLD",
+            "override_reason": f"slots_available={slots}: portfolio at max capacity, BUY overridden to HOLD",
+            "quality_flag": "max_capacity_override",
+        }
+
+    return decision
