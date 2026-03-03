@@ -80,10 +80,9 @@ class MonitoringContextProvider:
                 }
                 context["has_monitoring_data"] = True
 
-            # Active trades count: use live futures positions if available, else trade_monitor
-            live_futures = context.get("active_positions", {}).get("futures", [])
-            live_count = len(live_futures)
-            context["active_trades_count"] = live_count
+            # Active trades count from monitor
+            if self.trade_monitor:
+                context["active_trades_count"] = len(self.trade_monitor.active_trackers)
 
             # Recent performance from metrics collector
             if self.metrics_collector:
@@ -144,13 +143,7 @@ class MonitoringContextProvider:
                 portfolio = self.platform.get_portfolio_breakdown()
 
                 # Extract active positions
-                # futures_positions may be at top level (CoinbasePlatform direct)
-                # or nested under platform_breakdowns.coinbase (UnifiedPlatform)
-                futures_positions = portfolio.get("futures_positions") or (
-                    portfolio.get("platform_breakdowns", {})
-                    .get("coinbase", {})
-                    .get("futures_positions", [])
-                )
+                futures_positions = portfolio.get("futures_positions", [])
                 holdings = portfolio.get("holdings", [])
 
                 # Filter by asset pair if specified
@@ -192,7 +185,6 @@ class MonitoringContextProvider:
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(
                 "Failed to fetch active positions - data validation error",
-                exc_info=True,
                 extra={
                     "asset_pair": asset_pair,
                     "error": str(e),
@@ -216,19 +208,14 @@ class MonitoringContextProvider:
         # Get active trade monitoring data
         if self.trade_monitor:
             try:
-                # Use live platform positions for slot calculation (includes recovered positions)
-                live_futures = context.get("active_positions", {}).get("futures", [])
-                tracker_count = len(self.trade_monitor.active_trackers)
-                live_count = max(len(live_futures), tracker_count)
-                if len(live_futures) != tracker_count:
-                    logger.info(
-                        "Trade count discrepancy: live_futures=%d, active_trackers=%d — using max=%d",
-                        len(live_futures), tracker_count, live_count
-                    )
-                max_trades = self.trade_monitor.MAX_CONCURRENT_TRADES
-                context["active_trades_count"] = live_count
-                context["max_concurrent_trades"] = max_trades
-                context["slots_available"] = max(0, max_trades - live_count)
+                context["active_trades_count"] = len(self.trade_monitor.active_trackers)
+                context["max_concurrent_trades"] = (
+                    self.trade_monitor.MAX_CONCURRENT_TRADES
+                )
+                context["slots_available"] = (
+                    self.trade_monitor.MAX_CONCURRENT_TRADES
+                    - len(self.trade_monitor.active_trackers)
+                )
             except (AttributeError, TypeError) as e:
                 logger.warning(
                     "Failed to fetch active trades - attribute error",
@@ -345,13 +332,13 @@ class MonitoringContextProvider:
         short_exposure = 0.0
 
         for pos in futures_positions:
-            contracts = float(pos.get("number_of_contracts") or pos.get("contracts") or 0)
-            current_price = float(pos.get("current_price") or 0)
+            contracts = pos.get("contracts", 0)
+            current_price = pos.get("current_price", 0)
             side = pos.get("side", "LONG")
 
             notional = abs(contracts * current_price)
             total_exposure += notional
-            unrealized_pnl += float(pos.get("unrealized_pnl") or 0)
+            unrealized_pnl += pos.get("unrealized_pnl", 0)
 
             if side == "LONG":
                 long_exposure += notional
@@ -396,8 +383,8 @@ class MonitoringContextProvider:
         # Calculate position sizes as % of portfolio
         position_sizes = []
         for pos in futures_positions:
-            contracts = abs(float(pos.get("number_of_contracts") or pos.get("contracts") or 0))
-            current_price = float(pos.get("current_price") or 0)
+            contracts = abs(pos.get("contracts", 0))
+            current_price = pos.get("current_price", 0)
             notional = contracts * current_price
             pct = (notional / total_value) * 100
             position_sizes.append(pct)
@@ -677,34 +664,21 @@ class MonitoringContextProvider:
         if not context.get("has_monitoring_data"):
             return "\nNo active trading positions currently.\n"
 
-        active_pos = context.get("active_positions", {})
-        futures = active_pos.get("futures", [])
-        slots_available = context.get("slots_available", None)
-
         lines = ["\n=== LIVE TRADING CONTEXT ==="]
 
-        # POSITION AWARENESS DIRECTIVES — injected first to avoid lost-in-the-middle
-        if futures:
-            directive_lines = [
-                "\nPOSITION AWARENESS DIRECTIVES:",
-                "- You currently hold the above position(s). A HOLD decision maintains the existing position. A SELL decision closes it. A BUY decision adds a NEW position.",
-                "- If slots_available = 0: do NOT recommend BUY. The portfolio is at maximum capacity. Instead, focus on managing or optimizing existing positions.",
-                "- If unrealized P&L is negative and trend is bearish: factor the existing loss into your confidence. A weak bullish signal is insufficient to justify adding risk or maintaining high confidence in HOLD.",
-                "- If unrealized P&L is positive: factor the unrealized gain. Consider SELL to lock in profit if there is a strong bearish reversal, otherwise evaluate HOLD to maximize gains during an ongoing bullish trend.",
-                "- Your confidence score should reflect BOTH the market signal AND the current position risk. High leverage + negative P&L should reduce confidence in HOLD.",
-            ]
-            lines.extend(directive_lines)
-
         # Active positions summary
+        active_pos = context.get("active_positions", {})
+        futures = active_pos.get("futures", [])
+
         if futures:
             lines.append(f"\nActive Positions: {len(futures)}")
             for pos in futures:
                 side = pos.get("side", "UNKNOWN")
                 product = pos.get("product_id", "N/A")
-                contracts = float(pos.get("number_of_contracts") or pos.get("contracts") or 0)
-                entry = float(pos.get("entry_price") or pos.get("avg_entry_price") or 0)
-                current = float(pos.get("current_price") or 0)
-                pnl = float(pos.get("unrealized_pnl") or 0)
+                contracts = pos.get("contracts", 0)
+                entry = pos.get("entry_price", 0)
+                current = pos.get("current_price", 0)
+                pnl = pos.get("unrealized_pnl", 0)
 
                 pnl_sign = "+" if pnl >= 0 else ""
                 lines.append(
@@ -773,30 +747,3 @@ class MonitoringContextProvider:
                 lines.append(pulse_text)
 
         return "\n".join(lines)
-
-def enforce_slot_constraints(
-    decision: dict,
-    monitoring_context: dict | None,
-) -> dict:
-    """
-    Hard code enforcement: override BUY to HOLD when slots_available == 0.
-
-    This is a deterministic safety gate — the LLM prompt informs, this enforces.
-    Returns the (possibly modified) decision dict.
-    """
-    if not monitoring_context:
-        return decision
-
-    slots = monitoring_context.get("slots_available")
-    if slots is None:
-        return decision
-
-    if decision.get("action") == "BUY" and slots <= 0:
-        return {
-            **decision,
-            "action": "HOLD",
-            "override_reason": f"slots_available={slots}: portfolio at max capacity, BUY overridden to HOLD",
-            "quality_flag": "max_capacity_override",
-        }
-
-    return decision

@@ -742,55 +742,36 @@ A balanced trader goes LONG in bull conditions and SHORT in bear conditions.
             pnl_sign = "+" if position_state["unrealized_pnl"] >= 0 else ""
 
             position_state_section = f"""
-=== POSITION STATE SYSTEM ===
-[CURRENT_STATE] ::= {position_state["state"]}
-[ASSET] ::= {asset_pair}
-[SIDE] ::= {position_state["side"]}
-[CONTRACTS] ::= {position_state["contracts"]:.4f}
-[ENTRY_PRICE] ::= ${position_state["entry_price"]:.2f}
-[UNREALIZED_PNL] ::= {pnl_sign}${position_state["unrealized_pnl"]:.2f}
+=== ⚠️ YOUR CURRENT POSITION STATE ⚠️ ===
+Status: {state_emoji} {position_state["state"]} position in {asset_pair}
+Side: {position_state["side"]}
+Contracts: {position_state["contracts"]:.4f}
+Entry Price: ${position_state["entry_price"]:.2f}
+Unrealized P&L: {pnl_sign}${position_state["unrealized_pnl"]:.2f}
 
-=== STATE TRANSITION RULES ===
-[ALLOWED_ACTIONS] ::= {position_state["allowed_signals"]}
+⚠️ CRITICAL CONSTRAINT: You currently have a {position_state["state"]} position.
+Allowed signals ONLY: {", ".join(position_state["allowed_signals"])}
 
-IF [CURRENT_STATE] == "LONG":
-    [SIGNAL_MEANINGS] ::=
-        SELL → **CLOSES LONG position** (exit to book profit/cut loss)
-        HOLD → Maintains LONG position
-        BUY  → **REJECTED** (cannot add to existing LONG)
+If you recommend a PROHIBITED signal, your decision will be AUTOMATICALLY REJECTED.
 
-ELIF [CURRENT_STATE] == "SHORT":
-    [SIGNAL_MEANINGS] ::=
-        BUY  → **CLOSES SHORT position** (exit to book profit/cut loss)
-        HOLD → Maintains SHORT position
-        SELL → **REJECTED** (cannot add to existing SHORT)
-
-=== CRITICAL CONSTRAINTS ===
-1. You MUST recommend ONLY actions from [ALLOWED_ACTIONS]
-2. Prohibited actions will be AUTOMATICALLY REJECTED
-3. When LONG and bearish: recommend SELL to close position
-4. When SHORT and bullish: recommend BUY to close position
+SIGNAL INTERPRETATION WITH POSITION:
+- If you recommend BUY: This will CLOSE your LONG position (if LONG) or violate constraints (if SHORT)
+- If you recommend SELL: This will CLOSE your SHORT position (if SHORT) or violate constraints (if LONG)
+- If you recommend HOLD: Maintains current position
 
 """
         else:
             position_state_section = f"""
-=== POSITION STATE SYSTEM ===
-[CURRENT_STATE] ::= FLAT
-[ASSET] ::= {asset_pair}
-[ALLOWED_ACTIONS] ::= ["BUY", "SELL", "HOLD"]
+=== YOUR CURRENT POSITION STATE ===
+Status: 📊 FLAT (no active position in {asset_pair})
+Allowed signals: BUY (open LONG), SELL (open SHORT), HOLD
 
-=== STATE TRANSITION RULES ===
-IF [CURRENT_STATE] == "FLAT":
-    [SIGNAL_MEANINGS] ::=
-        BUY  → Opens LONG position (profit when price rises)
-        SELL → Opens SHORT position (profit when price falls)  
-        HOLD → Remains FLAT, no position
+You can freely open either a LONG or SHORT position based on your analysis.
 
-=== CRITICAL CONSTRAINTS ===
-1. You MUST recommend ONLY actions from [ALLOWED_ACTIONS]
-2. Trading BOTH directions is REQUIRED for profitability
-3. When bearish signals appear: recommend SELL to open SHORT
-4. When bullish signals appear: recommend BUY to open LONG
+SIGNAL INTERPRETATION WHEN FLAT:
+- BUY signal → Opens LONG position (profit when price rises)
+- SELL signal → Opens SHORT position (profit when price falls)
+- HOLD signal → Remain flat, no position
 
 """
 
@@ -1768,8 +1749,6 @@ Format response as a structured technical analysis demonstration.
         )
 
         # Delegating to the decision validator
-        logger.critical("🔍 ENGINE_CONTEXT_BEFORE_VALIDATOR: balance=%s, balance_snapshot=%s, keys=%s", 
-                       context.get("balance"), context.get("balance_snapshot"), list(context.keys()))
         decision = self.validator.create_decision(
             asset_pair=asset_pair,
             context=context,

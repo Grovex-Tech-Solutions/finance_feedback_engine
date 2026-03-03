@@ -1,6 +1,5 @@
 """FastAPI application with lifespan management for Finance Feedback Engine."""
 
-import asyncio
 import logging
 import os
 
@@ -151,17 +150,6 @@ async def lifespan(app: FastAPI):
                 logger.info("✅ Telegram bot initialized and ready for webhooks")
             else:
                 logger.warning("⚠️  Telegram bot initialization failed")
-
-        # Auto-start bot in autonomous mode if configured
-        autonomous_cfg = config.get("agent", {}).get("autonomous_execution", False)
-        if autonomous_cfg:
-            try:
-                from .bot_control import _enqueue_or_start_agent, AgentControlRequest
-                req = AgentControlRequest(autonomous=True)
-                asyncio.create_task(_enqueue_or_start_agent(req, engine))
-                logger.info("Bot auto-started in autonomous mode")
-            except Exception as e:
-                logger.warning(f"Auto-start failed - manual start required: {e}")
 
         yield  # Application runs here
 

@@ -192,20 +192,12 @@ class DecisionValidator:
             "portfolio_stop_loss_percentage": self.portfolio_stop_loss_percentage,
             "portfolio_take_profit_percentage": self.portfolio_take_profit_percentage,
             "market_data": context["market_data"],
-            "balance_snapshot": context.get("balance_snapshot", context.get("balance", {})),
+            "balance_snapshot": context["balance"],
             "price_change": context["price_change"],
             "volatility": context["volatility"],
-            # Surface portfolio unrealized P&L — prefer futures P&L from monitoring_context
-            # over portfolio.unrealized_pnl which only reflects Oanda/spot
-            "portfolio_unrealized_pnl": (
-                (context.get("monitoring_context") or {})
-                .get("risk_metrics", {})
-                .get("unrealized_pnl")
-            ) or (context.get("portfolio", {}) or {}).get("unrealized_pnl"),
-            # Persist monitoring context and active positions so decisions are self-contained
-            "monitoring_context": context.get("monitoring_context"),
-            "active_positions": (
-                (context.get("monitoring_context") or {}).get("active_positions")
+            # Surface portfolio unrealized P&L if available from platform data
+            "portfolio_unrealized_pnl": (context.get("portfolio", {}) or {}).get(
+                "unrealized_pnl"
             ),
             "executed": False,
             # These would be set by the AIDecisionManager
@@ -236,12 +228,6 @@ class DecisionValidator:
         # Add meta_features if available (from stacking)
         if "meta_features" in ai_response:
             decision["meta_features"] = ai_response["meta_features"]
-
-        # Hard enforcement: override BUY to HOLD when portfolio is at max capacity
-        monitoring_ctx = context.get("monitoring_context")
-        if monitoring_ctx:
-            from ..monitoring.context_provider import enforce_slot_constraints
-            decision = enforce_slot_constraints(decision, monitoring_ctx)
 
         logger.info(
             "Decision created: %s %s (confidence: %s%%)",

@@ -67,7 +67,6 @@ class PositionSizingCalculator:
             - sizing_stop_loss_percentage: Stop loss percentage used
             - risk_percentage: Risk percentage used
         """
-        logger.critical("🔍 POSITION_SIZING_CALLED: relevant_balance=%s, balance_source=%s, action=%s", relevant_balance, balance_source, action)
         # Check if we have valid balance
         has_valid_balance = (
             relevant_balance
@@ -75,6 +74,9 @@ class PositionSizingCalculator:
             and sum(relevant_balance.values()) > 0
         )
         
+        # CRITICAL DEBUG: Log what we received
+        logger.critical("🎯 POSITION_SIZING INPUT: relevant_balance=%s, has_valid=%s, balance_source=%s, context_balance_snapshot=%s", relevant_balance, has_valid_balance, balance_source, context.get("balance_snapshot") if isinstance(context, dict) else None)
+
         # Debug logging for position sizing
         logger.debug(
             f"Position sizing inputs: relevant_balance={relevant_balance}, "
@@ -85,9 +87,13 @@ class PositionSizingCalculator:
         # Fallback: derive crypto balance from richer context when balance snapshot is missing/empty
         # (e.g., transient balance fetch issue while portfolio breakdown is still available).
         if (not has_valid_balance) and isinstance(context, dict):
+            logger.critical("🔄 ENTERING FALLBACK: has_valid_balance=False, context_type=%s", type(context).__name__)
+            logger.critical("🔄 ENTERING FALLBACK: has_valid_balance=False, context_type=%s", type(context).__name__)
             asset_pair = str(context.get("asset_pair", ""))
             market_type = str(context.get("market_data", {}).get("type", "")).lower()
             is_crypto_ctx = ("BTC" in asset_pair or "ETH" in asset_pair or market_type == "crypto")
+            logger.critical("🔄 FALLBACK CRYPTO CHECK: asset_pair=%s, market_type=%s, is_crypto=%s", asset_pair, market_type, is_crypto_ctx)
+            logger.critical("🔄 FALLBACK CRYPTO CHECK: asset_pair=%s, market_type=%s, is_crypto=%s", asset_pair, market_type, is_crypto_ctx)
             if is_crypto_ctx:
                 fallback_val = None
 
@@ -363,7 +369,19 @@ class PositionSizingCalculator:
 
             return result
 
-        # HOLD without position: no sizing needed (check BEFORE error logging)
+        # CASE 2: No valid balance - use minimum order size (no signal-only mode)
+        if str(balance_source).lower() in {"unknown", "combined"}:
+            logger.info(
+                "No valid %s balance - using minimum order size for trade execution",
+                balance_source,
+            )
+        else:
+            logger.warning(
+                "No valid %s balance - using minimum order size for trade execution",
+                balance_source,
+            )
+
+        # HOLD without position: no sizing needed
         if action == "HOLD" and not has_existing_position:
             logger.info("HOLD without existing position - no position sizing needed")
             result["recommended_position_size"] = 0

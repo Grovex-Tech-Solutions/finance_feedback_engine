@@ -11,6 +11,7 @@ Responsibilities:
 
 import logging
 from collections import defaultdict
+from math import sqrt
 from typing import Callable, Dict, List, Optional
 
 from .interfaces import IThompsonIntegrator
@@ -32,9 +33,15 @@ class ThompsonIntegrator(IThompsonIntegrator):
     - Provider weight recommendations
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        min_samples_for_adjustment: int = 10,
+        confidence_z_score: float = 1.96,
+    ):
         """Initialize ThompsonIntegrator."""
         self.callbacks: List[Callable] = []
+        self.min_samples_for_adjustment = int(min_samples_for_adjustment)
+        self.confidence_z_score = float(confidence_z_score)
 
         # Provider performance tracking
         self.provider_wins: Dict[str, int] = defaultdict(int)
@@ -45,6 +52,19 @@ class ThompsonIntegrator(IThompsonIntegrator):
         self.regime_losses: Dict[str, int] = defaultdict(int)
 
         logger.debug("ThompsonIntegrator initialized")
+
+    @staticmethod
+    def _wilson_lower_bound(wins: int, total: int, z: float) -> float:
+        """Compute Wilson score lower bound for a binomial proportion."""
+        if total <= 0:
+            return 0.0
+
+        p_hat = wins / total
+        z2 = z * z
+        denom = 1.0 + (z2 / total)
+        center = p_hat + (z2 / (2.0 * total))
+        margin = z * sqrt((p_hat * (1.0 - p_hat) + (z2 / (4.0 * total))) / total)
+        return max(0.0, (center - margin) / denom)
 
     def register_callback(self, callback: Callable) -> None:
         """
@@ -159,26 +179,38 @@ class ThompsonIntegrator(IThompsonIntegrator):
         if not all_providers:
             return {}
 
-        # Calculate win rates
-        win_rates = {}
+        # Calculate statistically conservative scores (Wilson lower bounds).
+        # Providers below minimum sample size are held at a neutral baseline.
+        scores: Dict[str, float] = {}
+        reliable_provider_count = 0
         for provider in all_providers:
             wins = self.provider_wins[provider]
             losses = self.provider_losses[provider]
             total = wins + losses
 
-            if total > 0:
-                win_rates[provider] = wins / total
+            if total >= self.min_samples_for_adjustment:
+                scores[provider] = self._wilson_lower_bound(
+                    wins=wins,
+                    total=total,
+                    z=self.confidence_z_score,
+                )
+                reliable_provider_count += 1
             else:
-                win_rates[provider] = 0.0
+                scores[provider] = 0.5
 
-        # Normalize to weights (simple approach)
-        total_win_rate = sum(win_rates.values())
+        # If none have enough data, keep neutral equal weights.
+        if reliable_provider_count == 0:
+            equal_weight = 1.0 / len(all_providers)
+            return {provider: equal_weight for provider in all_providers}
 
-        if total_win_rate > 0:
-            for provider, win_rate in win_rates.items():
-                recommendations[provider] = win_rate / total_win_rate
+        # Normalize to weights.
+        total_score = sum(scores.values())
+
+        if total_score > 0:
+            for provider, score in scores.items():
+                recommendations[provider] = score / total_score
         else:
-            # Equal weights if no data
+            # Equal weights if scores are degenerate.
             equal_weight = 1.0 / len(all_providers)
             for provider in all_providers:
                 recommendations[provider] = equal_weight

@@ -100,6 +100,13 @@ class UnifiedDataProvider:
         crypto_symbols = ["BTC", "ETH", "SOL", "DOGE", "ADA", "DOT", "LINK"]
         return any(symbol in pair for symbol in crypto_symbols)
 
+    def _is_cfm_product(self, asset_pair: str) -> bool:
+        """Check if asset pair is a Coinbase CFM product (e.g., BIP-20DEC30-CDE)."""
+        pair = asset_pair.upper()
+        # CFM products follow pattern like BIP-20DEC30-CDE, ETP-20DEC30-CDE
+        # Check for the known prefixes
+        return any(pair.startswith(prefix) for prefix in ["BIP", "ETP", "SLP", "XRP", "ADA", "DOT", "LINK"])
+
     def _is_forex(self, asset_pair: str) -> bool:
         """Check if asset pair is a fiat currency pair (forex).
 
@@ -224,6 +231,7 @@ class UnifiedDataProvider:
         # Determine provider priority based on asset type
         is_crypto = self._is_crypto(asset_pair)
         is_forex = self._is_forex(asset_pair)
+        is_cfm = self._is_cfm_product(asset_pair)
 
         providers = []
 
@@ -238,7 +246,12 @@ class UnifiedDataProvider:
         else:
             # Cascading fallback based on asset type
             # Note: Alpha Vantage doesn't support get_candles method, only get_market_data
-            if is_crypto:
+            
+            # CFM products (e.g., BIP-20DEC30-CDE) are Coinbase-only
+            if is_cfm:
+                if self.coinbase:
+                    providers.append(("coinbase", self.coinbase))
+            elif is_crypto:
                 # Crypto: Coinbase only (exchange real-time candles)
                 if self.coinbase:
                     providers.append(("coinbase", self.coinbase))

@@ -163,7 +163,11 @@ class OandaDataProvider:
                 self._fetch_candles_from_api, instrument, oanda_granularity, limit
             )
 
-            logger.info(f"Retrieved {len(candles)} candles for {instrument}")
+            if not candles:
+                logger.warning(f"Oanda API returned empty candle list for {instrument} {granularity}")
+                return []
+
+            logger.info(f"Retrieved {len(candles)} candles for {instrument} (granularity={oanda_granularity})")
             return candles
 
         except CircuitBreakerOpenError:

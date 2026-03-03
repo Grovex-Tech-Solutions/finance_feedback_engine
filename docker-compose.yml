@@ -1,347 +1,52 @@
 services:
-  # =============================================================================
-  # PostgreSQL - Primary Database Service
-  # =============================================================================
-  postgres:
-    image: postgres:16-alpine
-    container_name: ffe-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ffe_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      POSTGRES_DB: ${POSTGRES_DB:-ffe}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      # Persistent data directory
-      - postgres-data:/var/lib/postgresql/data
-      # Initialization scripts (run on first startup)
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-    networks:
-      - ffe-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ffe_user} -d ${POSTGRES_DB:-ffe}"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
-
-  # =============================================================================
-  # Ollama - Local LLM Service for Debate Mode (ESSENTIAL)
-  # =============================================================================
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ffe-ollama
-    restart: unless-stopped
-    ports:
-      - "${OLLAMA_PORT:-11434}:11434"
-    environment:
-      - OLLAMA_HOST=0.0.0.0:11434
-      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}  # Prevent concurrent model loads
-      - OLLAMA_NUM_GPU=${OLLAMA_NUM_GPU:--1}  # Auto-detect GPU
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    volumes:
-      # Persistent model storage
-      - ollama-data:/root/.ollama
-    networks:
-      - ffe-network
-    deploy:
-      resources:
-        limits:
-          # CRITICAL FIX: Prevent OOM kills
-          # Ollama llama3.2:3b-instruct-q4_0 uses ~6GB, cap at 12GB max
-          memory: ${OLLAMA_MEMORY_LIMIT:-12g}
-          cpus: ${OLLAMA_CPU_LIMIT:-4.0}
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${NVIDIA_COUNT:-1}  # 0 for CPU-only (dev)
-              capabilities: [gpu]
-          memory: 6g
-          cpus: '2.0'
-    # NOTE: Ollama doesn't include curl/wget by default.
-    # Instead, we rely on backend's initialization to verify connectivity.
-    # The container will start immediately; the backend waits for Ollama readiness.
-    profiles:
-      - ollama-container  # Use host Ollama by default, start with --profile ollama-container if needed
-
-  # =============================================================================
-  # Backend API Service - FastAPI + Uvicorn
-  # =============================================================================
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-      target: ${DOCKER_TARGET:-runtime}  # builder for dev, runtime for prod
-      network: host
-    container_name: ${BACKEND_CONTAINER:-ffe-backend}
-    image: finance-feedback-engine:latest
+      target: runtime
+    container_name: ffe-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
-    # network_mode: host  # Disabled on macOS (doesn't work with Docker Desktop)
-    ports:
-      - "8000:8000"
-    networks:
-      - ffe-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    network_mode: host
     env_file:
-      - ${ENV_FILE:-.env}
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
-      - MONITORING_ENABLED=${MONITORING_ENABLED:-true}
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - OLLAMA_HOST=${OLLAMA_HOST:-http://192.168.1.75:11434}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-ffe_user}:${POSTGRES_PASSWORD:-changeme}@ffe-postgres:5432/${POSTGRES_DB:-ffe}
-      - DB_POOL_SIZE=${DB_POOL_SIZE:-20}
-      - DB_POOL_OVERFLOW=${DB_POOL_OVERFLOW:-10}
-      - DB_POOL_RECYCLE=${DB_POOL_RECYCLE:-3600}
-      - DB_POOL_TIMEOUT=${DB_POOL_TIMEOUT:-30}
-    command: ${BACKEND_COMMAND:-uvicorn finance_feedback_engine.api.app:app --host 0.0.0.0 --port 8000}
+      - OLLAMA_HOST=http://127.0.0.1:11434
+    command: uvicorn finance_feedback_engine.api.app:app --host 0.0.0.0 --port 8000
     volumes:
-      # Data and logs (config pulled from environment)
       - ffe-data:/app/data
       - ffe-logs:/app/logs
-    # deploy:  # Disabled on Mac (no NVIDIA GPU)
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: ${NVIDIA_COUNT:-1}
-    #           capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    profiles:
-      - ${PROFILE:-}  # blank for always-on, 'dev' or 'test' if needed
 
-  # =============================================================================
-  # Trade Tracker - Position Close Detection (THR-221)
-  # =============================================================================
-  trade-tracker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: ${DOCKER_TARGET:-runtime}
-      network: host
-    container_name: ffe-trade-tracker
-    image: finance-feedback-engine:latest
-    restart: unless-stopped
-    networks:
-      - ffe-network
-    env_file:
-      - ${ENV_FILE:-.env}
-    environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-ffe_user}:${POSTGRES_PASSWORD:-changeme}@ffe-postgres:5432/${POSTGRES_DB:-ffe}
-    # Run trade tracker monitor script
-    command: /app/scripts/run_trade_tracker.sh
-    volumes:
-      - ffe-data:/app/data
-      - ffe-logs:/app/logs
-      - ./scripts:/app/scripts:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "test", "-f", "/app/data/open_positions_state.json"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  # =============================================================================
-  # Volatility Monitor - High-Frequency P&L Alerts (THR-210)
-  # =============================================================================
-  volatility-monitor:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: ${DOCKER_TARGET:-runtime}
-      network: host
-    container_name: ffe-volatility-monitor
-    image: finance-feedback-engine:latest
+  postgres:
+    image: postgres:16-alpine
+    container_name: ffe-postgres
     restart: unless-stopped
     network_mode: host
-    env_file:
-      - ${ENV_FILE:-.env}
     environment:
-      - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-ffe_user}:${POSTGRES_PASSWORD:-changeme}@localhost:5432/${POSTGRES_DB:-ffe}
-    # Run volatility monitor script
-    command: /app/scripts/run_volatility_monitor.sh
+      POSTGRES_USER: ffe_user
+      POSTGRES_PASSWORD: ffe_pass
+      POSTGRES_DB: ffe
     volumes:
-      - ffe-data:/app/data
-      - ffe-logs:/app/logs
-      - ./scripts:/app/scripts:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - ffe-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "test", "-f", "/app/data/volatility_alerts.json"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  # =============================================================================
-  # Frontend Service - React SPA + Nginx (Configurable for Dev/Prod)
-  # =============================================================================
-  frontend:
-    build:
-      context: ${FRONTEND_CONTEXT:-./frontend}
-      dockerfile: ${FRONTEND_DOCKERFILE:-Dockerfile}
-      network: host
-      args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
-        VITE_API_KEY: ${VITE_API_KEY:-}
-    container_name: ${FRONTEND_CONTAINER:-ffe-frontend}
-    image: finance-feedback-engine-frontend:latest
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/}
-      # Nginx environment variables for envsubst at runtime
-      - BACKEND_URL=${BACKEND_URL:-http://localhost:8000}
-      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
-      - GRAFANA_URL=${GRAFANA_URL:-http://grafana:3000}
-      - GZIP_LEVEL=${GZIP_LEVEL:-6}
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
-      - "${FRONTEND_HTTPS_PORT:-443}:443"
-    networks:
-      - ffe-network
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/healthz"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-
-  # =============================================================================
-  # Prometheus - Metrics Collection
-  # =============================================================================
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: ffe-prometheus
-    restart: unless-stopped
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=30d'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle'
-    ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
-    volumes:
-      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
-      - prometheus-data:/prometheus
-    networks:
-      - ffe-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      test: ["CMD-SHELL", "pg_isready -U ffe_user -d ffe"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 10s
 
-  # =============================================================================
-  # Grafana - Metrics Visualization
-  # =============================================================================
-  grafana:
-    image: grafana/grafana:latest
-    container_name: ffe-grafana
-    restart: unless-stopped
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_SERVER_ROOT_URL=http://localhost/grafana
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_SECURITY_ALLOW_EMBEDDING=true
-      - GF_INSTALL_PLUGINS=
-    ports:
-      - "${GRAFANA_PORT:-3001}:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    networks:
-      - ffe-network
-    depends_on:
-      prometheus:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  # =============================================================================
-  # Redis - Optional Caching Layer (use with --profile full)
-  # =============================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: ffe-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis-data:/data
-    networks:
-      - ffe-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    profiles:
-      - full  # Start with: docker-compose --profile full up
-
-# =============================================================================
-# Networks
-# =============================================================================
-networks:
-  ffe-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
-
-# =============================================================================
-# Volumes - Persistent Data Storage
-# =============================================================================
 volumes:
-  postgres-data:
-    driver: local
   ffe-data:
     driver: local
   ffe-logs:
     driver: local
-  ollama-data:
-    driver: local
-  prometheus-data:
-    driver: local
-  grafana-data:
-    driver: local
-  redis-data:
+  ffe-db:
     driver: local

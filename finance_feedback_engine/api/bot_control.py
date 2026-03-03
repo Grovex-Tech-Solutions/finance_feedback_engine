@@ -39,7 +39,7 @@ from ..core import FinanceFeedbackEngine
 from ..memory.portfolio_memory_adapter import PortfolioMemoryEngineAdapter
 from ..monitoring.trade_monitor import TradeMonitor
 from .unified_status import UnifiedAgentStatus, AgentStateMapper
-from .dependencies import get_auth_manager, get_engine
+from .dependencies import get_auth_manager, get_engine, verify_api_key_or_dev
 
 logger = logging.getLogger(__name__)
 
@@ -348,6 +348,7 @@ def _extract_bearer_from_websocket(websocket: WebSocket) -> tuple[Optional[str],
 async def start_agent(
     request: AgentControlRequest,
     background_tasks: BackgroundTasks,
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> AgentStatusResponse:
     """
@@ -396,6 +397,7 @@ async def start_agent(
 
 @bot_control_router.post("/stop")
 async def stop_agent(
+    _api_user: str = Depends(verify_api_key_or_dev),
 ) -> Dict[str, str]:
     """
     Stop the trading agent.
@@ -448,6 +450,7 @@ async def stop_agent(
 @bot_control_router.post("/emergency-stop")
 async def emergency_stop(
     close_positions: bool = True,
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> Dict[str, Any]:
     """
@@ -524,6 +527,7 @@ async def emergency_stop(
 
 @bot_control_router.post("/pause", response_model=AgentStatusResponse)
 async def pause_agent(
+    _api_user: str = Depends(verify_api_key_or_dev),
 ) -> AgentStatusResponse:
     """
     Pause the trading agent.
@@ -590,6 +594,7 @@ async def pause_agent(
 
 @bot_control_router.post("/resume", response_model=AgentStatusResponse)
 async def resume_agent(
+    _api_user: str = Depends(verify_api_key_or_dev),
 ) -> AgentStatusResponse:
     """
     Resume the trading agent.
@@ -715,27 +720,9 @@ async def _get_agent_status_internal(engine: FinanceFeedbackEngine) -> AgentStat
 
                 if isinstance(breakdown, dict):
                     portfolio_payload = breakdown
-                    # Count active positions from platform_breakdowns (handles Unified + single platforms)
-                    active_positions = 0
-                    
-                    # Check if this is UnifiedPlatform with platform_breakdowns
-                    platform_breakdowns = breakdown.get("platform_breakdowns", {})
-                    if platform_breakdowns:
-                        for platform_name, platform_data in platform_breakdowns.items():
-                            # Count futures positions
-                            futures_positions = platform_data.get("futures_positions", [])
-                            active_positions += len(futures_positions)
-                            
-                            # Count spot/forex positions with non-zero units
-                            positions = platform_data.get("positions", [])
-                            for pos in positions:
-                                units = pos.get("units", 0) or pos.get("long_units", 0) or pos.get("short_units", 0)
-                                if abs(float(units)) > 0.001:  # Non-zero position
-                                    active_positions += 1
-                    else:
-                        # Single platform: use top-level positions/futures_positions
-                        positions = breakdown.get("positions") or breakdown.get("futures_positions") or []
-                        active_positions = len(positions)
+                    # Prefer explicit positions list if available, else derive
+                    positions = breakdown.get("positions") or breakdown.get("futures_positions") or []
+                    active_positions = len(positions)
 
                     # Fallback: infer portfolio value from breakdown if balance lacks totals
                     if portfolio_value is None:
@@ -841,6 +828,7 @@ async def _get_agent_status_internal(engine: FinanceFeedbackEngine) -> AgentStat
 
 @bot_control_router.get("/status", response_model=AgentStatusResponse)
 async def get_agent_status(
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> AgentStatusResponse:
     """
@@ -905,6 +893,7 @@ async def _build_stream_payload(
 @bot_control_router.get("/stream")
 async def stream_agent_events(
     request: Request,
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> StreamingResponse:
     """Server-Sent Events stream for live agent status and dashboard events."""
@@ -1062,6 +1051,7 @@ async def agent_websocket(
 @bot_control_router.patch("/config")
 async def update_config(
     request: ConfigUpdateRequest,
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> Dict[str, Any]:
     """
@@ -1168,6 +1158,7 @@ async def update_config(
 @bot_control_router.post("/manual-trade")
 async def execute_manual_trade(
     request: ManualTradeRequest,
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> Dict[str, Any]:
     """
@@ -1228,6 +1219,7 @@ async def execute_manual_trade(
 
 @bot_control_router.get("/positions")
 async def get_open_positions(
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> Dict[str, Any]:
     """
@@ -1370,6 +1362,7 @@ async def get_open_positions(
 @bot_control_router.post("/positions/{position_id}/close")
 async def close_position(
     position_id: str,
+    _api_user: str = Depends(verify_api_key_or_dev),
     engine: FinanceFeedbackEngine = Depends(get_engine),
 ) -> Dict[str, Any]:
     """

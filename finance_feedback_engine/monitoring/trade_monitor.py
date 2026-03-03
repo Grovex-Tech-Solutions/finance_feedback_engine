@@ -98,9 +98,9 @@ class TradeMonitor:
         self.tracked_trade_ids: Set[str] = set()
         self.pending_queue: Queue[Dict[str, Any]] = Queue()
         self.closed_trades_queue: Queue[Dict[str, Any]] = Queue()  # For agent to consume
-        self.expected_trades: Dict[str, tuple[str, float, Optional[float], Optional[float]]] = (
+        self.expected_trades: Dict[str, tuple[str, float]] = (
             {}
-        )  # Maps asset_pair -> (decision_id, timestamp, stop_loss_price, take_profit_price)
+        )  # Maps asset_pair -> (decision_id, timestamp)
         self._expected_trades_lock = threading.Lock()
         self._credential_error_logged = False  # Suppress repeated credential warnings
         self._general_error_logged = False  # Suppress repeated general errors
@@ -424,20 +424,11 @@ class TradeMonitor:
 
                 standardized_key = standardize_asset_pair(product_id, separator="-")
                 with self._expected_trades_lock:
-                    expected_trade = self.expected_trades.pop(standardized_key, None)
-                decision_id = None
-                stop_loss_price = None
-                take_profit_price = None
-                if expected_trade:
-                    decision_id, _, stop_loss_price, take_profit_price = expected_trade
+                    decision_id = self.expected_trades.pop(standardized_key, None)
+                if decision_id:
                     logger.info(
                         f"Associated new trade {trade_id} with decision {decision_id}"
                     )
-
-                if stop_loss_price is not None:
-                    position["stop_loss_price"] = stop_loss_price
-                if take_profit_price is not None:
-                    position["take_profit_price"] = take_profit_price
 
                 # Queue for monitoring
                 self.pending_queue.put(
@@ -568,13 +559,7 @@ class TradeMonitor:
         # Remove from tracked set (allow retracking if reopened)
         self.tracked_trade_ids.discard(trade_id)
 
-    def associate_decision_to_trade(
-        self,
-        decision_id: str,
-        asset_pair: str,
-        stop_loss_price: Optional[float] = None,
-        take_profit_price: Optional[float] = None,
-    ):
+    def associate_decision_to_trade(self, decision_id: str, asset_pair: str):
         """
         Temporarily store an association between an asset and a decision ID.
         This helps the monitor link a newly detected trade to the decision that created it.
@@ -583,12 +568,7 @@ class TradeMonitor:
 
         standardized_pair = standardize_asset_pair(asset_pair)
         with self._expected_trades_lock:
-            self.expected_trades[standardized_pair] = (
-                decision_id,
-                time.time(),
-                stop_loss_price,
-                take_profit_price,
-            )
+            self.expected_trades[standardized_pair] = (decision_id, time.time())
         logger.info(
             f"Expecting new trade for {standardized_pair} from decision {decision_id}"
         )
@@ -601,7 +581,7 @@ class TradeMonitor:
         with self._expected_trades_lock:
             stale_keys = [
                 key
-                for key, (_, timestamp, _, _) in self.expected_trades.items()
+                for key, (decision_id, timestamp) in self.expected_trades.items()
                 if current_time - timestamp > max_age_seconds
             ]
             for key in stale_keys:

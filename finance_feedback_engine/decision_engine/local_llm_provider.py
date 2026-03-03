@@ -634,7 +634,7 @@ class LocalLLMProvider:
                     f"attempting text parsing: {response_text[:100]}"
                 )
                 self._unload_model()
-                return self._parse_text_response(response_text, active_model)
+                return self._parse_text_response(response_text)
 
             except Exception as e:
                 logger.error(f"Local LLM error on attempt {attempt + 1}: {e}")
@@ -656,7 +656,7 @@ class LocalLLMProvider:
             "Local LLM failed after all retries, using fallback decision."
         )
 
-    def _parse_text_response(self, text: str, active_model: str) -> Dict[str, Any]:
+    def _parse_text_response(self, text: str) -> Dict[str, Any]:
         """Parse text response for trading decision."""
         text_upper = text.upper()
 
@@ -685,6 +685,7 @@ class LocalLLMProvider:
             "confidence": confidence,
             "reasoning": reasoning,
             "amount": amount,
+            "model_name": active_model,  # Include actual model used
         }
 
     def get_model_info(self) -> Dict[str, Any]:

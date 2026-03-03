@@ -856,7 +856,7 @@ class TradingLoopAgent:
         Emits recovery_complete or recovery_failed events with detailed metadata.
         Sets _startup_complete event and transitions to LEARNING state.
         """
-        import hashlib
+        try:
         import uuid as uuid_module
 
         from finance_feedback_engine.memory.portfolio_memory import TradeOutcome
@@ -865,7 +865,7 @@ class TradingLoopAgent:
         logger.info("State: RECOVERING - Checking for existing positions...")
 
         max_retries = 1  # Single retry on transient failures
-        max_positions = 10  # Keep all existing positions on recovery (bot only closes what it opened)
+        max_positions = 2  # Maximum concurrent positions allowed
 
         for attempt in range(max_retries + 1):
             try:
@@ -886,10 +886,10 @@ class TradingLoopAgent:
                                     "platform": platform_name,
                                     "product_id": pos.get("product_id") or pos.get("instrument"),
                                     "side": pos.get("side", "LONG"),
-                                    "size": abs(float(pos.get("number_of_contracts") or pos.get("contracts") or pos.get("units") or 0)),
-                                    "entry_price": float(pos.get("avg_entry_price") or pos.get("entry_price") or 0),
-                                    "current_price": float(pos.get("current_price") or 0),
-                                    "unrealized_pnl": float(pos.get("unrealized_pnl") or 0),
+                                    "size": abs(float(pos.get("contracts", 0) or pos.get("units", 0))),
+                                    "entry_price": float(pos.get("entry_price", 0)),
+                                    "current_price": float(pos.get("current_price", 0)),
+                                    "unrealized_pnl": float(pos.get("unrealized_pnl", 0)),
                                     "opened_at": pos.get("opened_at"),
                                 })
                         # Oanda positions
@@ -900,8 +900,8 @@ class TradingLoopAgent:
                                     "product_id": pos.get("instrument"),
                                     "side": "LONG" if float(pos.get("units", 0)) > 0 else "SHORT",
                                     "size": abs(float(pos.get("units", 0))),
-                                    "entry_price": float(pos.get("avg_entry_price") or pos.get("entry_price") or 0),
-                                    "current_price": float(pos.get("current_price") or 0),
+                                    "entry_price": float(pos.get("entry_price", 0)),
+                                    "current_price": float(pos.get("current_price", 0)),
                                     "unrealized_pnl": float(pos.get("pnl", 0)),
                                     "opened_at": pos.get("opened_at"),
                                 })
@@ -912,10 +912,10 @@ class TradingLoopAgent:
                             "platform": "coinbase",
                             "product_id": pos.get("product_id") or pos.get("instrument"),
                             "side": pos.get("side", "LONG"),
-                            "size": abs(float(pos.get("number_of_contracts") or pos.get("contracts") or pos.get("units") or 0)),
-                            "entry_price": float(pos.get("avg_entry_price") or pos.get("entry_price") or 0),
-                            "current_price": float(pos.get("current_price") or 0),
-                            "unrealized_pnl": float(pos.get("unrealized_pnl") or 0),
+                            "size": abs(float(pos.get("contracts", 0) or pos.get("units", 0))),
+                            "entry_price": float(pos.get("entry_price", 0)),
+                            "current_price": float(pos.get("current_price", 0)),
+                            "unrealized_pnl": float(pos.get("unrealized_pnl", 0)),
                             "opened_at": pos.get("opened_at"),
                         })
                 elif "positions" in portfolio:
@@ -925,8 +925,8 @@ class TradingLoopAgent:
                             "product_id": pos.get("instrument"),
                             "side": "LONG" if float(pos.get("units", 0)) > 0 else "SHORT",
                             "size": abs(float(pos.get("units", 0))),
-                            "entry_price": float(pos.get("avg_entry_price") or pos.get("entry_price") or 0),
-                            "current_price": float(pos.get("current_price") or 0),
+                            "entry_price": float(pos.get("entry_price", 0)),
+                            "current_price": float(pos.get("current_price", 0)),
                             "unrealized_pnl": float(pos.get("pnl", 0)),
                             "opened_at": pos.get("opened_at"),
                         })
@@ -943,8 +943,8 @@ class TradingLoopAgent:
                         "closed_excess": [],
                         "timestamp": time.time(),
                     })
-                    await self._transition_to(AgentState.PERCEPTION)
                     self._startup_complete.set()
+                    await self._transition_to(AgentState.PERCEPTION)
                     return
 
                 # Sort by unrealized P&L (descending) and keep top 2
@@ -988,8 +988,8 @@ class TradingLoopAgent:
                                 }],
                                 "timestamp": time.time(),
                             })
-                            await self._transition_to(AgentState.PERCEPTION)
                             self._startup_complete.set()
+                            await self._transition_to(AgentState.PERCEPTION)
                             return
 
                 # Normalize and validate kept positions
@@ -1017,8 +1017,6 @@ class TradingLoopAgent:
                             "confidence": 75,  # Default confidence for recovered positions
                             "recommended_position_size": pos["size"],
                             "entry_price": entry_price,
-                            "stop_loss_price": stop_loss_price,
-                            "take_profit_price": take_profit_price,
                             "stop_loss_pct": 0.02,
                             "take_profit_pct": 0.05,
                             "reasoning": f"Recovered existing {pos['side']} position from {pos['platform']} platform",
@@ -1062,12 +1060,7 @@ class TradingLoopAgent:
                         self.portfolio_memory.trade_outcomes.append(outcome)
 
                         # Associate with trade monitor
-                        self.trade_monitor.associate_decision_to_trade(
-                            decision_id=decision_id,
-                            asset_pair=asset_pair,
-                            stop_loss_price=stop_loss_price,
-                            take_profit_price=take_profit_price,
-                        )
+                        self.trade_monitor.associate_decision_to_trade(decision_id, asset_pair)
 
                         normalized_positions.append({
                             "decision_id": decision_id,
@@ -1095,8 +1088,8 @@ class TradingLoopAgent:
                         "failed_positions": validation_errors,
                         "timestamp": time.time(),
                     })
-                    await self._transition_to(AgentState.PERCEPTION)
                     self._startup_complete.set()
+                    await self._transition_to(AgentState.PERCEPTION)
                     return
 
                 # Recovery successful!
@@ -1115,8 +1108,8 @@ class TradingLoopAgent:
                     "timestamp": time.time(),
                 })
 
-                await self._transition_to(AgentState.PERCEPTION)
                 self._startup_complete.set()
+                await self._transition_to(AgentState.PERCEPTION)
                 return
 
             except Exception as e:
@@ -1133,8 +1126,8 @@ class TradingLoopAgent:
                         "error": str(e),
                         "timestamp": time.time(),
                     })
-                    await self._transition_to(AgentState.PERCEPTION)
                     self._startup_complete.set()
+                    await self._transition_to(AgentState.PERCEPTION)
                     return
 
     async def handle_recovering_state(self) -> None:
@@ -1143,7 +1136,19 @@ class TradingLoopAgent:
 
         Delegates to _recover_existing_positions() for the actual recovery logic.
         """
-        await self._recover_existing_positions()
+        try:
+            await self._recover_existing_positions()
+        except Exception as e:
+            logger.exception(f"Unexpected error during recovery state: {e}")
+            self._emit_dashboard_event({
+                "type": "recovery_failed",
+                "reason": "unexpected_exception_in_state",
+                "error": str(e),
+                "timestamp": time.time(),
+            })
+            self._startup_complete.set()
+            await self._transition_to(AgentState.PERCEPTION)
+
 
     async def handle_perception_state(self) -> None:
         """PERCEPTION: Fetching market data, portfolio state, and performing safety checks."""
@@ -1441,12 +1446,6 @@ class TradingLoopAgent:
                 self.analysis_failures.pop(key, None)
                 self.analysis_failure_timestamps.pop(key, None)
 
-        # Weekend guard: skip forex pairs when markets are closed (Sat/Sun UTC)
-        import datetime as _dt
-        _now_utc = _dt.datetime.now(_dt.timezone.utc)
-        _is_weekend = _now_utc.weekday() >= 5  # 5=Saturday, 6=Sunday
-        FOREX_PAIRS = {"EURUSD", "GBPUSD", "EUR_USD", "GBP_USD", "EUR/USD", "GBP/USD"}
-
         pairs_to_analyze: list[tuple[int, str]] = []
         for idx, asset_pair in enumerate(asset_pairs_snapshot):
             if limit_reached and len(pairs_to_analyze) >= 1:
@@ -1454,11 +1453,6 @@ class TradingLoopAgent:
                     "Daily trade limit reached; skipping analysis for remaining pairs."
                 )
                 break
-
-            # Skip forex pairs on weekends (markets closed, data stale)
-            if _is_weekend and asset_pair.replace("-", "").replace("/", "").replace("_", "").upper() in FOREX_PAIRS:
-                logger.info("Weekend: skipping forex pair %s (market closed)", asset_pair)
-                continue
 
             failure_key = f"analysis:{asset_pair}"
 
