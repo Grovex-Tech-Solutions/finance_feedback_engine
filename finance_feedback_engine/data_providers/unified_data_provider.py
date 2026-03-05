@@ -210,7 +210,8 @@ class UnifiedDataProvider:
 
         Args:
             asset_pair: Asset pair (e.g., 'BTCUSD', 'EURUSD')
-            granularity: Timeframe ('1m', '5m', '15m', '1h', '4h', '1d')
+            granularity: Timeframe ('1m', '5m', '15m', '1h', '4h', '6h', '1d')
+                Note: For Coinbase, 4h is mapped to 6h (Coinbase doesn't support 4h)
             limit: Number of candles to fetch
             force_provider: Force specific provider ('alpha_vantage', 'coinbase', 'oanda')
 
@@ -330,7 +331,8 @@ class UnifiedDataProvider:
 
         Args:
             asset_pair: Asset pair
-            timeframes: List of timeframes (default: ['1m', '5m', '15m', '1h', '4h', '1d'])
+            timeframes: List of timeframes (default: ['1m', '5m', '15m', '1h', '4h', '6h', '1d'])
+                Note: For Coinbase provider, 4h is mapped to 6h
 
         Returns:
             Dictionary mapping timeframe to (candles, provider_name)
@@ -358,7 +360,8 @@ class UnifiedDataProvider:
 
         Args:
             asset_pair: Asset pair (e.g., "BTCUSD")
-            timeframes: List of timeframes (default: ['1m','5m','15m','1h','4h','1d'])
+            timeframes: List of timeframes (default: ['1m','5m','15m','1h','4h','6h','1d'])
+                Note: For Coinbase provider, 4h is mapped to 6h
 
         Returns:
             {
