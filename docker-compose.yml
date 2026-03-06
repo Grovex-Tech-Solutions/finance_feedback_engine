@@ -15,10 +15,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - OLLAMA_HOST=http://127.0.0.1:11434
-    command: uvicorn finance_feedback_engine.api.app:app --host 0.0.0.0 --port 8000
+      - FFE_ASSET_PAIRS=BTC-USD-PERP,ETH-USD-PERP,EURUSD,GBPUSD
+    command: ["/app/start-with-agent.sh"]
     volumes:
       - ffe-data:/app/data
       - ffe-logs:/app/logs
+      - ./start-with-agent.sh:/app/start-with-agent.sh:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
