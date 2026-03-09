@@ -715,6 +715,16 @@ class FinanceFeedbackEngine:
 
         return (is_ready, errors)
 
+    def get_portfolio_breakdown(self) -> Dict[str, Any]:
+        """Sync portfolio breakdown proxy to trading platform."""
+        if not self.trading_platform:
+            raise AttributeError("Trading platform is not initialized")
+        if hasattr(self.trading_platform, "get_portfolio_breakdown"):
+            return self.trading_platform.get_portfolio_breakdown()
+        raise AttributeError(
+            f"{type(self.trading_platform).__name__} does not implement portfolio breakdown"
+        )
+
     async def get_portfolio_breakdown_async(self) -> Dict[str, Any]:
         """Async portfolio breakdown proxy with safe fallback.
 

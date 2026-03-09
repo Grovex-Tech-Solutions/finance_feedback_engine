@@ -42,3 +42,19 @@ def test_core_portfolio_breakdown_async_delegates_to_platform_async():
         engine.trading_platform = _P()
         out = asyncio.run(engine.get_portfolio_breakdown_async())
         assert out['total_value_usd'] == 123.0
+
+
+
+def test_core_portfolio_breakdown_sync_proxy():
+    from unittest.mock import patch
+    from finance_feedback_engine.core import FinanceFeedbackEngine
+
+    class _P:
+        def get_portfolio_breakdown(self):
+            return {'num_assets': 2}
+
+    with patch.object(FinanceFeedbackEngine, '__init__', lambda self, config: None):
+        engine = FinanceFeedbackEngine({})
+        engine.trading_platform = _P()
+        out = engine.get_portfolio_breakdown()
+        assert out['num_assets'] == 2
