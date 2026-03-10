@@ -125,8 +125,14 @@ class MonitoringContextProvider:
             - risk_metrics: Exposure and risk analysis
             - position_concentration: Asset allocation breakdown
         """
+        context_timestamp = datetime.now(UTC).isoformat()
         context = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": context_timestamp,
+            "latest_market_data_timestamp": context_timestamp,
+            "market_data_timestamp": context_timestamp,
+            "asset_type": "crypto",
+            "timeframe": "intraday",
+            "market_status": None,
             "has_monitoring_data": False,
             "active_positions": {"futures": []},
             "active_trades_count": 0,
@@ -274,6 +280,13 @@ class MonitoringContextProvider:
                 pulse = self.trade_monitor.get_latest_market_context(asset_pair)
                 if pulse:
                     context["multi_timeframe_pulse"] = pulse
+                    pulse_timestamp = pulse.get("latest_market_data_timestamp") or pulse.get("market_data_timestamp")
+                    if pulse_timestamp:
+                        context["latest_market_data_timestamp"] = pulse_timestamp
+                        context["market_data_timestamp"] = pulse_timestamp
+                    context["asset_type"] = pulse.get("asset_type", context["asset_type"])
+                    context["timeframe"] = pulse.get("timeframe", context["timeframe"])
+                    context["market_status"] = pulse.get("market_status", context["market_status"])
                     context["has_monitoring_data"] = True
                     logger.debug(
                         f"Fetched multi-timeframe pulse for {asset_pair}: "

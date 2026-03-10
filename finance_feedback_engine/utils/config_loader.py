@@ -170,15 +170,99 @@ def _restore_base_precedence(base_config: Dict[str, Any], merged: Dict[str, Any]
     if not _has_env_prefix("DECISION_ENGINE_") and isinstance(base_config.get("decision_engine"), dict):
         merged["decision_engine"] = base_config.get("decision_engine")
 
-    if not _has_env_prefix("ENSEMBLE_") and isinstance(base_config.get("ensemble"), dict):
-        merged["ensemble"] = base_config.get("ensemble")
+    if isinstance(base_config.get("ensemble"), dict):
+        base_ensemble = base_config.get("ensemble", {})
+        merged.setdefault("ensemble", {})
+
+        if not _has_env_prefix("ENSEMBLE_"):
+            merged["ensemble"] = base_ensemble
+        else:
+            if not _has_any_env("ENSEMBLE_ENABLED_PROVIDERS") and "enabled_providers" in base_ensemble:
+                merged["ensemble"]["enabled_providers"] = base_ensemble.get("enabled_providers")
+            if not _has_env_prefix("ENSEMBLE_PROVIDER_WEIGHT_") and "provider_weights" in base_ensemble:
+                merged["ensemble"]["provider_weights"] = base_ensemble.get("provider_weights")
+
+            merged_weights = merged.get("ensemble", {}).get("provider_weights")
+            base_weights = base_ensemble.get("provider_weights")
+            merged_enabled = merged.get("ensemble", {}).get("enabled_providers") or []
+            if (
+                not _has_any_env("ENSEMBLE_ENABLED_PROVIDERS")
+                and isinstance(base_weights, dict)
+                and isinstance(merged_weights, dict)
+                and merged_enabled
+                and not set(merged_enabled).issubset(set(merged_weights.keys()))
+            ):
+                merged["ensemble"]["provider_weights"] = base_weights
+
+            merged_debate = merged.get("ensemble", {}).get("debate_providers")
+            base_debate = base_ensemble.get("debate_providers")
+            if (
+                not _has_any_env("ENSEMBLE_ENABLED_PROVIDERS")
+                and isinstance(base_debate, dict)
+                and isinstance(merged_debate, dict)
+                and merged_enabled
+            ):
+                merged_debate_values = [provider for provider in merged_debate.values() if provider]
+                if not set(merged_debate_values).issubset(set(merged_enabled)):
+                    merged["ensemble"]["debate_providers"] = base_debate
 
     return merged
+
+
+def _normalize_ensemble_config(config: Dict[str, Any]) -> None:
+    ensemble_cfg = config.get("ensemble")
+    if not isinstance(ensemble_cfg, dict):
+        return
+
+    enabled_providers = [
+        str(provider).strip()
+        for provider in (ensemble_cfg.get("enabled_providers") or [])
+        if str(provider).strip()
+    ]
+    if enabled_providers:
+        ensemble_cfg["enabled_providers"] = enabled_providers
+
+    weights = ensemble_cfg.get("provider_weights")
+    if not isinstance(weights, dict):
+        return
+
+    aligned_weights: Dict[str, float] = {}
+    provider_order = enabled_providers or list(weights.keys())
+    for provider in provider_order:
+        if provider not in weights:
+            continue
+        try:
+            aligned_weights[provider] = float(weights[provider])
+        except (TypeError, ValueError):
+            logger.warning("Ignoring non-numeric ensemble weight for %s", provider)
+
+    if enabled_providers and len(aligned_weights) != len(enabled_providers):
+        missing = [provider for provider in enabled_providers if provider not in aligned_weights]
+        if missing:
+            logger.warning(
+                "Ensemble provider_weights missing entries for enabled providers %s; using equal weights",
+                missing,
+            )
+            equal_weight = 1.0 / len(enabled_providers)
+            aligned_weights = {provider: equal_weight for provider in enabled_providers}
+
+    total_weight = sum(aligned_weights.values())
+    if aligned_weights and total_weight > 0 and not (0.99 <= total_weight <= 1.01):
+        logger.info(
+            "Normalizing ensemble provider_weights after config merge (sum=%.4f, providers=%s)",
+            total_weight,
+            list(aligned_weights.keys()),
+        )
+        aligned_weights = {provider: value / total_weight for provider, value in aligned_weights.items()}
+
+    if aligned_weights:
+        ensemble_cfg["provider_weights"] = aligned_weights
 
 
 def _normalize_runtime_config(config: Dict[str, Any]) -> Dict[str, Any]:
     _normalize_platform_config(config)
     _normalize_asset_pairs(config)
+    _normalize_ensemble_config(config)
     return config
 
 
