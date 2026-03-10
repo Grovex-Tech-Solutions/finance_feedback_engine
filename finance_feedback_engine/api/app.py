@@ -13,10 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ..auth import AuthManager
 from ..core import FinanceFeedbackEngine
+from ..deployment.logger import setup_logger
 from ..utils.config_loader import load_tiered_config as _load_tiered_config
 from .state import app_state
 
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
+setup_logger(None)
 
 
 def load_tiered_config() -> dict:

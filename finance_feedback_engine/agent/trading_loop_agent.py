@@ -1799,8 +1799,24 @@ class TradingLoopAgent:
                         reason_msg,
                     )
             elif decision:
+                try:
+                    decision["executed"] = False
+                    decision["execution_status"] = "hold"
+                    decision["execution_result"] = {
+                        "success": True,
+                        "reason_code": "HOLD",
+                        "message": "Hold decision - maintain current position",
+                    }
+                    if getattr(self.engine, "decision_store", None):
+                        self.engine.decision_store.save_decision(decision)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to persist HOLD decision for %s: %s",
+                        decision.get("asset_pair"),
+                        e,
+                    )
                 logger.info(
-                    "Decision for %s: HOLD. No action taken.",
+                    "Decision for %s: HOLD persisted. No action taken.",
                     decision.get("asset_pair"),
                 )
 
@@ -2774,7 +2790,10 @@ class TradingLoopAgent:
                 "error": reason,
             }
             if getattr(self.engine, "decision_store", None):
-                self.engine.decision_store.update_decision(decision)
+                if decision.get("id"):
+                    self.engine.decision_store.update_decision(decision)
+                else:
+                    self.engine.decision_store.save_decision(decision)
         except Exception as e:
             logger.warning("Failed to persist non-execution reason for %s: %s", decision.get("id"), e)
 
