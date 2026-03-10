@@ -999,46 +999,70 @@ class TradingLoopAgent:
                     try:
                         asset_pair = standardize_asset_pair(pos["product_id"])
 
-                        # Generate standard UUID for decision
-                        decision_id = str(uuid_module.uuid4())
-
-                        # Calculate stop-loss/take-profit using risk rules (2% stop, 5% target)
+                        # Generate stable recovery metadata first so repeated startups
+                        # can reuse the same synthetic decision instead of spamming history.
                         entry_price = pos["entry_price"]
-                        stop_loss_price = entry_price * (1 - 0.02) if pos["side"] == "LONG" else entry_price * (1 + 0.02)
-                        take_profit_price = entry_price * (1 + 0.05) if pos["side"] == "LONG" else entry_price * (1 - 0.05)
-
-                        # Create decision record (same as newly-created positions)
-                        decision = {
-                            "id": decision_id,
-                            "asset_pair": asset_pair,
-                            "timestamp": datetime.datetime.now(datetime.UTC).isoformat().replace('+00:00', 'Z'),
-                            "action": "BUY" if pos["side"] == "LONG" else "SELL",
-                            "confidence": 75,  # Default confidence for recovered positions
-                            "recommended_position_size": pos["size"],
-                            "entry_price": entry_price,
-                            "stop_loss_pct": 0.02,
-                            "take_profit_pct": 0.05,
-                            "reasoning": f"Recovered existing {pos['side']} position from {pos['platform']} platform",
-                            "market_regime": "unknown",
-                            "ai_provider": "recovery",
-                            "ensemble_metadata": {
-                                "providers_used": ["recovery"],
-                                "providers_failed": [],
-                                "active_weights": {"recovery": 1.0},
-                                "fallback_tier": 0,
-                                "debate_summary": "Position recovered from platform at startup",
-                            },
-                            "risk_context": {
-                                "portfolio_drawdown_pct": 0.0,
-                                "var_limit_exceeded": False,
-                                "concentration_check": "OK",
-                                "correlation_check": "PASS",
-                            }
+                        action = "BUY" if pos["side"] == "LONG" else "SELL"
+                        recovery_metadata = {
+                            "platform": pos["platform"],
+                            "product_id": pos["product_id"],
+                            "opened_at": pos.get("opened_at"),
                         }
 
-                        # Persist decision to decision store
-                        self.engine.decision_store.save_decision(decision)
-                        logger.info(f"✓ Persisted decision {decision_id} for {asset_pair}")
+                        existing_recovery = self.engine.decision_store.find_equivalent_recovery_decision(
+                            asset_pair=asset_pair,
+                            action=action,
+                            entry_price=entry_price,
+                            position_size=pos["size"],
+                            platform=pos["platform"],
+                            product_id=pos["product_id"],
+                        )
+
+                        if existing_recovery:
+                            decision_id = existing_recovery["id"]
+                            logger.info(
+                                "↺ Reusing existing recovery decision %s for %s (%s)",
+                                decision_id,
+                                asset_pair,
+                                pos["platform"],
+                            )
+                        else:
+                            # Generate standard UUID for decision
+                            decision_id = str(uuid_module.uuid4())
+
+                            # Create decision record (same as newly-created positions)
+                            decision = {
+                                "id": decision_id,
+                                "asset_pair": asset_pair,
+                                "timestamp": datetime.datetime.now(datetime.UTC).isoformat().replace('+00:00', 'Z'),
+                                "action": action,
+                                "confidence": 75,  # Default confidence for recovered positions
+                                "recommended_position_size": pos["size"],
+                                "entry_price": entry_price,
+                                "stop_loss_pct": 0.02,
+                                "take_profit_pct": 0.05,
+                                "reasoning": f"Recovered existing {pos['side']} position from {pos['platform']} platform",
+                                "market_regime": "unknown",
+                                "ai_provider": "recovery",
+                                "ensemble_metadata": {
+                                    "providers_used": ["recovery"],
+                                    "providers_failed": [],
+                                    "active_weights": {"recovery": 1.0},
+                                    "fallback_tier": 0,
+                                    "debate_summary": "Position recovered from platform at startup",
+                                },
+                                "risk_context": {
+                                    "portfolio_drawdown_pct": 0.0,
+                                    "var_limit_exceeded": False,
+                                    "concentration_check": "OK",
+                                    "correlation_check": "PASS",
+                                },
+                                "recovery_metadata": recovery_metadata,
+                            }
+
+                            # Persist decision to decision store once per live position fingerprint.
+                            self.engine.decision_store.save_decision(decision)
+                            logger.info(f"✓ Persisted decision {decision_id} for {asset_pair}")
 
                         # Add to portfolio memory
                         outcome = TradeOutcome(
