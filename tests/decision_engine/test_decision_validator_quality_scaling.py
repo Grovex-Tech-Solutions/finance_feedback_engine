@@ -1,4 +1,5 @@
 from finance_feedback_engine.decision_engine.decision_validator import DecisionValidator
+from finance_feedback_engine.decision_engine.position_sizing import PositionSizingCalculator, ProviderTranslationResult
 
 
 def _base_config():
@@ -242,3 +243,95 @@ def test_decision_validator_policy_intent_stays_provider_agnostic():
     assert "recommended_position_size" not in intent
     assert "units" not in intent
     assert intent["provider_agnostic"] is True
+
+
+def test_provider_translation_result_scaffold_is_additive_and_provider_neutral():
+    calculator = PositionSizingCalculator(config=_base_config())
+    intent = {
+        "semantic_action": "BUY",
+        "target_exposure_pct": 100.0,
+        "target_delta_pct": 100.0,
+        "reduction_fraction": None,
+        "sizing_anchor": "quarter_kelly_conservative",
+        "provider_agnostic": True,
+        "version": 1,
+    }
+
+    result = calculator.build_provider_translation_result(
+        provider="Coinbase",
+        policy_sizing_intent=intent,
+        translated_size=100.0,
+        effective_exposure_pct=100.0,
+        semantic_drift_detected=False,
+        translation_notes="stage2 scaffold",
+    )
+
+    typed = ProviderTranslationResult(**result)
+    assert typed.provider == "coinbase"
+    assert typed.policy_sizing_intent["provider_agnostic"] is True
+    assert typed.translated_size == 100.0
+    assert typed.effective_exposure_pct == 100.0
+    assert typed.semantic_drift_detected is False
+
+
+def test_decision_validator_surfaces_provider_translation_result_additively():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {"action": "BUY", "confidence": 80, "amount": 0}
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+        "policy_sizing_intent": {
+            "semantic_action": "BUY",
+            "target_exposure_pct": 100.0,
+            "target_delta_pct": 100.0,
+            "reduction_fraction": None,
+            "sizing_anchor": "quarter_kelly_conservative",
+            "provider_agnostic": True,
+            "version": 1,
+        },
+        "provider_translation_result": {
+            "provider": "coinbase",
+            "policy_sizing_intent": {
+                "semantic_action": "BUY",
+                "target_exposure_pct": 100.0,
+                "target_delta_pct": 100.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+            "translated_size": 100.0,
+            "effective_exposure_pct": 100.0,
+            "semantic_drift_detected": False,
+            "translation_notes": "stage2 scaffold",
+            "version": 1,
+        },
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["action"] == "BUY"
+    assert decision["policy_sizing_intent"]["provider_agnostic"] is True
+    assert decision["provider_translation_result"]["provider"] == "coinbase"
+    assert decision["provider_translation_result"]["translated_size"] == 100.0
+    assert decision["provider_translation_result"]["semantic_drift_detected"] is False

@@ -100,6 +100,7 @@ class DecisionValidator:
         risk_percentage = position_sizing_result.get("risk_percentage", 0)
         signal_only = position_sizing_result.get("signal_only", False)
         policy_sizing_intent = position_sizing_result.get("policy_sizing_intent")
+        provider_translation_result = position_sizing_result.get("provider_translation_result")
         sizing_semantics_version = None
         sizing_anchor = None
         provider_translation_required = False
@@ -201,6 +202,7 @@ class DecisionValidator:
             "position_size_multiplier": size_multiplier,
             "quality_controls_enabled": controls.enabled,
             "policy_sizing_intent": policy_sizing_intent,
+            "provider_translation_result": provider_translation_result,
             "sizing_semantics_version": sizing_semantics_version,
             "sizing_anchor": sizing_anchor,
             "provider_translation_required": provider_translation_required,

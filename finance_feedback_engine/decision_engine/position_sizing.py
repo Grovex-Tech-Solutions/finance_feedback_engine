@@ -25,6 +25,19 @@ class PolicySizingIntent:
     version: int = 1
 
 
+@dataclass(frozen=True)
+class ProviderTranslationResult:
+    """Additive Stage 2 scaffold for provider-specific translation metadata."""
+
+    provider: str
+    policy_sizing_intent: Dict[str, Any]
+    translated_size: Optional[float]
+    effective_exposure_pct: Optional[float]
+    semantic_drift_detected: bool
+    translation_notes: Optional[str]
+    version: int = 1
+
+
 class PositionSizingCalculator:
     """
     Calculator for position sizing based on risk management principles.
@@ -94,6 +107,35 @@ class PositionSizingCalculator:
                 target_delta_pct=target_delta_pct,
                 reduction_fraction=reduction_fraction,
                 sizing_anchor=sizing_anchor,
+            )
+        )
+
+    def build_provider_translation_result(
+        self,
+        provider: str,
+        policy_sizing_intent: Optional[Dict[str, Any]],
+        translated_size: Optional[float],
+        effective_exposure_pct: Optional[float] = None,
+        semantic_drift_detected: bool = False,
+        translation_notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Build additive provider-translation scaffolding for Stage 2.
+
+        This helper intentionally does not perform provider-specific translation yet.
+        It only creates a common result shape so later Coinbase/OANDA work can hang
+        off a shared contract without changing shared sizing intent semantics.
+        """
+        normalized_provider = str(provider or "unknown").lower()
+        safe_intent = policy_sizing_intent if isinstance(policy_sizing_intent, dict) else {}
+
+        return asdict(
+            ProviderTranslationResult(
+                provider=normalized_provider,
+                policy_sizing_intent=safe_intent,
+                translated_size=translated_size,
+                effective_exposure_pct=effective_exposure_pct,
+                semantic_drift_detected=semantic_drift_detected,
+                translation_notes=translation_notes,
             )
         )
 
