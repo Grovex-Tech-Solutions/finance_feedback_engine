@@ -778,3 +778,46 @@ def test_decision_validator_surfaces_policy_action_veto_metadata_additively():
     assert decision["risk_veto_reason"] == "Trade rejected: drawdown exceeds threshold"
     assert decision["gatekeeper_message"] == "Trade rejected: drawdown exceeds threshold"
     assert decision["legacy_action_compatibility"] == "BUY"
+
+
+
+def test_decision_validator_leaves_action_context_unchecked_without_position_state():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "no position state provided",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_action"] == "OPEN_SMALL_LONG"
+    assert decision["structural_action_validity"] == "unchecked"
+    assert decision["current_position_state"] is None
+    assert decision["legal_actions"] is None
+    assert decision["invalid_action_reason"] is None

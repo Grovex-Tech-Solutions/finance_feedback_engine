@@ -66,3 +66,28 @@ def test_policy_action_veto_helper_is_noop_for_legacy_action():
     assert result["policy_action"] is None
     assert result["risk_vetoed"] is False
     assert result["risk_veto_reason"] is None
+
+
+
+@patch("finance_feedback_engine.risk.gatekeeper.MarketSchedule")
+def test_policy_action_veto_helper_keeps_human_and_machine_messages_aligned_on_rejection(mock_schedule):
+    mock_schedule.get_market_status.return_value = {"is_open": True, "warning": None}
+    gatekeeper = RiskGatekeeper(max_drawdown_pct=0.05)
+
+    decision = {
+        "action": "OPEN_SMALL_LONG",
+        "asset_pair": "BTCUSD",
+        "asset_category": "crypto",
+        "volatility": 0.02,
+        "confidence": 85,
+    }
+    context = {
+        "asset_type": "crypto",
+        "recent_performance": {"total_pnl": -0.10},
+        "holdings": {},
+    }
+
+    result = gatekeeper.evaluate_policy_action_veto(decision, context)
+
+    assert result["risk_vetoed"] is True
+    assert result["gatekeeper_message"] == result["risk_veto_reason"]

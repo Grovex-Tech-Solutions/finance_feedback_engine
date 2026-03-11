@@ -88,3 +88,10 @@ def test_is_structurally_valid_accepts_close_long_from_long():
 def test_normalize_position_state_rejects_invalid_state():
     with pytest.raises(ValueError):
         normalize_position_state("sideways")
+
+
+
+def test_hold_is_legal_in_every_position_state():
+    for state in ("flat", "long", "short"):
+        assert is_structurally_valid("HOLD", state) is True
+        assert invalid_action_reason("HOLD", state) is None

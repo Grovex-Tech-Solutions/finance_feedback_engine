@@ -420,3 +420,21 @@ async def test_classify_action_execution_outcome_rejects_hold_with_risk_reason(t
     assert outcome_kind == "rejected"
     assert outcome_code == "RISK_REJECTED"
     assert outcome_message == "Trade rejected: temporal constraints"
+
+
+
+def test_classify_action_execution_outcome_prefers_invalid_over_veto(trading_agent):
+    should_execute, outcome_kind, outcome_code, outcome_message = trading_agent._classify_action_execution_outcome(
+        {
+            "action": "ADD_SMALL_LONG",
+            "structural_action_validity": "invalid",
+            "invalid_action_reason": "action ADD_SMALL_LONG is structurally invalid for position_state=flat",
+            "risk_vetoed": True,
+            "risk_veto_reason": "Trade rejected: drawdown exceeds threshold",
+        }
+    )
+
+    assert should_execute is False
+    assert outcome_kind == "invalid"
+    assert outcome_code == "INVALID_POLICY_ACTION"
+    assert outcome_message == "action ADD_SMALL_LONG is structurally invalid for position_state=flat"
