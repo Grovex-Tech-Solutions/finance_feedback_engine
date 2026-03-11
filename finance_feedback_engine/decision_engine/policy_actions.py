@@ -248,3 +248,22 @@ def build_policy_state(
         "unrealized_pnl": portfolio.get("unrealized_pnl"),
         "version": 1,
     }
+
+
+
+def build_policy_package(
+    *,
+    policy_state: Optional[dict],
+    action_context: Optional[dict],
+    policy_sizing_intent: Optional[dict],
+    provider_translation_result: Optional[dict],
+    control_outcome: Optional[dict],
+) -> dict:
+    return {
+        "policy_state": policy_state,
+        "action_context": action_context,
+        "policy_sizing_intent": policy_sizing_intent,
+        "provider_translation_result": provider_translation_result,
+        "control_outcome": control_outcome,
+        "version": 1,
+    }

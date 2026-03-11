@@ -10,6 +10,7 @@ from .policy_actions import (
     POLICY_ACTION_VERSION,
     build_action_context,
     build_control_outcome,
+    build_policy_package,
     build_policy_state,
     get_legacy_action_compatibility,
     get_policy_action_family,
@@ -214,6 +215,7 @@ class DecisionValidator:
         action_context_version = None
         canonical_action_context = None
         canonical_control_outcome = None
+        canonical_policy_package = None
 
         if is_policy_action(action):
             policy_action = action
@@ -255,6 +257,13 @@ class DecisionValidator:
                 risk_vetoed=risk_vetoed,
                 risk_veto_reason=risk_veto_reason,
             )
+            canonical_policy_package = build_policy_package(
+                policy_state=canonical_policy_state,
+                action_context=canonical_action_context,
+                policy_sizing_intent=policy_sizing_intent,
+                provider_translation_result=provider_translation_result,
+                control_outcome=canonical_control_outcome,
+            )
         
         confidence_pct = float(ai_response.get("confidence", 0) or 0)
         volatility = float(context.get("volatility", 0.0) or 0.0)
@@ -291,6 +300,7 @@ class DecisionValidator:
             "policy_state": canonical_policy_state,
             "action_context": canonical_action_context,
             "control_outcome": canonical_control_outcome,
+            "policy_package": canonical_policy_package,
             "confidence": ai_response.get("confidence", 50),
             "reasoning": ai_response.get("reasoning", "No reasoning provided"),
             "suggested_amount": suggested_amount,

@@ -5,6 +5,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     PolicyAction,
     build_action_context,
     build_control_outcome,
+    build_policy_package,
     build_policy_state,
     get_legacy_action_compatibility,
     get_policy_action_family,
@@ -168,3 +169,20 @@ def test_build_policy_state_gracefully_defaults_when_optional_inputs_missing():
     assert result["volatility"] == 0.0
     assert result["current_price"] is None
     assert result["unrealized_pnl"] is None
+
+
+
+def test_build_policy_package_bundles_canonical_components():
+    package = build_policy_package(
+        policy_state={"position_state": "flat", "version": 1},
+        action_context={"structural_action_validity": "valid", "version": 1},
+        policy_sizing_intent={"semantic_action": "BUY", "version": 1},
+        provider_translation_result={"provider": "coinbase", "version": 1},
+        control_outcome={"status": "proposed", "version": 1},
+    )
+    assert package["policy_state"]["position_state"] == "flat"
+    assert package["action_context"]["structural_action_validity"] == "valid"
+    assert package["policy_sizing_intent"]["semantic_action"] == "BUY"
+    assert package["provider_translation_result"]["provider"] == "coinbase"
+    assert package["control_outcome"]["status"] == "proposed"
+    assert package["version"] == 1
