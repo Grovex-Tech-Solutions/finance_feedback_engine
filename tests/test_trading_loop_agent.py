@@ -2,7 +2,7 @@
 
 import datetime
 import logging
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -295,3 +295,128 @@ async def test_hold_decision_preserves_ensemble_metadata_and_logs_council_summar
     assert "bull=gemini:BUY/72" in caplog.text
     assert "bear=qwen:HOLD/58" in caplog.text
     assert "judge=mistral:HOLD/64" in caplog.text
+
+
+
+@pytest.mark.asyncio
+async def test_risk_check_persists_invalid_policy_action_distinctly(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-invalid",
+        "action": "ADD_SMALL_LONG",
+        "confidence": 80,
+        "asset_pair": "BTCUSD",
+        "structural_action_validity": "invalid",
+        "invalid_action_reason": "action ADD_SMALL_LONG is structurally invalid for position_state=flat",
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.RISK_CHECK
+
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {}
+    trading_agent.risk_gatekeeper.validate_trade = Mock(return_value=(True, "approved"))
+    trading_agent._check_performance_based_risks = Mock(return_value=(True, "ok"))
+
+    await trading_agent.handle_risk_check_state()
+
+    saved_decision = mock_dependencies["engine"].decision_store.update_decision.call_args[0][0]
+    assert saved_decision["execution_status"] == "filtered"
+    assert saved_decision["execution_result"]["reason_code"] == "INVALID_POLICY_ACTION"
+    assert saved_decision["execution_result"]["error"] == "action ADD_SMALL_LONG is structurally invalid for position_state=flat"
+
+
+@pytest.mark.asyncio
+async def test_risk_check_persists_vetoed_policy_action_distinctly(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-vetoed",
+        "action": "OPEN_MEDIUM_LONG",
+        "confidence": 80,
+        "asset_pair": "BTCUSD",
+        "structural_action_validity": "valid",
+        "risk_vetoed": True,
+        "risk_veto_reason": "Trade rejected: drawdown exceeds threshold",
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.RISK_CHECK
+
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {}
+    trading_agent.risk_gatekeeper.validate_trade = Mock(return_value=(False, "Trade rejected: drawdown exceeds threshold"))
+
+    await trading_agent.handle_risk_check_state()
+
+    saved_decision = mock_dependencies["engine"].decision_store.update_decision.call_args[0][0]
+    assert saved_decision["execution_status"] == "filtered"
+    assert saved_decision["execution_result"]["reason_code"] == "RISK_VETO"
+    assert saved_decision["execution_result"]["error"] == "Trade rejected: drawdown exceeds threshold"
+
+
+@pytest.mark.asyncio
+async def test_risk_check_keeps_executable_policy_action_flowing_normally(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-valid",
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "asset_pair": "BTCUSD",
+        "entry_price": 100.0,
+        "relevant_balance": {"USD": 1000.0},
+        "balance_source": "test",
+        "structural_action_validity": "valid",
+        "risk_vetoed": False,
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.RISK_CHECK
+
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {}
+    trading_agent.risk_gatekeeper.validate_trade = Mock(return_value=(True, "approved"))
+    trading_agent._check_performance_based_risks = Mock(return_value=(True, "ok"))
+    mock_dependencies["engine"].position_sizing_calculator.calculate_position_sizing_params.return_value = {
+        "recommended_position_size": 1.25
+    }
+
+    await trading_agent.handle_risk_check_state()
+
+    async with trading_agent._current_decisions_lock:
+        assert len(trading_agent._current_decisions) == 1
+        assert trading_agent._current_decisions[0]["recommended_position_size"] == 1.25
+    assert mock_dependencies["engine"].decision_store.update_decision.call_count == 0
+
+
+
+@pytest.mark.asyncio
+async def test_risk_check_rejected_policy_action_stays_distinct_from_veto(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-rejected",
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "asset_pair": "BTCUSD",
+        "structural_action_validity": "valid",
+        "risk_vetoed": False,
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.RISK_CHECK
+
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {}
+    trading_agent.risk_gatekeeper.validate_trade = Mock(return_value=(False, "Trade rejected: temporal constraints"))
+
+    await trading_agent.handle_risk_check_state()
+
+    saved_decision = mock_dependencies["engine"].decision_store.update_decision.call_args[0][0]
+    assert saved_decision["execution_result"]["reason_code"] == "RISK_REJECTED"
+    assert saved_decision.get("risk_vetoed") is False
+    assert saved_decision.get("risk_veto_reason") is None
+    assert saved_decision.get("gatekeeper_message") == "Trade rejected: temporal constraints"
+
+
+@pytest.mark.asyncio
+async def test_classify_action_execution_outcome_rejects_hold_with_risk_reason(trading_agent):
+    should_execute, outcome_kind, outcome_code, outcome_message = trading_agent._classify_action_execution_outcome(
+        {"action": "HOLD"},
+        risk_reason="Trade rejected: temporal constraints",
+    )
+
+    assert should_execute is False
+    assert outcome_kind == "rejected"
+    assert outcome_code == "RISK_REJECTED"
+    assert outcome_message == "Trade rejected: temporal constraints"

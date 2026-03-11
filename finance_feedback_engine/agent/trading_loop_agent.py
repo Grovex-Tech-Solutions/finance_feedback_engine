@@ -1898,6 +1898,9 @@ class TradingLoopAgent:
                 decision, monitoring_context
             )
 
+            if not approved:
+                decision.setdefault("gatekeeper_message", reason)
+
             # If standard validation passes, run additional performance-based risk checks
             if approved:
                 (
@@ -1907,8 +1910,14 @@ class TradingLoopAgent:
                 if not performance_approved:
                     approved = False
                     reason = performance_reason
+                    decision.setdefault("gatekeeper_message", performance_reason)
 
-            if approved:
+            should_execute, outcome_kind, outcome_code, outcome_message = self._classify_action_execution_outcome(
+                decision,
+                risk_reason=None if approved else reason,
+            )
+
+            if should_execute:
                 # --- INJECT POSITION SIZING HERE ---
                 try:
                     # Use the engine's position_sizing_calculator
@@ -1963,20 +1972,22 @@ class TradingLoopAgent:
                 )
             else:
                 logger.info(
-                    "Trade for %s rejected by RiskGatekeeper: %s.", asset_pair, reason
+                    "Trade for %s is %s: %s.", asset_pair, outcome_kind, outcome_message
                 )
-                self._rejected_decisions_cache[decision_id] = (
-                    datetime.datetime.now(datetime.timezone.utc),
-                    asset_pair,
-                )  # Add to cache
+                self._mark_decision_not_executed(decision, outcome_code or "REJECTED", outcome_message or reason or "Rejected")
+                if outcome_kind in {"vetoed", "rejected"}:
+                    self._rejected_decisions_cache[decision_id] = (
+                        datetime.datetime.now(datetime.timezone.utc),
+                        asset_pair,
+                    )  # Add to cache
 
-                    # Emit rejection event for dashboard
                 self._emit_dashboard_event(
                     {
-                        "type": "decision_rejected",
+                        "type": "decision_rejected" if outcome_kind in {"vetoed", "rejected", "invalid"} else "decision_filtered",
                         "asset": asset_pair,
                         "action": decision.get("action", "UNKNOWN"),
-                        "reason": reason,
+                        "reason": outcome_message or reason,
+                        "outcome_kind": outcome_kind,
                         "timestamp": time.time(),
                     }
                 )
@@ -2869,6 +2880,26 @@ class TradingLoopAgent:
                     self.engine.decision_store.save_decision(decision)
         except Exception as e:
             logger.warning("Failed to persist non-execution reason for %s: %s", decision.get("id"), e)
+
+
+    def _classify_action_execution_outcome(self, decision: Dict[str, Any], risk_reason: str | None = None) -> tuple[bool, str | None, str | None, str | None]:
+        """Classify whether a policy-aware decision is executable vs invalid/vetoed/rejected."""
+        action = decision.get("action")
+        structural_validity = decision.get("structural_action_validity")
+        invalid_reason = decision.get("invalid_action_reason")
+        risk_vetoed = bool(decision.get("risk_vetoed", False))
+        risk_veto_reason = decision.get("risk_veto_reason")
+
+        if structural_validity == "invalid":
+            return False, "invalid", "INVALID_POLICY_ACTION", invalid_reason or f"Invalid policy action: {action}"
+
+        if risk_vetoed:
+            return False, "vetoed", "RISK_VETO", risk_veto_reason or risk_reason or f"Risk vetoed action: {action}"
+
+        if risk_reason:
+            return False, "rejected", "RISK_REJECTED", risk_reason
+
+        return True, "executable", None, None
 
     async def _should_execute_with_reason(self, decision):
         """Return (should_execute, reason_code, reason_message)."""
