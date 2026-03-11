@@ -508,3 +508,93 @@ def test_decision_validator_keeps_legacy_and_translation_fields_together():
     assert decision["suggested_amount"] == decision["recommended_position_size"]
     assert decision["translation_provider"] == "oanda"
     assert decision["translated_size"] == -2500
+
+
+
+def test_decision_validator_surfaces_policy_action_metadata_additively():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "bounded policy action",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+        "policy_sizing_intent": {
+            "semantic_action": "BUY",
+            "target_exposure_pct": 100.0,
+            "target_delta_pct": 100.0,
+            "reduction_fraction": None,
+            "sizing_anchor": "quarter_kelly_conservative",
+            "provider_agnostic": True,
+            "version": 1,
+        },
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["action"] == "OPEN_SMALL_LONG"
+    assert decision["policy_action"] == "OPEN_SMALL_LONG"
+    assert decision["policy_action_version"] == 1
+    assert decision["policy_action_family"] == "open_long"
+    assert decision["legacy_action_compatibility"] == "BUY"
+    assert decision["structural_action_validity"] == "unchecked"
+
+
+def test_decision_validator_keeps_legacy_action_fields_when_action_is_directional():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {"action": "BUY", "confidence": 80, "reasoning": "legacy", "amount": 0}
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["action"] == "BUY"
+    assert decision["policy_action"] is None
+    assert decision["policy_action_version"] is None
+    assert decision["policy_action_family"] is None
+    assert decision["legacy_action_compatibility"] is None

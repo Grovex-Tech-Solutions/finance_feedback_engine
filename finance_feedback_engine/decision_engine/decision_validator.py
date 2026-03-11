@@ -6,6 +6,12 @@ from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 
 from .execution_quality import ExecutionQualityControls, calculate_size_multiplier
+from .policy_actions import (
+    POLICY_ACTION_VERSION,
+    get_legacy_action_compatibility,
+    get_policy_action_family,
+    is_policy_action,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +190,19 @@ class DecisionValidator:
             high_volatility_min_confidence=float(agent_cfg.get("high_volatility_min_confidence", 80.0)),
         )
 
+        policy_action = None
+        policy_action_version = None
+        policy_action_family = None
+        legacy_action_compatibility = None
+        structural_action_validity = None
+
+        if is_policy_action(action):
+            policy_action = action
+            policy_action_version = POLICY_ACTION_VERSION
+            policy_action_family = get_policy_action_family(action)
+            legacy_action_compatibility = get_legacy_action_compatibility(action)
+            structural_action_validity = "unchecked"
+        
         confidence_pct = float(ai_response.get("confidence", 0) or 0)
         volatility = float(context.get("volatility", 0.0) or 0.0)
         size_multiplier = calculate_size_multiplier(
@@ -204,6 +223,11 @@ class DecisionValidator:
             "asset_pair": asset_pair,
             "timestamp": datetime.now(UTC).isoformat(),
             "action": action,
+            "policy_action": policy_action,
+            "policy_action_version": policy_action_version,
+            "policy_action_family": policy_action_family,
+            "legacy_action_compatibility": legacy_action_compatibility,
+            "structural_action_validity": structural_action_validity,
             "confidence": ai_response.get("confidence", 50),
             "reasoning": ai_response.get("reasoning", "No reasoning provided"),
             "suggested_amount": suggested_amount,
