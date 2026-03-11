@@ -186,3 +186,21 @@ def test_build_policy_package_bundles_canonical_components():
     assert package["provider_translation_result"]["provider"] == "coinbase"
     assert package["control_outcome"]["status"] == "proposed"
     assert package["version"] == 1
+
+
+
+def test_build_control_outcome_handles_execution_terminal_states():
+    executed = build_control_outcome(
+        action="OPEN_SMALL_LONG",
+        execution_status="executed",
+        execution_result={"success": True, "message": "order placed"},
+    )
+    failed = build_control_outcome(
+        action="OPEN_SMALL_LONG",
+        execution_status="execution_failed",
+        execution_result={"success": False, "reason_code": "EXECUTION_FAILED", "error": "broker reject"},
+    )
+    assert executed["status"] == "executed"
+    assert executed["reason_code"] == "EXECUTED"
+    assert failed["status"] == "rejected"
+    assert failed["reason_code"] == "EXECUTION_FAILED"

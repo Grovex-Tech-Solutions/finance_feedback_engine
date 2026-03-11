@@ -206,6 +206,20 @@ def build_control_outcome(
             "message": execution_result.get("error") or execution_result.get("message"),
             "version": 1,
         }
+    if execution_status == "executed":
+        return {
+            "status": "executed",
+            "reason_code": "EXECUTED",
+            "message": (execution_result or {}).get("message"),
+            "version": 1,
+        }
+    if execution_status == "execution_failed" and isinstance(execution_result, dict):
+        return {
+            "status": "rejected",
+            "reason_code": execution_result.get("reason_code") or "EXECUTION_FAILED",
+            "message": execution_result.get("error") or execution_result.get("message"),
+            "version": 1,
+        }
     if execution_status == "hold":
         return {
             "status": "proposed",

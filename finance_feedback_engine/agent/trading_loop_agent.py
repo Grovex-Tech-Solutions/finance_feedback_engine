@@ -31,6 +31,7 @@ from finance_feedback_engine.decision_engine.execution_quality import (
     ExecutionQualityControls,
     evaluate_signal_quality,
 )
+from finance_feedback_engine.decision_engine.policy_actions import build_control_outcome
 from finance_feedback_engine.monitoring.trade_monitor import TradeMonitor
 from finance_feedback_engine.risk.exposure_reservation import get_exposure_manager
 from finance_feedback_engine.risk.gatekeeper import RiskGatekeeper
@@ -1935,6 +1936,16 @@ class TradingLoopAgent:
                 except Exception as e:
                     logger.warning("Failed to calculate position size for %s: %s", decision_id, e)
 
+                decision["control_outcome"] = build_control_outcome(
+                    action=decision.get("action"),
+                    structural_action_validity=decision.get("structural_action_validity"),
+                    invalid_action_reason_text=decision.get("invalid_action_reason"),
+                    risk_vetoed=bool(decision.get("risk_vetoed", False)),
+                    risk_veto_reason=decision.get("risk_veto_reason"),
+                )
+                policy_package = decision.get("policy_package")
+                if isinstance(policy_package, dict):
+                    policy_package["control_outcome"] = decision["control_outcome"].copy()
                 logger.info(
                     "Trade for %s approved by RiskGatekeeper. Adding to execution queue.",
                     asset_pair,
@@ -2116,6 +2127,19 @@ class TradingLoopAgent:
                         decision_id
                     )
                     if execution_result.get("success"):
+                        decision["execution_status"] = "executed"
+                        decision["execution_result"] = execution_result
+                        decision["control_outcome"] = build_control_outcome(
+                            action=decision.get("action"),
+                            structural_action_validity=decision.get("structural_action_validity"),
+                            invalid_action_reason_text=decision.get("invalid_action_reason"),
+                            risk_vetoed=bool(decision.get("risk_vetoed", False)),
+                            risk_veto_reason=decision.get("risk_veto_reason"),
+                            execution_status=decision.get("execution_status"),
+                            execution_result=decision.get("execution_result"),
+                        )
+                        if isinstance(decision.get("policy_package"), dict):
+                            decision["policy_package"]["control_outcome"] = decision["control_outcome"].copy()
                         logger.info(
                             "Trade execution succeeded for %s %s. Associating decision with monitor.",
                             action,
@@ -2150,6 +2174,19 @@ class TradingLoopAgent:
                         except Exception as e:
                             logger.warning(f"Failed to finalize reservation for {decision_id}: {e}")
                     else:
+                        decision["execution_status"] = "execution_failed"
+                        decision["execution_result"] = execution_result
+                        decision["control_outcome"] = build_control_outcome(
+                            action=decision.get("action"),
+                            structural_action_validity=decision.get("structural_action_validity"),
+                            invalid_action_reason_text=decision.get("invalid_action_reason"),
+                            risk_vetoed=bool(decision.get("risk_vetoed", False)),
+                            risk_veto_reason=decision.get("risk_veto_reason"),
+                            execution_status=decision.get("execution_status"),
+                            execution_result=decision.get("execution_result"),
+                        )
+                        if isinstance(decision.get("policy_package"), dict):
+                            decision["policy_package"]["control_outcome"] = decision["control_outcome"].copy()
                         error_msg = execution_result.get('message') or execution_result.get('error', 'Unknown error')
                         logger.error(
                             f"Trade execution failed for {asset_pair}: {error_msg}. Full result: {execution_result}"
@@ -2873,6 +2910,18 @@ class TradingLoopAgent:
                 "reason_code": reason_code,
                 "error": reason,
             }
+            decision["control_outcome"] = build_control_outcome(
+                action=decision.get("action"),
+                structural_action_validity=decision.get("structural_action_validity"),
+                invalid_action_reason_text=decision.get("invalid_action_reason"),
+                risk_vetoed=bool(decision.get("risk_vetoed", False)),
+                risk_veto_reason=decision.get("risk_veto_reason"),
+                execution_status=decision.get("execution_status"),
+                execution_result=decision.get("execution_result"),
+            )
+            policy_package = decision.get("policy_package")
+            if isinstance(policy_package, dict):
+                policy_package["control_outcome"] = decision["control_outcome"]
             if getattr(self.engine, "decision_store", None):
                 if had_id:
                     self.engine.decision_store.update_decision(decision)

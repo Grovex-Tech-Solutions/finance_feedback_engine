@@ -438,3 +438,112 @@ def test_classify_action_execution_outcome_prefers_invalid_over_veto(trading_age
     assert outcome_kind == "invalid"
     assert outcome_code == "INVALID_POLICY_ACTION"
     assert outcome_message == "action ADD_SMALL_LONG is structurally invalid for position_state=flat"
+
+
+
+@pytest.mark.asyncio
+async def test_risk_check_updates_canonical_control_outcome_for_vetoed_decision(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-vetoed-package",
+        "action": "OPEN_MEDIUM_LONG",
+        "confidence": 80,
+        "asset_pair": "BTCUSD",
+        "structural_action_validity": "valid",
+        "risk_vetoed": True,
+        "risk_veto_reason": "Trade rejected: drawdown exceeds threshold",
+        "control_outcome": {"status": "proposed", "version": 1},
+        "policy_package": {"control_outcome": {"status": "proposed", "version": 1}, "version": 1},
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.RISK_CHECK
+
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {}
+    trading_agent.risk_gatekeeper.validate_trade = Mock(return_value=(False, "Trade rejected: drawdown exceeds threshold"))
+
+    await trading_agent.handle_risk_check_state()
+
+    saved_decision = mock_dependencies["engine"].decision_store.update_decision.call_args[0][0]
+    assert saved_decision["control_outcome"]["status"] == "vetoed"
+    assert saved_decision["control_outcome"]["reason_code"] == "RISK_VETO"
+    assert saved_decision["policy_package"]["control_outcome"] == saved_decision["control_outcome"]
+
+
+@pytest.mark.asyncio
+async def test_risk_check_updates_canonical_control_outcome_for_executable_decision(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-executable-package",
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "asset_pair": "BTCUSD",
+        "entry_price": 100.0,
+        "relevant_balance": {"USD": 1000.0},
+        "balance_source": "test",
+        "structural_action_validity": "valid",
+        "risk_vetoed": False,
+        "control_outcome": {"status": "proposed", "version": 1},
+        "policy_package": {"control_outcome": {"status": "proposed", "version": 1}, "version": 1},
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.RISK_CHECK
+
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {}
+    trading_agent.risk_gatekeeper.validate_trade = Mock(return_value=(True, "approved"))
+    trading_agent._check_performance_based_risks = Mock(return_value=(True, "ok"))
+    mock_dependencies["engine"].position_sizing_calculator.calculate_position_sizing_params.return_value = {
+        "recommended_position_size": 1.25
+    }
+
+    await trading_agent.handle_risk_check_state()
+
+    async with trading_agent._current_decisions_lock:
+        kept = trading_agent._current_decisions[0]
+        assert kept["control_outcome"]["status"] == "proposed"
+        assert kept["policy_package"]["control_outcome"] == kept["control_outcome"]
+
+
+
+@pytest.mark.asyncio
+async def test_execution_state_updates_canonical_control_outcome_on_success(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-exec-success",
+        "action": "OPEN_SMALL_LONG",
+        "asset_pair": "BTCUSD",
+        "control_outcome": {"status": "proposed", "version": 1},
+        "policy_package": {"control_outcome": {"status": "proposed", "version": 1}, "version": 1},
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.EXECUTION
+    trading_agent.engine.execute_decision_async = AsyncMock(return_value={"success": True, "message": "order placed", "order_id": "abc123"})
+
+    await trading_agent.handle_execution_state()
+
+    assert decision["execution_status"] == "executed"
+    assert decision["control_outcome"]["status"] == "executed"
+    assert decision["policy_package"]["control_outcome"] == decision["control_outcome"]
+    assert decision["policy_package"]["control_outcome"] is not decision["control_outcome"]
+
+
+@pytest.mark.asyncio
+async def test_execution_state_updates_canonical_control_outcome_on_failure(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-exec-fail",
+        "action": "OPEN_SMALL_LONG",
+        "asset_pair": "BTCUSD",
+        "control_outcome": {"status": "proposed", "version": 1},
+        "policy_package": {"control_outcome": {"status": "proposed", "version": 1}, "version": 1},
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.EXECUTION
+    trading_agent.engine.execute_decision_async = AsyncMock(return_value={"success": False, "reason_code": "EXECUTION_FAILED", "error": "broker reject"})
+
+    await trading_agent.handle_execution_state()
+
+    assert decision["execution_status"] == "execution_failed"
+    assert decision["control_outcome"]["status"] == "rejected"
+    assert decision["control_outcome"]["reason_code"] == "EXECUTION_FAILED"
+    assert decision["policy_package"]["control_outcome"] == decision["control_outcome"]
+    assert decision["policy_package"]["control_outcome"] is not decision["control_outcome"]
