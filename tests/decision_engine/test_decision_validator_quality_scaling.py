@@ -398,3 +398,113 @@ def test_decision_validator_surfaces_flat_translation_metadata_fields():
     assert decision["translated_effective_exposure_pct"] == 95.0
     assert decision["semantic_drift_detected"] is True
     assert decision["translation_notes"] == "oanda_integer_unit_translation"
+
+
+def test_decision_validator_defaults_translation_fields_when_missing():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {"action": "BUY", "confidence": 80, "amount": 0}
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+        "policy_sizing_intent": {
+            "semantic_action": "BUY",
+            "target_exposure_pct": 100.0,
+            "target_delta_pct": 100.0,
+            "reduction_fraction": None,
+            "sizing_anchor": "quarter_kelly_conservative",
+            "provider_agnostic": True,
+            "version": 1,
+        },
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["provider_translation_result"] is None
+    assert decision["translation_provider"] is None
+    assert decision["translated_size"] is None
+    assert decision["translated_effective_exposure_pct"] is None
+    assert decision["semantic_drift_detected"] is False
+    assert decision["translation_notes"] is None
+
+
+def test_decision_validator_keeps_legacy_and_translation_fields_together():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 1.10},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {"action": "SELL", "confidence": 85, "amount": 0}
+    position_sizing_result = {
+        "recommended_position_size": 2500.0,
+        "stop_loss_price": 1.12,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+        "policy_sizing_intent": {
+            "semantic_action": "SELL",
+            "target_exposure_pct": 2750.0,
+            "target_delta_pct": 2750.0,
+            "reduction_fraction": None,
+            "sizing_anchor": "quarter_kelly_conservative",
+            "provider_agnostic": True,
+            "version": 1,
+        },
+        "provider_translation_result": {
+            "provider": "oanda",
+            "policy_sizing_intent": {
+                "semantic_action": "SELL",
+                "target_exposure_pct": 2750.0,
+                "target_delta_pct": 2750.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+            "translated_size": -2500,
+            "effective_exposure_pct": 2750.0,
+            "semantic_drift_detected": False,
+            "translation_notes": "oanda_integer_unit_translation",
+            "version": 1,
+        },
+    }
+
+    decision = validator.create_decision(
+        asset_pair="EUR_USD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=False,
+        is_forex=True,
+    )
+
+    assert decision["action"] == "SELL"
+    assert decision["recommended_position_size"] > 0
+    assert decision["suggested_amount"] == decision["recommended_position_size"]
+    assert decision["translation_provider"] == "oanda"
+    assert decision["translated_size"] == -2500

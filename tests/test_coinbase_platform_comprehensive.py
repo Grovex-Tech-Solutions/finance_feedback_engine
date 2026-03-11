@@ -1972,6 +1972,36 @@ class TestCoinbasePolicyTranslationScaffold:
         assert result["semantic_drift_detected"] is True
         assert result["translated_size"] == 900.0
 
+
+    def test_translate_policy_sizing_intent_is_none_without_policy_intent(self, platform):
+        decision = {
+            "action": "BUY",
+            "asset_pair": "BTC-USD",
+            "suggested_amount": 1000.0,
+        }
+
+        assert platform._translate_policy_sizing_intent(decision) is None
+
+    def test_translate_policy_sizing_intent_preserves_provider_agnostic_payload(self, platform):
+        decision = {
+            "action": "BUY",
+            "asset_pair": "BTC-USD",
+            "suggested_amount": 1000.0,
+            "policy_sizing_intent": {
+                "semantic_action": "BUY",
+                "target_exposure_pct": 1000.0,
+                "target_delta_pct": 1000.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+        }
+
+        result = platform._translate_policy_sizing_intent(decision)
+        assert result["policy_sizing_intent"]["provider_agnostic"] is True
+        assert "translated_size" not in result["policy_sizing_intent"]
+
     def test_execute_trade_adds_translation_result_when_policy_intent_present(self, platform, mock_client):
         mock_client.list_orders.return_value = []
         order_response = MagicMock()

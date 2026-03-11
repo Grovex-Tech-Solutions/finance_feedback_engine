@@ -1156,6 +1156,34 @@ class TestOandaPolicyTranslationScaffold:
         assert result["translated_size"] == -2000
         assert result["semantic_drift_detected"] is True
 
+
+    def test_translate_policy_sizing_intent_is_none_without_policy_intent(self, platform_with_mock_client):
+        decision = {
+            "action": "BUY",
+            "recommended_position_size": 1000.4,
+        }
+
+        assert platform_with_mock_client._translate_policy_sizing_intent(decision) is None
+
+    def test_translate_policy_sizing_intent_minimum_unit_floor_applies(self, platform_with_mock_client):
+        decision = {
+            "action": "BUY",
+            "recommended_position_size": 0.2,
+            "policy_sizing_intent": {
+                "semantic_action": "BUY",
+                "target_exposure_pct": 10.0,
+                "target_delta_pct": 10.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+        }
+
+        result = platform_with_mock_client._translate_policy_sizing_intent(decision)
+        assert result["translated_size"] == 1
+        assert result["semantic_drift_detected"] is True
+
     def test_execute_trade_adds_translation_result_when_policy_intent_present(self, platform_with_mock_client, mock_client):
         mock_client.request.side_effect = [
             {"orders": []},
