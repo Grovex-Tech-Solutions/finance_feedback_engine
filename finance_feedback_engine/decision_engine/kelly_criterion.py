@@ -3,6 +3,12 @@ Kelly Criterion implementation for position sizing in trading systems.
 
 Implements the Kelly Criterion formula for optimal position sizing based on
 win rate and payoff ratio to maximize long-term growth of capital.
+
+Stage 1 policy-transition note:
+    This module is intentionally kept as a conservative sizing primitive, not
+    the final runtime action contract. During the policy migration it serves as
+    one input into provider-agnostic sizing intent generation. Execution-layer
+    quantity translation remains outside this module.
 """
 
 import logging
@@ -19,6 +25,11 @@ class KellyCriterionCalculator:
 
     The Kelly Criterion determines the optimal fraction of capital to risk
     on each trade based on the win rate and payoff ratio (average win/average loss).
+
+    In FFE's Stage 1 migration this class should be treated as a conservative
+    capital-allocation anchor. It remains intentionally provider-agnostic and
+    should not absorb Coinbase/OANDA execution semantics or bounded policy-action
+    routing logic.
     """
 
     def __init__(self, config: Dict[str, Any]):
@@ -48,6 +59,22 @@ class KellyCriterionCalculator:
         self.max_position_size_pct = self.kelly_config.get(
             "max_position_size_pct", 0.05
         )
+
+
+    def get_sizing_anchor_metadata(self) -> Dict[str, Any]:
+        """Return lightweight metadata describing the Kelly sizing anchor.
+
+        This helper is intentionally side-effect free and exists to make the
+        Stage 1 policy-sizing bridge explicit without changing sizing behavior.
+        Downstream code can use it when building provider-agnostic sizing intent.
+        """
+        return {
+            "sizing_anchor": "quarter_kelly_conservative",
+            "kelly_fraction_cap": self.kelly_fraction_cap,
+            "kelly_fraction_multiplier": self.kelly_fraction_multiplier,
+            "min_kelly_fraction": self.min_kelly_fraction,
+            "max_position_size_pct": self.max_position_size_pct,
+        }
 
     def calculate_kelly_fraction(
         self,
