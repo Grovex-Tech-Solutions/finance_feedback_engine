@@ -1735,7 +1735,20 @@ class TradingLoopAgent:
         except Exception as e:
             logger.warning("Unable to load open positions for duplicate-entry guard: %s", e)
 
-        for _, decision in ordered_results:
+        for index, decision in ordered_results:
+            asset_pair = asset_pairs_snapshot[index] if index < len(asset_pairs_snapshot) else None
+            if not decision:
+                self._persist_no_action_decision(
+                    decision,
+                    asset_pair=asset_pair or "UNKNOWN",
+                    reason_code="NO_DECISION_PAYLOAD",
+                    reason="Analysis completed without a materialized decision payload",
+                )
+                logger.info(
+                    "No decision payload returned for %s; persisted explicit no-action artifact.",
+                    asset_pair,
+                )
+                continue
             if decision and decision.get("action") in ["BUY", "SELL"]:
                 # Block duplicate entry when a position already exists for the same asset pair.
                 # This prevents repeated BUY/SELL stacking while positions are already open.
@@ -2787,6 +2800,25 @@ class TradingLoopAgent:
         if not decision.get("timestamp"):
             decision["timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         return decision
+
+    def _persist_no_action_decision(self, decision: Dict[str, Any], *, asset_pair: str, reason_code: str, reason: str) -> None:
+        """Persist explicit no-action artifacts when analysis returns no materialized decision payload."""
+        try:
+            normalized = dict(decision or {})
+            normalized.setdefault("asset_pair", asset_pair)
+            normalized.setdefault("action", "HOLD")
+            self._ensure_decision_identity(normalized)
+            normalized["executed"] = False
+            normalized["execution_status"] = "no_action"
+            normalized["execution_result"] = {
+                "success": True,
+                "reason_code": reason_code,
+                "message": reason,
+            }
+            if getattr(self.engine, "decision_store", None):
+                self.engine.decision_store.save_decision(normalized)
+        except Exception as e:
+            logger.warning("Failed to persist no-action decision for %s: %s", asset_pair, e)
 
     def _mark_decision_not_executed(self, decision: Dict[str, Any], reason_code: str, reason: str) -> None:
         """Persist explicit non-execution reason on a decision for observability."""

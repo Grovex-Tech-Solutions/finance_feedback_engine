@@ -242,3 +242,21 @@ async def test_filtered_decision_without_id_gets_persisted_with_generated_id(tra
     assert saved_decision["execution_result"]["reason_code"] == "LOW_CONFIDENCE"
     assert saved_decision.get("id")
     assert saved_decision.get("timestamp")
+
+
+@pytest.mark.asyncio
+async def test_empty_decision_payload_is_persisted_as_no_action(trading_agent, mock_dependencies):
+    """Falsey no-action payloads should not disappear silently."""
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(return_value={})
+    trading_agent.is_running = True
+
+    await trading_agent.process_cycle()
+
+    saved_decision = mock_dependencies["engine"].decision_store.save_decision.call_args[0][0]
+    assert saved_decision["asset_pair"] == "BTCUSD"
+    assert saved_decision["action"] == "HOLD"
+    assert saved_decision["execution_status"] == "no_action"
+    assert saved_decision["executed"] is False
+    assert saved_decision["execution_result"]["reason_code"] == "NO_DECISION_PAYLOAD"
+    assert saved_decision.get("id")
+    assert saved_decision.get("timestamp")
