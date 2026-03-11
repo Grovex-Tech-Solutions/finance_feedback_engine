@@ -53,3 +53,98 @@ def test_decision_validator_applies_size_multiplier():
     assert 0.5 <= decision["position_size_multiplier"] < 1.0
     assert decision["recommended_position_size"] < 1.0
     assert decision["suggested_amount"] < 100.0
+
+
+def test_decision_validator_surfaces_policy_sizing_metadata_additively():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {"action": "BUY", "confidence": 80, "amount": 0}
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+        "policy_sizing_intent": {
+            "semantic_action": "BUY",
+            "target_exposure_pct": 100.0,
+            "target_delta_pct": 100.0,
+            "reduction_fraction": None,
+            "sizing_anchor": "quarter_kelly_conservative",
+            "provider_agnostic": True,
+            "version": 1,
+        },
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["action"] == "BUY"
+    assert "suggested_amount" in decision
+    assert "recommended_position_size" in decision
+    assert decision["policy_sizing_intent"]["semantic_action"] == "BUY"
+    assert decision["sizing_semantics_version"] == 1
+    assert decision["sizing_anchor"] == "quarter_kelly_conservative"
+    assert decision["provider_translation_required"] is True
+    assert decision["effective_size_basis"] == "usd_notional"
+
+
+def test_decision_validator_hold_preserves_zero_delta_policy_metadata():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {"action": "HOLD", "confidence": 60, "amount": 0}
+    position_sizing_result = {
+        "recommended_position_size": 0,
+        "stop_loss_price": 100.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+        "policy_sizing_intent": {
+            "semantic_action": "HOLD",
+            "target_exposure_pct": None,
+            "target_delta_pct": 0.0,
+            "reduction_fraction": None,
+            "sizing_anchor": "quarter_kelly_conservative",
+            "provider_agnostic": True,
+            "version": 1,
+        },
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["action"] == "HOLD"
+    assert decision["suggested_amount"] == 0
+    assert decision["policy_sizing_intent"]["target_delta_pct"] == 0.0
+    assert decision["provider_translation_required"] is False
+    assert decision["effective_size_basis"] == "usd_notional"

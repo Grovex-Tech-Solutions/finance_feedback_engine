@@ -99,6 +99,17 @@ class DecisionValidator:
         )
         risk_percentage = position_sizing_result.get("risk_percentage", 0)
         signal_only = position_sizing_result.get("signal_only", False)
+        policy_sizing_intent = position_sizing_result.get("policy_sizing_intent")
+        sizing_semantics_version = None
+        sizing_anchor = None
+        provider_translation_required = False
+
+        if isinstance(policy_sizing_intent, dict):
+            sizing_semantics_version = policy_sizing_intent.get("version", 1)
+            sizing_anchor = policy_sizing_intent.get("sizing_anchor")
+            provider_translation_required = bool(
+                policy_sizing_intent.get("provider_agnostic", False)
+            ) and action in ["BUY", "SELL"]
         
         logger.debug(
             f"Position sizing extracted: size={recommended_position_size}, "
@@ -189,6 +200,11 @@ class DecisionValidator:
             "signal_only": signal_only,
             "position_size_multiplier": size_multiplier,
             "quality_controls_enabled": controls.enabled,
+            "policy_sizing_intent": policy_sizing_intent,
+            "sizing_semantics_version": sizing_semantics_version,
+            "sizing_anchor": sizing_anchor,
+            "provider_translation_required": provider_translation_required,
+            "effective_size_basis": "usd_notional" if is_crypto else "asset_units",
             "portfolio_stop_loss_percentage": self.portfolio_stop_loss_percentage,
             "portfolio_take_profit_percentage": self.portfolio_take_profit_percentage,
             "market_data": context["market_data"],
