@@ -72,5 +72,28 @@ class EnsemblePolicyActionAggregationTest(unittest.TestCase):
         self.assertNotIn("BUY", result["action_votes"])
 
 
+    def test_policy_action_hold_aggregates_with_hold_compatibility(self):
+        config = {
+            "ensemble": {
+                "enabled_providers": ["local", "cli"],
+                "provider_weights": {"local": 0.5, "cli": 0.5},
+                "voting_strategy": "weighted",
+            }
+        }
+        manager = EnsembleDecisionManager(config)
+
+        result = manager._weighted_voting(
+            providers=["local", "cli"],
+            actions=["HOLD", "HOLD"],
+            confidences=[80, 70],
+            reasonings=["wait", "also wait"],
+            amounts=[0.0, 0.0],
+        )
+
+        assert result["action"] == "HOLD"
+        assert result["policy_action"] == "HOLD"
+        assert result["legacy_action_compatibility"] == "HOLD"
+
+
 if __name__ == "__main__":
     unittest.main()

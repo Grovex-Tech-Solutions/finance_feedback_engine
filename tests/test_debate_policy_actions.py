@@ -52,3 +52,17 @@ def test_legacy_directional_role_outputs_remain_compatible():
     assert result["policy_action"] is None
     assert result["ensemble_metadata"]["role_decisions"]["bull"]["policy_action"] is None
     assert result["ensemble_metadata"]["role_decisions"]["judge"]["policy_action"] is None
+
+
+def test_debate_policy_action_close_preserves_none_legacy_compatibility():
+    manager = DebateManager(_providers())
+
+    result = manager.synthesize_debate_decision(
+        bull_case={"action": "OPEN_SMALL_LONG", "confidence": 70, "reasoning": "bull"},
+        bear_case={"action": "CLOSE_LONG", "confidence": 60, "reasoning": "bear"},
+        judge_decision={"action": "CLOSE_LONG", "confidence": 75, "reasoning": "judge"},
+    )
+
+    assert result["policy_action"] == "CLOSE_LONG"
+    assert result["legacy_action_compatibility"] is None
+    assert result["ensemble_metadata"]["role_decisions"]["bear"]["legacy_action_compatibility"] is None

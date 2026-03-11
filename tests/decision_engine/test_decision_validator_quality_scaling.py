@@ -598,3 +598,43 @@ def test_decision_validator_keeps_legacy_action_fields_when_action_is_directiona
     assert decision["policy_action_version"] is None
     assert decision["policy_action_family"] is None
     assert decision["legacy_action_compatibility"] is None
+
+
+def test_decision_validator_policy_action_close_has_no_legacy_compatibility():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {
+        "action": "CLOSE_LONG",
+        "confidence": 80,
+        "reasoning": "bounded policy action",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=True,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_action"] == "CLOSE_LONG"
+    assert decision["policy_action_family"] == "close_long"
+    assert decision["legacy_action_compatibility"] is None
