@@ -1109,3 +1109,85 @@ class TestOandaEdgeCases:
         assert platform.api_key is None
         assert platform.account_id is None
         assert platform.environment == "practice"  # Default
+
+
+class TestOandaPolicyTranslationScaffold:
+    def test_translate_policy_sizing_intent_rounds_to_integer_units(self, platform_with_mock_client):
+        decision = {
+            "action": "BUY",
+            "recommended_position_size": 1000.4,
+            "policy_sizing_intent": {
+                "semantic_action": "BUY",
+                "target_exposure_pct": 1200.0,
+                "target_delta_pct": 1200.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+        }
+
+        result = platform_with_mock_client._translate_policy_sizing_intent(decision)
+
+        assert result is not None
+        assert result["provider"] == "oanda"
+        assert result["translated_size"] == 1000
+        assert result["semantic_drift_detected"] is True
+        assert result["translation_notes"] == "oanda_integer_unit_translation"
+
+    def test_translate_policy_sizing_intent_sell_produces_negative_units(self, platform_with_mock_client):
+        decision = {
+            "action": "SELL",
+            "recommended_position_size": 2000.2,
+            "policy_sizing_intent": {
+                "semantic_action": "SELL",
+                "target_exposure_pct": 2200.0,
+                "target_delta_pct": 2200.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+        }
+
+        result = platform_with_mock_client._translate_policy_sizing_intent(decision)
+
+        assert result is not None
+        assert result["translated_size"] == -2000
+        assert result["semantic_drift_detected"] is True
+
+    def test_execute_trade_adds_translation_result_when_policy_intent_present(self, platform_with_mock_client, mock_client):
+        mock_client.request.side_effect = [
+            {"orders": []},
+            {
+                "orderFillTransaction": {
+                    "id": "order-oanda-123",
+                    "price": "1.0850",
+                    "pl": "0",
+                }
+            },
+        ]
+
+        decision = {
+            "id": "test-decision-translate",
+            "action": "BUY",
+            "asset_pair": "EURUSD",
+            "recommended_position_size": 1000.4,
+            "entry_price": 1.0850,
+            "policy_sizing_intent": {
+                "semantic_action": "BUY",
+                "target_exposure_pct": 1200.0,
+                "target_delta_pct": 1200.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+        }
+
+        result = platform_with_mock_client.execute_trade(decision)
+
+        assert result["success"] is True
+        assert result["units"] == 1000
+        assert decision["provider_translation_result"]["provider"] == "oanda"
+        assert decision["provider_translation_result"]["translated_size"] == 1000

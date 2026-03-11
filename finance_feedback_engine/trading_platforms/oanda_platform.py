@@ -901,6 +901,47 @@ class OandaPlatform(BaseTradingPlatform):
             )
             return None
 
+    def _translate_policy_sizing_intent(self, decision: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Translate shared sizing intent into OANDA-native integer unit semantics.
+
+        Stage 2 keeps this additive and compatibility-preserving. It makes the
+        integer-unit translation explicit and surfaces semantic drift caused by
+        rounding, without replacing the existing execution contract.
+        """
+        intent = decision.get("policy_sizing_intent")
+        if not isinstance(intent, dict):
+            return None
+
+        action = str(decision.get("action") or "").upper()
+        raw_units = decision.get("recommended_position_size")
+        try:
+            raw_units = float(raw_units) if raw_units is not None else None
+        except (TypeError, ValueError):
+            raw_units = None
+
+        translated_size = None
+        if raw_units is not None and action in {"BUY", "SELL"}:
+            translated_size = max(1, round(abs(raw_units)))
+            if action == "SELL":
+                translated_size = -translated_size
+
+        effective_exposure_pct = intent.get("target_delta_pct")
+        semantic_drift_detected = False
+        notes = "oanda_integer_unit_translation"
+
+        if raw_units is not None and translated_size is not None:
+            semantic_drift_detected = abs(float(translated_size) - float(raw_units)) > 1e-9
+
+        return {
+            "provider": "oanda",
+            "policy_sizing_intent": intent,
+            "translated_size": translated_size,
+            "effective_exposure_pct": effective_exposure_pct,
+            "semantic_drift_detected": semantic_drift_detected,
+            "translation_notes": notes,
+            "version": 1,
+        }
+
     def execute_trade(self, decision: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a forex trade on Oanda with idempotent retry logic.
@@ -958,6 +999,10 @@ class OandaPlatform(BaseTradingPlatform):
             else:
                 instrument = asset_pair
 
+            provider_translation_result = self._translate_policy_sizing_intent(decision)
+            if provider_translation_result and not decision.get("provider_translation_result"):
+                decision["provider_translation_result"] = provider_translation_result
+
             units = decision.get("recommended_position_size", 1000)
             entry_price = decision.get("entry_price", 0)
             stop_loss_pct = decision.get("stop_loss_percentage", 0.02)
@@ -965,7 +1010,9 @@ class OandaPlatform(BaseTradingPlatform):
             # Determine order direction
             # Oanda requires integer units for forex (1 unit = 1 EUR, ~$1.19)
             # Round to nearest integer, minimum 1 unit
-            if action == "BUY":
+            if provider_translation_result and provider_translation_result.get("translated_size") is not None:
+                order_units = int(provider_translation_result["translated_size"])
+            elif action == "BUY":
                 order_units = max(1, round(abs(units)))
             elif action == "SELL":
                 order_units = -max(1, round(abs(units)))
