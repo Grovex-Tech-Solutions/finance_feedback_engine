@@ -10,6 +10,7 @@ from .policy_actions import (
     POLICY_ACTION_VERSION,
     build_action_context,
     build_control_outcome,
+    build_policy_state,
     get_legacy_action_compatibility,
     get_policy_action_family,
     is_policy_action,
@@ -117,6 +118,13 @@ class DecisionValidator:
         sizing_semantics_version = None
         sizing_anchor = None
         provider_translation_required = False
+        canonical_policy_state = build_policy_state(
+            position_state=context.get("position_state"),
+            market_data=context.get("market_data"),
+            volatility=context.get("volatility"),
+            portfolio=context.get("portfolio"),
+            market_regime=context.get("market_regime"),
+        )
 
         if isinstance(policy_sizing_intent, dict):
             sizing_semantics_version = policy_sizing_intent.get("version", 1)
@@ -280,6 +288,7 @@ class DecisionValidator:
             "risk_veto_reason": risk_veto_reason,
             "gatekeeper_message": gatekeeper_message,
             "action_context_version": action_context_version,
+            "policy_state": canonical_policy_state,
             "action_context": canonical_action_context,
             "control_outcome": canonical_control_outcome,
             "confidence": ai_response.get("confidence", 50),

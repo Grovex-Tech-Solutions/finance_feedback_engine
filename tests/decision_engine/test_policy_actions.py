@@ -5,6 +5,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     PolicyAction,
     build_action_context,
     build_control_outcome,
+    build_policy_state,
     get_legacy_action_compatibility,
     get_policy_action_family,
     invalid_action_reason,
@@ -135,3 +136,35 @@ def test_build_control_outcome_prioritizes_invalid_then_veto():
     assert invalid["reason_code"] == "INVALID_POLICY_ACTION"
     assert vetoed["status"] == "vetoed"
     assert vetoed["reason_code"] == "RISK_VETO"
+
+
+
+def test_build_policy_state_from_flat_context():
+    result = build_policy_state(
+        position_state="flat",
+        market_data={"close": 100.0},
+        volatility=0.02,
+        portfolio={"unrealized_pnl": 12.5},
+        market_regime="trend",
+    )
+    assert result["position_state"] == "flat"
+    assert result["current_price"] == 100.0
+    assert result["volatility"] == 0.02
+    assert result["unrealized_pnl"] == 12.5
+    assert result["market_regime"] == "trend"
+    assert result["version"] == 1
+
+
+def test_build_policy_state_from_position_state_dict():
+    result = build_policy_state(position_state={"state": "LONG"}, market_data={"close": 101.0})
+    assert result["position_state"] == "long"
+    assert result["current_price"] == 101.0
+
+
+def test_build_policy_state_gracefully_defaults_when_optional_inputs_missing():
+    result = build_policy_state(position_state=None)
+    assert result["position_state"] is None
+    assert result["market_regime"] is None
+    assert result["volatility"] == 0.0
+    assert result["current_price"] is None
+    assert result["unrealized_pnl"] is None

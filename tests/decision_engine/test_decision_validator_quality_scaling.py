@@ -876,3 +876,49 @@ def test_decision_validator_surfaces_canonical_action_context_and_control_outcom
     assert decision["control_outcome"]["status"] == "vetoed"
     assert decision["control_outcome"]["reason_code"] == "RISK_VETO"
     assert decision["control_outcome"]["message"] == "Trade rejected: drawdown exceeds threshold"
+
+
+
+def test_decision_validator_surfaces_canonical_policy_state_additively():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.03,
+        "portfolio": {"unrealized_pnl": 12.5},
+        "position_state": {"state": "LONG"},
+        "market_regime": "trend",
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "bounded policy action",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=True,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_state"]["position_state"] == "long"
+    assert decision["policy_state"]["market_regime"] == "trend"
+    assert decision["policy_state"]["volatility"] == 0.03
+    assert decision["policy_state"]["current_price"] == 100.0
+    assert decision["policy_state"]["unrealized_pnl"] == 12.5
+    assert decision["policy_state"]["version"] == 1

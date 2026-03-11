@@ -219,3 +219,32 @@ def build_control_outcome(
         "message": None,
         "version": 1,
     }
+
+
+
+def build_policy_state(
+    *,
+    position_state: object | None,
+    market_data: Optional[dict] = None,
+    volatility: Optional[float] = None,
+    portfolio: Optional[dict] = None,
+    market_regime: Optional[str] = None,
+) -> dict:
+    normalized_position_state = None
+    if isinstance(position_state, str):
+        normalized_position_state = normalize_position_state(position_state)
+    elif isinstance(position_state, dict):
+        raw_state = position_state.get("state")
+        if raw_state is not None:
+            normalized_position_state = normalize_position_state(raw_state)
+
+    market_data = market_data or {}
+    portfolio = portfolio or {}
+    return {
+        "position_state": normalized_position_state,
+        "market_regime": market_regime,
+        "volatility": float(volatility or 0.0),
+        "current_price": market_data.get("close"),
+        "unrealized_pnl": portfolio.get("unrealized_pnl"),
+        "version": 1,
+    }
