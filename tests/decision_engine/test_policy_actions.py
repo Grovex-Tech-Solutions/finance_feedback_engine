@@ -17,6 +17,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_evaluation_record_from_dataset_row,
     build_policy_evaluation_batch,
     build_policy_evaluation_run,
+    build_policy_evaluation_summary,
     get_legacy_action_compatibility,
     get_policy_action_family,
     invalid_action_reason,
@@ -820,3 +821,37 @@ def test_build_policy_evaluation_run_wraps_records_cleanly():
 def test_build_policy_evaluation_run_handles_empty_inputs():
     assert build_policy_evaluation_run([]) == {"records": [], "record_count": 0, "run_version": 1}
     assert build_policy_evaluation_run(None) == {"records": [], "record_count": 0, "run_version": 1}
+
+
+
+def test_build_policy_evaluation_summary_counts_lifecycle_outcomes():
+    run = build_policy_evaluation_run([
+        {"decision_id": "decision-summary-1", "control_outcome_status": "executed", "evaluation_record_version": 1},
+        {"decision_id": "decision-summary-2", "control_outcome_status": "vetoed", "evaluation_record_version": 1},
+        {"decision_id": "decision-summary-3", "control_outcome_status": "rejected", "evaluation_record_version": 1},
+        {"decision_id": "decision-summary-4", "control_outcome_status": "invalid", "evaluation_record_version": 1},
+        {"decision_id": "decision-summary-5", "control_outcome_status": "executed", "evaluation_record_version": 1},
+    ])
+
+    summary = build_policy_evaluation_summary(run)
+
+    assert summary["record_count"] == 5
+    assert summary["executed_count"] == 2
+    assert summary["vetoed_count"] == 1
+    assert summary["rejected_count"] == 1
+    assert summary["invalid_count"] == 1
+    assert summary["summary_version"] == 1
+
+
+
+def test_build_policy_evaluation_summary_handles_empty_run():
+    summary = build_policy_evaluation_summary({"records": [], "run_version": 1})
+
+    assert summary == {
+        "record_count": 0,
+        "executed_count": 0,
+        "vetoed_count": 0,
+        "rejected_count": 0,
+        "invalid_count": 0,
+        "summary_version": 1,
+    }

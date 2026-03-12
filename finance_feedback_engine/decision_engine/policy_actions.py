@@ -515,3 +515,35 @@ def build_policy_evaluation_run(evaluation_records: Optional[list[dict]]) -> dic
         "record_count": len(records),
         "run_version": 1,
     }
+
+
+
+def build_policy_evaluation_summary(evaluation_run: Optional[dict]) -> dict:
+    payload = dict(evaluation_run or {})
+    records = payload.get("records") or []
+    executed_count = 0
+    vetoed_count = 0
+    rejected_count = 0
+    invalid_count = 0
+
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        status = record.get("control_outcome_status")
+        if status == "executed":
+            executed_count += 1
+        elif status == "vetoed":
+            vetoed_count += 1
+        elif status == "rejected":
+            rejected_count += 1
+        elif status == "invalid":
+            invalid_count += 1
+
+    return {
+        "record_count": len([r for r in records if isinstance(r, dict)]),
+        "executed_count": executed_count,
+        "vetoed_count": vetoed_count,
+        "rejected_count": rejected_count,
+        "invalid_count": invalid_count,
+        "summary_version": 1,
+    }
