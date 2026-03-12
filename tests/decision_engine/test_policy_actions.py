@@ -503,3 +503,114 @@ def test_extract_policy_dataset_rows_filters_to_canonical_rows():
 def test_extract_policy_dataset_rows_handles_empty_inputs():
     assert extract_policy_dataset_rows([]) == []
     assert extract_policy_dataset_rows(None) == []
+
+
+
+def test_policy_dataset_row_versions_align_with_trace_and_replay_versions():
+    policy_package = build_policy_package(
+        policy_state={"position_state": "flat", "version": 1},
+        action_context={"structural_action_validity": "valid", "version": 1},
+        policy_sizing_intent=None,
+        provider_translation_result=None,
+        control_outcome={"status": "vetoed", "reason_code": "RISK_VETO", "version": 1},
+    )
+    policy_trace = build_policy_trace(
+        policy_package=policy_package,
+        action="OPEN_SMALL_LONG",
+        policy_action="OPEN_SMALL_LONG",
+        legacy_action_compatibility="BUY",
+        confidence=82,
+        reasoning="bounded policy action",
+        asset_pair="BTCUSD",
+        ai_provider="ensemble",
+        timestamp="2026-03-12T17:00:00Z",
+        decision_id="decision-version-1",
+    )
+    replay_record = build_policy_replay_record({
+        "id": "decision-version-1",
+        "asset_pair": "BTCUSD",
+        "timestamp": "2026-03-12T17:00:00Z",
+        "policy_trace": policy_trace,
+    })
+
+    row = build_policy_dataset_row(replay_record)
+
+    assert row["trace_version"] == 1
+    assert row["replay_version"] == 1
+    assert row["dataset_row_version"] == 1
+
+
+
+def test_policy_dataset_row_preserves_lifecycle_control_outcome_distinctions():
+    policy_package = build_policy_package(
+        policy_state={"position_state": "long", "version": 1},
+        action_context={"structural_action_validity": "valid", "version": 1},
+        policy_sizing_intent=None,
+        provider_translation_result=None,
+        control_outcome={"status": "rejected", "reason_code": "EXECUTION_FAILED", "version": 1},
+    )
+    policy_trace = build_policy_trace(
+        policy_package=policy_package,
+        action="CLOSE_LONG",
+        policy_action="CLOSE_LONG",
+        legacy_action_compatibility=None,
+        confidence=70,
+        reasoning="execution failed",
+        asset_pair="BTCUSD",
+        ai_provider="ensemble",
+        timestamp="2026-03-12T17:01:00Z",
+        decision_id="decision-lifecycle-1",
+    )
+
+    row = build_policy_dataset_row_from_decision({
+        "id": "decision-lifecycle-1",
+        "asset_pair": "BTCUSD",
+        "timestamp": "2026-03-12T17:01:00Z",
+        "policy_trace": policy_trace,
+    })
+
+    assert row["control_outcome"]["status"] == "rejected"
+    assert row["control_outcome"]["reason_code"] == "EXECUTION_FAILED"
+
+
+
+def test_extract_policy_dataset_rows_skips_partial_trace_rows_cleanly():
+    policy_package = build_policy_package(
+        policy_state={"position_state": "flat", "version": 1},
+        action_context={"structural_action_validity": "valid", "version": 1},
+        policy_sizing_intent=None,
+        provider_translation_result=None,
+        control_outcome={"status": "executed", "version": 1},
+    )
+    policy_trace = build_policy_trace(
+        policy_package=policy_package,
+        action="OPEN_SMALL_LONG",
+        policy_action="OPEN_SMALL_LONG",
+        legacy_action_compatibility="BUY",
+        confidence=82,
+        reasoning="bounded policy action",
+        asset_pair="BTCUSD",
+        ai_provider="ensemble",
+        timestamp="2026-03-12T17:02:00Z",
+        decision_id="decision-batch-clean-1",
+    )
+
+    rows = extract_policy_dataset_rows([
+        {
+            "id": "decision-batch-clean-1",
+            "asset_pair": "BTCUSD",
+            "timestamp": "2026-03-12T17:02:00Z",
+            "policy_trace": policy_trace,
+        },
+        {
+            "id": "decision-batch-partial-1",
+            "policy_trace": {"trace_version": 1},
+        },
+        {
+            "id": "legacy-batch-clean-1",
+            "action": "BUY",
+        },
+    ])
+
+    assert len(rows) == 1
+    assert rows[0]["decision_id"] == "decision-batch-clean-1"
