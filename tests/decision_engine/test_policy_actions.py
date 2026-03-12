@@ -3,6 +3,7 @@ import pytest
 from finance_feedback_engine.decision_engine.policy_actions import (
     POLICY_ACTION_VERSION,
     PolicyAction,
+    attach_sizing_translation_context,
     build_action_context,
     build_control_outcome,
     build_policy_package,
@@ -232,3 +233,22 @@ def test_build_policy_state_from_empty_position_snapshot():
     assert result["current_price"] is None
     assert result["unrealized_pnl"] is None
     assert result["version"] == 1
+
+
+
+def test_attach_sizing_translation_context_enriches_policy_package():
+    package = build_policy_package(
+        policy_state={"position_state": "flat", "version": 1},
+        action_context={"structural_action_validity": "valid", "version": 1},
+        policy_sizing_intent=None,
+        provider_translation_result=None,
+        control_outcome={"status": "proposed", "version": 1},
+    )
+    enriched = attach_sizing_translation_context(
+        package,
+        policy_sizing_intent={"semantic_action": "BUY", "version": 1},
+        provider_translation_result={"provider": "coinbase", "version": 1},
+    )
+    assert enriched["policy_sizing_intent"]["semantic_action"] == "BUY"
+    assert enriched["provider_translation_result"]["provider"] == "coinbase"
+    assert enriched["policy_state"] == package["policy_state"]

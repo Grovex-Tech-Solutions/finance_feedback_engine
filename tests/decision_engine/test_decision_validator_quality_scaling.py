@@ -1045,3 +1045,114 @@ def test_decision_validator_policy_package_stays_aligned_when_context_is_partial
     assert decision["policy_package"]["control_outcome"] == decision["control_outcome"]
     assert decision["policy_package"]["action_context"]["structural_action_validity"] == "unchecked"
     assert decision["policy_package"]["policy_state"]["position_state"] is None
+
+
+
+def test_decision_validator_policy_package_keeps_sizing_translation_alignment():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.03,
+        "portfolio": {"unrealized_pnl": 12.5},
+        "position_state": "flat",
+        "market_regime": "trend",
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "bounded policy action",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+        "policy_sizing_intent": {
+            "semantic_action": "BUY",
+            "target_exposure_pct": 100.0,
+            "target_delta_pct": 100.0,
+            "reduction_fraction": None,
+            "sizing_anchor": "quarter_kelly_conservative",
+            "provider_agnostic": True,
+            "version": 1,
+        },
+        "provider_translation_result": {
+            "provider": "coinbase",
+            "policy_sizing_intent": {
+                "semantic_action": "BUY",
+                "target_exposure_pct": 100.0,
+                "target_delta_pct": 100.0,
+                "reduction_fraction": None,
+                "sizing_anchor": "quarter_kelly_conservative",
+                "provider_agnostic": True,
+                "version": 1,
+            },
+            "translated_size": 100.0,
+            "effective_exposure_pct": 100.0,
+            "semantic_drift_detected": False,
+            "translation_notes": "stage2 scaffold",
+            "version": 1,
+        },
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_package"]["policy_sizing_intent"] == decision["policy_sizing_intent"]
+    assert decision["policy_package"]["provider_translation_result"] == decision["provider_translation_result"]
+    assert decision["policy_package"]["policy_sizing_intent"]["provider_agnostic"] is True
+    assert decision["policy_package"]["provider_translation_result"]["provider"] == "coinbase"
+
+
+
+def test_decision_validator_policy_package_gracefully_handles_missing_sizing_translation_context():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+        "position_state": "flat",
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "partial context",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_package"]["policy_sizing_intent"] is None
+    assert decision["policy_package"]["provider_translation_result"] is None

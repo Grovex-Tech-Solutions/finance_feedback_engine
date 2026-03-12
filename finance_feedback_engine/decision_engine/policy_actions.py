@@ -308,3 +308,18 @@ def build_ai_decision_envelope(
     payload["policy_package"] = policy_package
     payload["version"] = 1
     return payload
+
+
+
+def attach_sizing_translation_context(
+    policy_package: Optional[dict],
+    *,
+    policy_sizing_intent: Optional[dict],
+    provider_translation_result: Optional[dict],
+) -> Optional[dict]:
+    if not isinstance(policy_package, dict):
+        return policy_package
+    enriched = dict(policy_package)
+    enriched["policy_sizing_intent"] = policy_sizing_intent
+    enriched["provider_translation_result"] = provider_translation_result
+    return enriched

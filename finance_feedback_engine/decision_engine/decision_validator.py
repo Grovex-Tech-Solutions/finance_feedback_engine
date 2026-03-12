@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from .execution_quality import ExecutionQualityControls, calculate_size_multiplier
 from .policy_actions import (
     POLICY_ACTION_VERSION,
+    attach_sizing_translation_context,
     build_action_context,
     build_control_outcome,
     build_policy_package,
@@ -257,12 +258,16 @@ class DecisionValidator:
                 risk_vetoed=risk_vetoed,
                 risk_veto_reason=risk_veto_reason,
             )
-            canonical_policy_package = build_policy_package(
-                policy_state=canonical_policy_state,
-                action_context=canonical_action_context,
+            canonical_policy_package = attach_sizing_translation_context(
+                build_policy_package(
+                    policy_state=canonical_policy_state,
+                    action_context=canonical_action_context,
+                    policy_sizing_intent=None,
+                    provider_translation_result=None,
+                    control_outcome=canonical_control_outcome,
+                ),
                 policy_sizing_intent=policy_sizing_intent,
                 provider_translation_result=provider_translation_result,
-                control_outcome=canonical_control_outcome,
             )
         
         confidence_pct = float(ai_response.get("confidence", 0) or 0)
