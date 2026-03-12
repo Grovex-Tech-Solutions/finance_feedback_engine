@@ -323,3 +323,37 @@ def attach_sizing_translation_context(
     enriched["policy_sizing_intent"] = policy_sizing_intent
     enriched["provider_translation_result"] = provider_translation_result
     return enriched
+
+
+
+def build_policy_trace(
+    *,
+    policy_package: Optional[dict],
+    action: Optional[str],
+    confidence: Optional[object],
+    reasoning: Optional[str],
+    policy_action: Optional[str] = None,
+    legacy_action_compatibility: Optional[str] = None,
+    asset_pair: Optional[str] = None,
+    ai_provider: Optional[str] = None,
+    timestamp: Optional[str] = None,
+    decision_id: Optional[str] = None,
+) -> dict:
+    return {
+        "policy_package": dict(policy_package) if isinstance(policy_package, dict) else None,
+        "decision_envelope": {
+            "action": action,
+            "policy_action": policy_action,
+            "legacy_action_compatibility": legacy_action_compatibility,
+            "confidence": confidence,
+            "reasoning": reasoning,
+            "version": 1,
+        },
+        "decision_metadata": {
+            "asset_pair": asset_pair,
+            "ai_provider": ai_provider,
+            "timestamp": timestamp,
+            "decision_id": decision_id,
+        },
+        "trace_version": 1,
+    }

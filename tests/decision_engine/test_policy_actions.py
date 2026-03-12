@@ -8,6 +8,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_control_outcome,
     build_policy_package,
     build_policy_state,
+    build_policy_trace,
     get_legacy_action_compatibility,
     get_policy_action_family,
     invalid_action_reason,
@@ -252,3 +253,60 @@ def test_attach_sizing_translation_context_enriches_policy_package():
     assert enriched["policy_sizing_intent"]["semantic_action"] == "BUY"
     assert enriched["provider_translation_result"]["provider"] == "coinbase"
     assert enriched["policy_state"] == package["policy_state"]
+
+
+
+def test_build_policy_trace_bundles_persistence_facing_contract():
+    policy_package = build_policy_package(
+        policy_state={"position_state": "flat", "version": 1},
+        action_context={"structural_action_validity": "valid", "version": 1},
+        policy_sizing_intent=None,
+        provider_translation_result=None,
+        control_outcome={"status": "proposed", "version": 1},
+    )
+
+    trace = build_policy_trace(
+        policy_package=policy_package,
+        action="OPEN_SMALL_LONG",
+        policy_action="OPEN_SMALL_LONG",
+        legacy_action_compatibility="BUY",
+        confidence=82,
+        reasoning="bounded policy action",
+        asset_pair="BTCUSD",
+        ai_provider="ensemble",
+        timestamp="2026-03-12T13:00:00Z",
+        decision_id="decision-123",
+    )
+
+    assert trace["policy_package"] == policy_package
+    assert trace["decision_envelope"]["action"] == "OPEN_SMALL_LONG"
+    assert trace["decision_envelope"]["policy_action"] == "OPEN_SMALL_LONG"
+    assert trace["decision_envelope"]["legacy_action_compatibility"] == "BUY"
+    assert trace["decision_envelope"]["confidence"] == 82
+    assert trace["decision_envelope"]["reasoning"] == "bounded policy action"
+    assert trace["decision_envelope"]["version"] == 1
+    assert trace["decision_metadata"]["asset_pair"] == "BTCUSD"
+    assert trace["decision_metadata"]["ai_provider"] == "ensemble"
+    assert trace["decision_metadata"]["timestamp"] == "2026-03-12T13:00:00Z"
+    assert trace["decision_metadata"]["decision_id"] == "decision-123"
+    assert trace["trace_version"] == 1
+
+
+
+def test_build_policy_trace_gracefully_allows_partial_inputs():
+    trace = build_policy_trace(
+        policy_package=None,
+        action="HOLD",
+        confidence=None,
+        reasoning=None,
+    )
+
+    assert trace["policy_package"] is None
+    assert trace["decision_envelope"]["action"] == "HOLD"
+    assert trace["decision_envelope"]["policy_action"] is None
+    assert trace["decision_envelope"]["legacy_action_compatibility"] is None
+    assert trace["decision_envelope"]["confidence"] is None
+    assert trace["decision_envelope"]["reasoning"] is None
+    assert trace["decision_metadata"]["asset_pair"] is None
+    assert trace["decision_metadata"]["decision_id"] is None
+    assert trace["trace_version"] == 1
