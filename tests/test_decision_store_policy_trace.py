@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from finance_feedback_engine.persistence.decision_store import DecisionStore
-from finance_feedback_engine.decision_engine.policy_actions import build_policy_dataset_row_from_decision
+from finance_feedback_engine.decision_engine.policy_actions import build_policy_dataset_row_from_decision, build_policy_evaluation_record_from_dataset_row
 
 
 def _make_store(tmp_path):
@@ -176,3 +176,72 @@ def test_decision_store_loaded_legacy_decision_skips_dataset_row_extraction(tmp_
     loaded = store.get_decision_by_id("decision-dataset-store-legacy")
 
     assert build_policy_dataset_row_from_decision(loaded) is None
+
+
+
+def test_decision_store_loaded_policy_trace_extracts_evaluation_record_chain(tmp_path):
+    store = _make_store(tmp_path)
+    decision = {
+        "id": "decision-eval-store-1",
+        "timestamp": "2026-03-12T20:20:00+00:00",
+        "asset_pair": "BTCUSD",
+        "action": "OPEN_SMALL_LONG",
+        "policy_trace": {
+            "policy_package": {
+                "policy_state": {"position_state": "flat", "version": 1},
+                "action_context": {"structural_action_validity": "valid", "version": 1},
+                "policy_sizing_intent": None,
+                "provider_translation_result": None,
+                "control_outcome": {"status": "executed", "reason_code": "EXECUTED", "version": 1},
+                "version": 1,
+            },
+            "decision_envelope": {
+                "action": "OPEN_SMALL_LONG",
+                "policy_action": "OPEN_SMALL_LONG",
+                "legacy_action_compatibility": "BUY",
+                "confidence": 80,
+                "reasoning": "persist trace",
+                "version": 1,
+            },
+            "decision_metadata": {
+                "asset_pair": "BTCUSD",
+                "ai_provider": "ensemble",
+                "timestamp": "2026-03-12T20:20:00+00:00",
+                "decision_id": "decision-eval-store-1",
+            },
+            "trace_version": 1,
+        },
+    }
+
+    store.save_decision(decision)
+    loaded = store.get_decision_by_id("decision-eval-store-1")
+    dataset_row = build_policy_dataset_row_from_decision(loaded)
+    evaluation_record = build_policy_evaluation_record_from_dataset_row(dataset_row)
+
+    assert dataset_row is not None
+    assert evaluation_record is not None
+    assert evaluation_record["decision_id"] == "decision-eval-store-1"
+    assert evaluation_record["policy_action"] == "OPEN_SMALL_LONG"
+    assert evaluation_record["control_outcome_status"] == "executed"
+    assert evaluation_record["control_outcome_reason_code"] == "EXECUTED"
+    assert evaluation_record["evaluation_record_version"] == 1
+
+
+
+def test_decision_store_loaded_legacy_decision_skips_evaluation_record_chain(tmp_path):
+    store = _make_store(tmp_path)
+    decision = {
+        "id": "decision-eval-store-legacy",
+        "timestamp": "2026-03-12T20:20:00+00:00",
+        "asset_pair": "BTCUSD",
+        "action": "BUY",
+        "confidence": 75,
+        "reasoning": "legacy",
+    }
+
+    store.save_decision(decision)
+    loaded = store.get_decision_by_id("decision-eval-store-legacy")
+    dataset_row = build_policy_dataset_row_from_decision(loaded)
+
+    assert dataset_row is None
+    assert build_policy_evaluation_record_from_dataset_row(dataset_row) is None
