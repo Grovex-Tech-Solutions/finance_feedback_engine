@@ -547,3 +547,51 @@ async def test_execution_state_updates_canonical_control_outcome_on_failure(trad
     assert decision["control_outcome"]["reason_code"] == "EXECUTION_FAILED"
     assert decision["policy_package"]["control_outcome"] == decision["control_outcome"]
     assert decision["policy_package"]["control_outcome"] is not decision["control_outcome"]
+
+
+
+@pytest.mark.asyncio
+async def test_execution_state_policy_package_control_outcome_copy_stays_isolated(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-copy-isolated",
+        "action": "OPEN_SMALL_LONG",
+        "asset_pair": "BTCUSD",
+        "control_outcome": {"status": "proposed", "version": 1},
+        "policy_package": {"control_outcome": {"status": "proposed", "version": 1}, "version": 1},
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.EXECUTION
+    trading_agent.engine.execute_decision_async = AsyncMock(return_value={"success": True, "message": "order placed", "order_id": "abc123"})
+
+    await trading_agent.handle_execution_state()
+
+    decision["control_outcome"]["message"] = "mutated later"
+    assert decision["policy_package"]["control_outcome"]["message"] == "order placed"
+
+
+@pytest.mark.asyncio
+async def test_risk_check_policy_package_control_outcome_copy_stays_isolated(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-risk-copy-isolated",
+        "action": "OPEN_MEDIUM_LONG",
+        "confidence": 80,
+        "asset_pair": "BTCUSD",
+        "structural_action_validity": "valid",
+        "risk_vetoed": True,
+        "risk_veto_reason": "Trade rejected: drawdown exceeds threshold",
+        "control_outcome": {"status": "proposed", "version": 1},
+        "policy_package": {"control_outcome": {"status": "proposed", "version": 1}, "version": 1},
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.RISK_CHECK
+
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {}
+    trading_agent.risk_gatekeeper.validate_trade = Mock(return_value=(False, "Trade rejected: drawdown exceeds threshold"))
+
+    await trading_agent.handle_risk_check_state()
+
+    saved_decision = mock_dependencies["engine"].decision_store.update_decision.call_args[0][0]
+    saved_decision["control_outcome"]["message"] = "mutated later"
+    assert saved_decision["policy_package"]["control_outcome"]["message"] == "Trade rejected: drawdown exceeds threshold"

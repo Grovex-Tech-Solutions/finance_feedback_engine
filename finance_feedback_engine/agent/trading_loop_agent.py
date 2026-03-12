@@ -2921,7 +2921,7 @@ class TradingLoopAgent:
             )
             policy_package = decision.get("policy_package")
             if isinstance(policy_package, dict):
-                policy_package["control_outcome"] = decision["control_outcome"]
+                policy_package["control_outcome"] = decision["control_outcome"].copy()
             if getattr(self.engine, "decision_store", None):
                 if had_id:
                     self.engine.decision_store.update_decision(decision)

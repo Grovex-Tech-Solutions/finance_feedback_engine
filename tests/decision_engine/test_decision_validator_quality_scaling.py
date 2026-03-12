@@ -1002,3 +1002,46 @@ def test_decision_validator_surfaces_policy_package_additively():
     assert decision["policy_package"]["provider_translation_result"] == decision["provider_translation_result"]
     assert decision["policy_package"]["control_outcome"] == decision["control_outcome"]
     assert decision["policy_package"]["control_outcome"]["status"] == "vetoed"
+
+
+
+def test_decision_validator_policy_package_stays_aligned_when_context_is_partial():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "partial context",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_package"]["policy_state"] == decision["policy_state"]
+    assert decision["policy_package"]["action_context"] == decision["action_context"]
+    assert decision["policy_package"]["control_outcome"] == decision["control_outcome"]
+    assert decision["policy_package"]["action_context"]["structural_action_validity"] == "unchecked"
+    assert decision["policy_package"]["policy_state"]["position_state"] is None

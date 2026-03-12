@@ -204,3 +204,20 @@ def test_build_control_outcome_handles_execution_terminal_states():
     assert executed["reason_code"] == "EXECUTED"
     assert failed["status"] == "rejected"
     assert failed["reason_code"] == "EXECUTION_FAILED"
+
+
+
+def test_build_policy_package_gracefully_allows_partial_components():
+    package = build_policy_package(
+        policy_state={"position_state": None, "version": 1},
+        action_context=None,
+        policy_sizing_intent=None,
+        provider_translation_result=None,
+        control_outcome=None,
+    )
+    assert package["policy_state"]["position_state"] is None
+    assert package["action_context"] is None
+    assert package["policy_sizing_intent"] is None
+    assert package["provider_translation_result"] is None
+    assert package["control_outcome"] is None
+    assert package["version"] == 1
