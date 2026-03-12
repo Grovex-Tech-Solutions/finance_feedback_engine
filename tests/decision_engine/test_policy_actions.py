@@ -14,6 +14,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_dataset_row_from_decision,
     extract_policy_dataset_rows,
     build_policy_evaluation_record,
+    build_policy_evaluation_record_from_dataset_row,
     get_legacy_action_compatibility,
     get_policy_action_family,
     invalid_action_reason,
@@ -645,3 +646,30 @@ def test_build_policy_evaluation_record_extracts_minimal_evaluation_view():
 
 def test_build_policy_evaluation_record_returns_none_without_control_outcome():
     assert build_policy_evaluation_record({"decision_id": "decision-eval-2"}) is None
+
+
+
+def test_build_policy_evaluation_record_from_dataset_row_extracts_evaluation_view():
+    dataset_row = {
+        "decision_id": "decision-eval-row-1",
+        "asset_pair": "BTCUSD",
+        "timestamp": "2026-03-12T18:30:00Z",
+        "policy_action": "OPEN_SMALL_LONG",
+        "legacy_action_compatibility": "BUY",
+        "control_outcome": {"status": "vetoed", "reason_code": "RISK_VETO", "version": 1},
+        "dataset_row_version": 1,
+    }
+
+    record = build_policy_evaluation_record_from_dataset_row(dataset_row)
+
+    assert record is not None
+    assert record["decision_id"] == "decision-eval-row-1"
+    assert record["policy_action"] == "OPEN_SMALL_LONG"
+    assert record["control_outcome_status"] == "vetoed"
+    assert record["control_outcome_reason_code"] == "RISK_VETO"
+    assert record["evaluation_record_version"] == 1
+
+
+
+def test_build_policy_evaluation_record_from_dataset_row_returns_none_for_partial_row():
+    assert build_policy_evaluation_record_from_dataset_row({"decision_id": "decision-eval-row-2"}) is None

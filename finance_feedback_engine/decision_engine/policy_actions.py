@@ -483,3 +483,8 @@ def build_policy_evaluation_record(dataset_row: Optional[dict]) -> Optional[dict
         "dataset_row_version": payload.get("dataset_row_version"),
         "evaluation_record_version": 1,
     }
+
+
+
+def build_policy_evaluation_record_from_dataset_row(dataset_row: Optional[dict]) -> Optional[dict]:
+    return build_policy_evaluation_record(dataset_row)
