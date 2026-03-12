@@ -9,6 +9,7 @@ from finance_feedback_engine.utils.config_loader import normalize_decision_confi
 from .decision_validation import build_fallback_decision
 from .ensemble_manager import EnsembleDecisionManager
 from .policy_actions import (
+    build_ai_decision_envelope,
     get_legacy_action_compatibility,
     is_policy_action,
     normalize_policy_action,
@@ -79,37 +80,48 @@ class AIDecisionManager:
             provider_override: Optional provider override for this call
 
         Returns:
-            AI response
+            AI response wrapped in a thin canonical decision envelope.
+            Compatibility fields like action/confidence/reasoning remain at the top level.
         """
         provider = provider_override or self.ai_provider
         logger.info(f"Querying AI provider: {provider}")
 
         # Mock mode: fast random decisions for backtesting
         if provider == "mock":
-            return await self._mock_ai_inference(prompt)
+            return self._wrap_decision_envelope(await self._mock_ai_inference(prompt))
 
         # Ensemble mode: query multiple providers and aggregate
         if provider == "ensemble":
             if self.ensemble_manager is None:
                 self._get_ensemble_manager()
-            return await self._ensemble_ai_inference(
-                prompt, asset_pair=asset_pair, market_data=market_data
+            return self._wrap_decision_envelope(
+                await self._ensemble_ai_inference(
+                    prompt, asset_pair=asset_pair, market_data=market_data
+                )
             )
 
         # Route to appropriate single provider
         if provider == "local":
-            return await self._local_ai_inference(prompt)
+            return self._wrap_decision_envelope(await self._local_ai_inference(prompt))
         elif provider == "cli":
-            return await self._cli_ai_inference(prompt)
+            return self._wrap_decision_envelope(await self._cli_ai_inference(prompt))
         elif provider == "codex":
-            return await self._codex_ai_inference(prompt)
+            return self._wrap_decision_envelope(await self._codex_ai_inference(prompt))
         elif provider == "qwen":
             # Qwen CLI provider
-            return await self._cli_ai_inference(prompt)
+            return self._wrap_decision_envelope(await self._cli_ai_inference(prompt))
         elif provider == "gemini":
-            return await self._gemini_ai_inference(prompt)
+            return self._wrap_decision_envelope(await self._gemini_ai_inference(prompt))
         else:
             raise ValueError(f"Unknown AI provider: {provider}")
+
+    def _wrap_decision_envelope(self, decision: Dict[str, Any]) -> Dict[str, Any]:
+        """Add a thin canonical decision-envelope shape at the AI boundary."""
+        normalized = self._normalize_provider_action_payload(decision)
+        return build_ai_decision_envelope(
+            decision=normalized,
+            policy_package=normalized.get("policy_package"),
+        )
 
     async def _mock_ai_inference(self, prompt: str) -> Dict[str, Any]:
         """

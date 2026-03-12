@@ -296,3 +296,15 @@ def build_policy_state_from_position_snapshot(position_snapshot: dict | None) ->
         portfolio={"unrealized_pnl": snapshot.get("unrealized_pnl")},
         market_regime=market_regime,
     )
+
+
+
+def build_ai_decision_envelope(
+    *,
+    decision: Optional[dict],
+    policy_package: Optional[dict] = None,
+) -> dict:
+    payload = dict(decision or {})
+    payload["policy_package"] = policy_package
+    payload["version"] = 1
+    return payload
