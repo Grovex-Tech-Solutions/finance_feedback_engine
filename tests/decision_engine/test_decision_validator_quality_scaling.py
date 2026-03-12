@@ -1199,3 +1199,94 @@ def test_decision_validator_policy_package_alignment_holds_without_translation_c
     assert decision["policy_package"]["action_context"] == decision["action_context"]
     assert decision["policy_package"]["policy_sizing_intent"] is None
     assert decision["policy_package"]["provider_translation_result"] is None
+
+
+
+def test_decision_validator_materializes_policy_trace_from_canonical_surfaces():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+        "position_state": "flat",
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "materialize trace",
+        "amount": 0,
+        "ai_provider": "ensemble",
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_trace"]["policy_package"] == decision["policy_package"]
+    assert decision["policy_trace"]["decision_envelope"]["action"] == decision["action"]
+    assert decision["policy_trace"]["decision_envelope"]["policy_action"] == decision["policy_action"]
+    assert decision["policy_trace"]["decision_envelope"]["legacy_action_compatibility"] == decision["legacy_action_compatibility"]
+    assert decision["policy_trace"]["decision_envelope"]["confidence"] == decision["confidence"]
+    assert decision["policy_trace"]["decision_envelope"]["reasoning"] == decision["reasoning"]
+    assert decision["policy_trace"]["decision_metadata"]["asset_pair"] == "BTCUSD"
+    assert decision["policy_trace"]["decision_metadata"]["ai_provider"] == "ensemble"
+    assert decision["policy_trace"]["trace_version"] == 1
+
+
+
+def test_decision_validator_preserves_legacy_path_without_policy_trace():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+        "position_state": "flat",
+    }
+    ai_response = {
+        "action": "BUY",
+        "confidence": 80,
+        "reasoning": "legacy path",
+        "amount": 0,
+        "ai_provider": "local",
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_package"] is None
+    assert decision["policy_trace"] is None

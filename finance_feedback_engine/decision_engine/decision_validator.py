@@ -12,6 +12,7 @@ from .policy_actions import (
     build_action_context,
     build_control_outcome,
     build_policy_package,
+    build_policy_trace,
     build_policy_state,
     get_legacy_action_compatibility,
     get_policy_action_family,
@@ -217,6 +218,7 @@ class DecisionValidator:
         canonical_action_context = None
         canonical_control_outcome = None
         canonical_policy_package = None
+        canonical_policy_trace = None
 
         if is_policy_action(action):
             policy_action = action
@@ -269,6 +271,18 @@ class DecisionValidator:
                 policy_sizing_intent=policy_sizing_intent,
                 provider_translation_result=provider_translation_result,
             )
+            canonical_policy_trace = build_policy_trace(
+                policy_package=canonical_policy_package,
+                action=action,
+                policy_action=policy_action,
+                legacy_action_compatibility=legacy_action_compatibility,
+                confidence=ai_response.get("confidence", 50),
+                reasoning=ai_response.get("reasoning", "No reasoning provided"),
+                asset_pair=asset_pair,
+                ai_provider=ai_response.get("ai_provider"),
+                timestamp=None,
+                decision_id=decision_id,
+            )
         
         confidence_pct = float(ai_response.get("confidence", 0) or 0)
         volatility = float(context.get("volatility", 0.0) or 0.0)
@@ -306,6 +320,7 @@ class DecisionValidator:
             "action_context": canonical_action_context,
             "control_outcome": canonical_control_outcome,
             "policy_package": canonical_policy_package,
+            "policy_trace": canonical_policy_trace,
             "confidence": ai_response.get("confidence", 50),
             "reasoning": ai_response.get("reasoning", "No reasoning provided"),
             "suggested_amount": suggested_amount,
