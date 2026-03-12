@@ -94,3 +94,15 @@ def test_extract_canonical_policy_state_for_short_position():
     assert result["position_state"] == "short"
     assert result["current_price"] == 99000.0
     assert result["unrealized_pnl"] == -45.0
+
+
+
+def test_extract_canonical_policy_state_empty_context_defaults_cleanly():
+    engine = _make_engine()
+
+    result = engine._extract_canonical_policy_state({}, "BTCUSD")
+
+    assert result["position_state"] == "flat"
+    assert result["current_price"] == 0
+    assert result["unrealized_pnl"] == 0.0
+    assert result["version"] == 1

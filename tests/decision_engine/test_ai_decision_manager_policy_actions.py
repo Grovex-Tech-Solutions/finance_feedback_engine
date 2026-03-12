@@ -116,3 +116,25 @@ async def test_query_ai_mock_provider_keeps_compatibility_fields_at_top_level(ma
     assert result["reasoning"] == "Mock decision for backtesting"
     assert "policy_package" in result
     assert result["version"] == 1
+
+
+
+def test_wrap_decision_envelope_preserves_existing_policy_package(manager):
+    wrapped = manager._wrap_decision_envelope(
+        {
+            "action": "OPEN_SMALL_LONG",
+            "confidence": 75,
+            "reasoning": "bounded policy action",
+            "policy_package": {
+                "policy_state": {"position_state": "flat", "version": 1},
+                "action_context": {"structural_action_validity": "valid", "version": 1},
+                "policy_sizing_intent": None,
+                "provider_translation_result": None,
+                "control_outcome": {"status": "proposed", "version": 1},
+                "version": 1,
+            },
+        }
+    )
+
+    assert wrapped["version"] == 1
+    assert wrapped["policy_package"]["policy_state"]["position_state"] == "flat"

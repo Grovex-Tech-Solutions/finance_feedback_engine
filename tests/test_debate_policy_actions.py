@@ -109,3 +109,31 @@ def test_debate_decision_keeps_legacy_path_without_policy_package():
     assert result["action"] == "BUY"
     assert result["version"] == 1
     assert result["policy_package"] is None
+
+
+
+def test_debate_decision_preserves_top_level_compatibility_fields_with_policy_package():
+    manager = DebateManager(_providers())
+
+    result = manager.synthesize_debate_decision(
+        bull_case={"action": "OPEN_SMALL_LONG", "confidence": 70, "reasoning": "bull"},
+        bear_case={"action": "HOLD", "confidence": 60, "reasoning": "bear"},
+        judge_decision={
+            "action": "OPEN_SMALL_LONG",
+            "confidence": 75,
+            "reasoning": "judge",
+            "policy_package": {
+                "policy_state": {"position_state": "flat", "version": 1},
+                "action_context": {"structural_action_validity": "valid", "version": 1},
+                "policy_sizing_intent": None,
+                "provider_translation_result": None,
+                "control_outcome": {"status": "proposed", "version": 1},
+                "version": 1,
+            },
+        },
+    )
+
+    assert result["action"] == "OPEN_SMALL_LONG"
+    assert result["policy_action"] == "OPEN_SMALL_LONG"
+    assert result["policy_package"]["policy_state"]["position_state"] == "flat"
+    assert result["version"] == 1

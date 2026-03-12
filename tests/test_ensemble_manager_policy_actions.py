@@ -167,5 +167,40 @@ class EnsemblePolicyActionAggregationTest(unittest.TestCase):
         self.assertIsNone(result["policy_package"])
 
 
+    def test_aggregate_decisions_preserves_top_level_compatibility_fields_with_policy_package(self):
+        config = {
+            "ensemble": {
+                "enabled_providers": ["local", "cli"],
+                "provider_weights": {"local": 0.5, "cli": 0.5},
+                "voting_strategy": "weighted",
+            }
+        }
+        manager = EnsembleDecisionManager(config)
+
+        provider_decisions = {
+            "local": {
+                "action": "OPEN_SMALL_LONG",
+                "confidence": 80,
+                "reasoning": "bullish",
+                "amount": 100.0,
+                "policy_package": {
+                    "policy_state": {"position_state": "flat", "version": 1},
+                    "action_context": {"structural_action_validity": "valid", "version": 1},
+                    "policy_sizing_intent": None,
+                    "provider_translation_result": None,
+                    "control_outcome": {"status": "proposed", "version": 1},
+                    "version": 1,
+                },
+            }
+        }
+
+        result = asyncio.run(manager.aggregate_decisions(provider_decisions))
+
+        self.assertEqual(result["action"], "OPEN_SMALL_LONG")
+        self.assertEqual(result["policy_action"], "OPEN_SMALL_LONG")
+        self.assertEqual(result["policy_package"]["policy_state"]["position_state"], "flat")
+        self.assertEqual(result["version"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

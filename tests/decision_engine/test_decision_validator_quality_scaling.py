@@ -1156,3 +1156,46 @@ def test_decision_validator_policy_package_gracefully_handles_missing_sizing_tra
 
     assert decision["policy_package"]["policy_sizing_intent"] is None
     assert decision["policy_package"]["provider_translation_result"] is None
+
+
+
+def test_decision_validator_policy_package_alignment_holds_without_translation_context():
+    validator = DecisionValidator(config=_base_config())
+
+    context = {
+        "market_data": {"close": 100.0},
+        "balance": {"USD": 1000.0},
+        "price_change": 0.0,
+        "volatility": 0.01,
+        "portfolio": {},
+        "position_state": "flat",
+    }
+    ai_response = {
+        "action": "OPEN_SMALL_LONG",
+        "confidence": 80,
+        "reasoning": "no translation context",
+        "amount": 0,
+    }
+    position_sizing_result = {
+        "recommended_position_size": 1.0,
+        "stop_loss_price": 98.0,
+        "sizing_stop_loss_percentage": 0.02,
+        "risk_percentage": 0.01,
+    }
+
+    decision = validator.create_decision(
+        asset_pair="BTCUSD",
+        context=context,
+        ai_response=ai_response,
+        position_sizing_result=position_sizing_result,
+        relevant_balance={"USD": 1000.0},
+        balance_source="test",
+        has_existing_position=False,
+        is_crypto=True,
+        is_forex=False,
+    )
+
+    assert decision["policy_package"]["policy_state"] == decision["policy_state"]
+    assert decision["policy_package"]["action_context"] == decision["action_context"]
+    assert decision["policy_package"]["policy_sizing_intent"] is None
+    assert decision["policy_package"]["provider_translation_result"] is None

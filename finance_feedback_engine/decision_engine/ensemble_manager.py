@@ -986,8 +986,11 @@ class EnsembleDecisionManager:
             )
             # Select highest confidence provider
             best_idx = np.argmax(confidences)
+            normalized_action, policy_action = self._normalize_ensemble_action_payload(
+                actions[best_idx]
+            )
             decision = {
-                "action": actions[best_idx],
+                "action": normalized_action,
                 "confidence": confidences[best_idx],
                 "reasoning": (
                     f"SINGLE PROVIDER FALLBACK [{providers[best_idx]}]: "
@@ -997,6 +1000,9 @@ class EnsembleDecisionManager:
                 "fallback_used": True,
                 "fallback_provider": providers[best_idx],
             }
+            if policy_action is not None:
+                decision["policy_action"] = policy_action
+                decision["legacy_action_compatibility"] = get_legacy_action_compatibility(policy_action)
             return decision, fallback_tier
 
         # Should never reach here due to validation at function start
