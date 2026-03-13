@@ -1579,3 +1579,31 @@ def test_build_policy_candidate_benchmark_summary_handles_empty_inputs():
         "avg_right_vetoed_rate": 0.0,
         "benchmark_summary_version": 1,
     }
+
+
+
+def test_build_policy_candidate_benchmark_summary_handles_malformed_comparisons():
+    comparison_set = build_policy_candidate_comparison_set([
+        {
+            "left": {"avg_executed_rate": 0.5, "avg_vetoed_rate": 0.2, "aggregate_version": 1},
+            "right": {"avg_executed_rate": 0.8, "avg_vetoed_rate": 0.1, "aggregate_version": 1},
+            "comparison_version": 1,
+        },
+        {
+            "left": "not-a-dict",
+            "comparison_version": 1,
+        },
+        {
+            "right": {"avg_executed_rate": 0.7, "avg_vetoed_rate": 0.15, "aggregate_version": 1},
+            "comparison_version": 1,
+        },
+        None,
+    ])
+
+    summary = build_policy_candidate_benchmark_summary(comparison_set)
+
+    assert summary["comparison_count"] == 3
+    assert summary["avg_left_executed_rate"] == pytest.approx(0.5)
+    assert summary["avg_right_executed_rate"] == pytest.approx((0.8 + 0.7) / 2)
+    assert summary["avg_left_vetoed_rate"] == pytest.approx(0.2)
+    assert summary["avg_right_vetoed_rate"] == pytest.approx((0.1 + 0.15) / 2)
