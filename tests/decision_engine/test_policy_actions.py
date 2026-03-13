@@ -24,6 +24,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_evaluation_comparison,
     build_policy_candidate_comparison_set,
     build_policy_candidate_benchmark_summary,
+    build_policy_baseline_evaluation_set,
     extract_policy_candidate_benchmark_summaries,
     extract_policy_evaluation_comparisons,
     extract_policy_evaluation_results,
@@ -1753,4 +1754,42 @@ def test_candidate_benchmark_summary_handles_partial_inputs_cleanly():
         "avg_left_vetoed_rate": 0.0,
         "avg_right_vetoed_rate": 0.0,
         "benchmark_summary_version": 1,
+    }
+
+
+
+def test_build_policy_baseline_evaluation_set_wraps_benchmark_summaries():
+    evaluation_set = build_policy_baseline_evaluation_set([
+        {
+            "comparison_count": 1,
+            "avg_left_executed_rate": 0.5,
+            "avg_right_executed_rate": 0.8,
+            "avg_left_vetoed_rate": 0.2,
+            "avg_right_vetoed_rate": 0.1,
+            "benchmark_summary_version": 1,
+        },
+        {
+            "comparison_count": 1,
+            "avg_left_executed_rate": 0.6,
+            "avg_right_executed_rate": 0.7,
+            "avg_left_vetoed_rate": 0.25,
+            "avg_right_vetoed_rate": 0.15,
+            "benchmark_summary_version": 1,
+        },
+    ])
+
+    assert evaluation_set["summary_count"] == 2
+    assert evaluation_set["evaluation_set_version"] == 1
+    assert evaluation_set["benchmark_summaries"][0]["avg_left_executed_rate"] == 0.5
+    assert evaluation_set["benchmark_summaries"][1]["avg_right_executed_rate"] == 0.7
+
+
+
+def test_build_policy_baseline_evaluation_set_handles_empty_inputs():
+    evaluation_set = build_policy_baseline_evaluation_set([])
+
+    assert evaluation_set == {
+        "benchmark_summaries": [],
+        "summary_count": 0,
+        "evaluation_set_version": 1,
     }

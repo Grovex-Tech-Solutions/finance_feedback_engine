@@ -667,6 +667,16 @@ def build_policy_candidate_benchmark_summary(comparison_set: Optional[dict]) -> 
 
 
 
+def build_policy_baseline_evaluation_set(benchmark_summaries: Optional[list[dict]]) -> dict:
+    valid_summaries = [summary for summary in (benchmark_summaries or []) if isinstance(summary, dict)]
+    return {
+        "benchmark_summaries": [dict(summary) for summary in valid_summaries],
+        "summary_count": len(valid_summaries),
+        "evaluation_set_version": 1,
+    }
+
+
+
 def extract_policy_candidate_benchmark_summaries(comparison_sets: Optional[list[dict]]) -> list[dict]:
     summaries: list[dict] = []
     for comparison_set in comparison_sets or []:
