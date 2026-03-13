@@ -590,7 +590,9 @@ def test_decision_store_loaded_legacy_decision_skips_full_candidate_ready_chain(
     evaluation_summary = build_policy_evaluation_summary(evaluation_run)
     evaluation_scorecard = build_policy_evaluation_scorecard(evaluation_summary)
     evaluation_result = build_policy_evaluation_result(evaluation_summary, evaluation_scorecard)
-    comparison_set = build_policy_candidate_comparison_set([])
+    evaluation_aggregate = build_policy_evaluation_aggregate([evaluation_result])
+    evaluation_comparison = build_policy_evaluation_comparison(evaluation_aggregate, evaluation_aggregate)
+    comparison_set = build_policy_candidate_comparison_set([evaluation_comparison])
     benchmark_summary = build_policy_candidate_benchmark_summary(comparison_set)
 
     assert dataset_row is None
@@ -599,5 +601,9 @@ def test_decision_store_loaded_legacy_decision_skips_full_candidate_ready_chain(
     assert evaluation_summary["record_count"] == 0
     assert evaluation_scorecard["record_count"] == 0
     assert evaluation_result["summary"]["record_count"] == 0
-    assert comparison_set["comparison_count"] == 0
-    assert benchmark_summary["comparison_count"] == 0
+    assert evaluation_aggregate["result_count"] == 1
+    assert evaluation_aggregate["avg_executed_rate"] == 0.0
+    assert comparison_set["comparison_count"] == 1
+    assert benchmark_summary["comparison_count"] == 1
+    assert benchmark_summary["avg_left_executed_rate"] == 0.0
+    assert benchmark_summary["avg_right_executed_rate"] == 0.0
