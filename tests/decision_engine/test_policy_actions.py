@@ -1012,3 +1012,15 @@ def test_build_policy_evaluation_scorecard_handles_zero_record_summary():
         "invalid_rate": 0.0,
         "scorecard_version": 1,
     }
+
+
+
+def test_build_policy_evaluation_scorecard_handles_none_input():
+    scorecard = build_policy_evaluation_scorecard(None)
+
+    assert scorecard["record_count"] == 0
+    assert scorecard["executed_rate"] == 0.0
+    assert scorecard["vetoed_rate"] == 0.0
+    assert scorecard["rejected_rate"] == 0.0
+    assert scorecard["invalid_rate"] == 0.0
+    assert scorecard["scorecard_version"] == 1

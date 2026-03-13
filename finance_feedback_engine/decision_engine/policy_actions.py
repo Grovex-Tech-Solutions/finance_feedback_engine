@@ -554,7 +554,7 @@ def build_policy_evaluation_summary(evaluation_run: Optional[dict]) -> dict:
 
 
 def build_policy_evaluation_scorecard(evaluation_summary: Optional[dict]) -> dict:
-    payload = dict(evaluation_summary or {}) if isinstance(evaluation_summary, dict) or evaluation_summary is None else {}
+    payload = (evaluation_summary or {}).copy() if isinstance(evaluation_summary, dict) or evaluation_summary is None else {}
     record_count = payload.get("record_count") or 0
     if record_count <= 0:
         return {
