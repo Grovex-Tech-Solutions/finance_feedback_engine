@@ -622,6 +622,16 @@ def build_policy_evaluation_comparison(
 
 
 
+def build_policy_candidate_comparison_set(comparisons: Optional[list[dict]]) -> dict:
+    valid_comparisons = [comparison for comparison in (comparisons or []) if isinstance(comparison, dict)]
+    return {
+        "comparisons": [dict(comparison) for comparison in valid_comparisons],
+        "comparison_count": len(valid_comparisons),
+        "comparison_set_version": 1,
+    }
+
+
+
 def extract_policy_evaluation_comparisons(evaluation_results: Optional[list[dict]]) -> list[dict]:
     valid_results = []
     for result in evaluation_results or []:

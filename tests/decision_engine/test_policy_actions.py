@@ -22,6 +22,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_evaluation_result,
     build_policy_evaluation_aggregate,
     build_policy_evaluation_comparison,
+    build_policy_candidate_comparison_set,
     extract_policy_evaluation_comparisons,
     extract_policy_evaluation_results,
     extract_policy_evaluation_runs,
@@ -1506,3 +1507,35 @@ def test_policy_evaluation_comparison_handles_partial_inputs_cleanly():
     assert comparison["left"]["result_count"] == 0
     assert comparison["right"] == {}
     assert comparison["comparison_version"] == 1
+
+
+
+def test_build_policy_candidate_comparison_set_wraps_comparisons_cleanly():
+    comparison_set = build_policy_candidate_comparison_set([
+        {
+            "left": {"avg_executed_rate": 0.5, "aggregate_version": 1},
+            "right": {"avg_executed_rate": 0.8, "aggregate_version": 1},
+            "comparison_version": 1,
+        },
+        {
+            "left": {"avg_executed_rate": 0.6, "aggregate_version": 1},
+            "right": {"avg_executed_rate": 0.7, "aggregate_version": 1},
+            "comparison_version": 1,
+        },
+    ])
+
+    assert comparison_set["comparison_count"] == 2
+    assert comparison_set["comparison_set_version"] == 1
+    assert comparison_set["comparisons"][0]["left"]["avg_executed_rate"] == 0.5
+    assert comparison_set["comparisons"][1]["right"]["avg_executed_rate"] == 0.7
+
+
+
+def test_build_policy_candidate_comparison_set_handles_empty_inputs():
+    comparison_set = build_policy_candidate_comparison_set([])
+
+    assert comparison_set == {
+        "comparisons": [],
+        "comparison_count": 0,
+        "comparison_set_version": 1,
+    }
