@@ -706,6 +706,16 @@ def build_policy_baseline_evaluation_report(evaluation_set: Optional[dict]) -> d
 
 
 
+def extract_policy_baseline_evaluation_reports(evaluation_sets: Optional[list[dict]]) -> list[dict]:
+    reports: list[dict] = []
+    for evaluation_set in evaluation_sets or []:
+        if not isinstance(evaluation_set, dict):
+            continue
+        reports.append(build_policy_baseline_evaluation_report(evaluation_set))
+    return reports
+
+
+
 def extract_policy_candidate_benchmark_summaries(comparison_sets: Optional[list[dict]]) -> list[dict]:
     summaries: list[dict] = []
     for comparison_set in comparison_sets or []:

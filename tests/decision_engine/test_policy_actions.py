@@ -26,6 +26,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_candidate_benchmark_summary,
     build_policy_baseline_evaluation_set,
     build_policy_baseline_evaluation_report,
+    extract_policy_baseline_evaluation_reports,
     extract_policy_candidate_benchmark_summaries,
     extract_policy_evaluation_comparisons,
     extract_policy_evaluation_results,
@@ -1839,3 +1840,70 @@ def test_build_policy_baseline_evaluation_report_handles_empty_inputs():
         "avg_right_vetoed_rate": 0.0,
         "baseline_report_version": 1,
     }
+
+
+
+def test_extract_policy_baseline_evaluation_reports_builds_reports():
+    evaluation_sets = [
+        {
+            "benchmark_summaries": [
+                {
+                    "comparison_count": 1,
+                    "avg_left_executed_rate": 0.5,
+                    "avg_right_executed_rate": 0.8,
+                    "avg_left_vetoed_rate": 0.2,
+                    "avg_right_vetoed_rate": 0.1,
+                    "benchmark_summary_version": 1,
+                }
+            ],
+            "summary_count": 1,
+            "evaluation_set_version": 1,
+        },
+        {
+            "benchmark_summaries": [
+                {
+                    "comparison_count": 1,
+                    "avg_left_executed_rate": 0.6,
+                    "avg_right_executed_rate": 0.7,
+                    "avg_left_vetoed_rate": 0.25,
+                    "avg_right_vetoed_rate": 0.15,
+                    "benchmark_summary_version": 1,
+                }
+            ],
+            "summary_count": 1,
+            "evaluation_set_version": 1,
+        },
+    ]
+
+    reports = extract_policy_baseline_evaluation_reports(evaluation_sets)
+
+    assert len(reports) == 2
+    assert reports[0]["avg_left_executed_rate"] == pytest.approx(0.5)
+    assert reports[0]["avg_right_executed_rate"] == pytest.approx(0.8)
+    assert reports[1]["avg_left_executed_rate"] == pytest.approx(0.6)
+    assert reports[1]["avg_right_executed_rate"] == pytest.approx(0.7)
+
+
+
+def test_extract_policy_baseline_evaluation_reports_skips_invalid_inputs():
+    reports = extract_policy_baseline_evaluation_reports([
+        {
+            "benchmark_summaries": [
+                {
+                    "comparison_count": 1,
+                    "avg_left_executed_rate": 0.5,
+                    "avg_right_executed_rate": 0.8,
+                    "avg_left_vetoed_rate": 0.2,
+                    "avg_right_vetoed_rate": 0.1,
+                    "benchmark_summary_version": 1,
+                }
+            ],
+            "summary_count": 1,
+            "evaluation_set_version": 1,
+        },
+        None,
+        [],
+    ])
+
+    assert len(reports) == 1
+    assert reports[0]["summary_count"] == 1
