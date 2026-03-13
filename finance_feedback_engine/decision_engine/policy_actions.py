@@ -508,8 +508,11 @@ def build_policy_evaluation_batch(dataset_rows: Optional[list[dict]]) -> dict:
 def build_policy_evaluation_run(evaluation_records: Optional[list[dict]]) -> dict:
     records: list[dict] = []
     for record in evaluation_records or []:
-        if isinstance(record, dict):
-            records.append(dict(record))
+        if not isinstance(record, dict):
+            continue
+        if record.get("control_outcome_status") is None:
+            continue
+        records.append(dict(record))
     return {
         "records": records,
         "record_count": len(records),

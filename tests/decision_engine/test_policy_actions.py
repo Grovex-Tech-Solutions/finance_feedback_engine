@@ -903,3 +903,76 @@ def test_extract_policy_evaluation_runs_skips_invalid_batches_cleanly():
 
     assert len(runs) == 1
     assert runs[0]["records"][0]["decision_id"] == "decision-run-export-valid"
+
+
+
+def test_policy_evaluation_run_and_summary_versions_align():
+    run = build_policy_evaluation_run([
+        {
+            "decision_id": "decision-eval-run-version-1",
+            "control_outcome_status": "executed",
+            "evaluation_record_version": 1,
+        }
+    ])
+
+    summary = build_policy_evaluation_summary(run)
+
+    assert run["run_version"] == 1
+    assert summary["summary_version"] == 1
+
+
+
+def test_policy_evaluation_summary_preserves_multiple_lifecycle_distinctions():
+    run = build_policy_evaluation_run([
+        {"decision_id": "decision-eval-sum-1", "control_outcome_status": "executed", "evaluation_record_version": 1},
+        {"decision_id": "decision-eval-sum-2", "control_outcome_status": "vetoed", "evaluation_record_version": 1},
+        {"decision_id": "decision-eval-sum-3", "control_outcome_status": "rejected", "evaluation_record_version": 1},
+        {"decision_id": "decision-eval-sum-4", "control_outcome_status": "invalid", "evaluation_record_version": 1},
+    ])
+
+    summary = build_policy_evaluation_summary(run)
+
+    assert summary["executed_count"] == 1
+    assert summary["vetoed_count"] == 1
+    assert summary["rejected_count"] == 1
+    assert summary["invalid_count"] == 1
+
+
+
+def test_extract_policy_evaluation_runs_skips_partial_records_and_summaries_stay_stable():
+    runs = extract_policy_evaluation_runs([
+        {
+            "rows": [
+                {"decision_id": "decision-eval-run-clean-1", "control_outcome_status": "executed", "evaluation_record_version": 1},
+                {"decision_id": "decision-eval-run-partial-1"},
+            ],
+            "row_count": 2,
+            "batch_version": 1,
+        }
+    ])
+
+    assert len(runs) == 1
+    assert runs[0]["record_count"] == 1
+
+    summary = build_policy_evaluation_summary(runs[0])
+
+    assert summary["record_count"] == 1
+    assert summary["executed_count"] == 1
+    assert summary["vetoed_count"] == 0
+    assert summary["rejected_count"] == 0
+    assert summary["invalid_count"] == 0
+
+
+
+def test_policy_evaluation_summary_ignores_non_dict_records_cleanly():
+    summary = build_policy_evaluation_summary({
+        "records": [
+            {"decision_id": "decision-eval-nondict-1", "control_outcome_status": "executed", "evaluation_record_version": 1},
+            None,
+            "bad-record",
+        ],
+        "run_version": 1,
+    })
+
+    assert summary["record_count"] == 1
+    assert summary["executed_count"] == 1
