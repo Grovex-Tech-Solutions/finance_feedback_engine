@@ -610,6 +610,18 @@ def build_policy_evaluation_aggregate(evaluation_results: Optional[list[dict]]) 
 
 
 
+def build_policy_evaluation_comparison(
+    left: Optional[dict],
+    right: Optional[dict],
+) -> dict:
+    return {
+        "left": dict(left or {}) if isinstance(left, dict) else {},
+        "right": dict(right or {}) if isinstance(right, dict) else {},
+        "comparison_version": 1,
+    }
+
+
+
 def build_policy_evaluation_result(
     evaluation_summary: Optional[dict],
     evaluation_scorecard: Optional[dict],

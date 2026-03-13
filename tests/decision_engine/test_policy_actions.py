@@ -21,6 +21,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_evaluation_scorecard,
     build_policy_evaluation_result,
     build_policy_evaluation_aggregate,
+    build_policy_evaluation_comparison,
     extract_policy_evaluation_results,
     extract_policy_evaluation_runs,
     get_legacy_action_compatibility,
@@ -1254,3 +1255,34 @@ def test_build_policy_evaluation_aggregate_handles_malformed_data():
     assert aggregate["avg_vetoed_rate"] == pytest.approx(0.2)
     assert aggregate["avg_rejected_rate"] == pytest.approx(0.2)
     assert aggregate["avg_invalid_rate"] == pytest.approx(0.1)
+
+
+
+def test_build_policy_evaluation_comparison_bundles_left_and_right():
+    left = {
+        "result_count": 2,
+        "avg_executed_rate": 0.65,
+        "aggregate_version": 1,
+    }
+    right = {
+        "result_count": 2,
+        "avg_executed_rate": 0.55,
+        "aggregate_version": 1,
+    }
+
+    comparison = build_policy_evaluation_comparison(left, right)
+
+    assert comparison["left"] == left
+    assert comparison["right"] == right
+    assert comparison["comparison_version"] == 1
+
+
+
+def test_build_policy_evaluation_comparison_handles_none_inputs():
+    comparison = build_policy_evaluation_comparison(None, None)
+
+    assert comparison == {
+        "left": {},
+        "right": {},
+        "comparison_version": 1,
+    }
