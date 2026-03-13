@@ -732,6 +732,33 @@ def build_policy_baseline_candidate_comparison_group(
 
 
 
+def build_policy_baseline_candidate_comparison_summary(comparison_group: Optional[dict]) -> dict:
+    payload = dict(comparison_group or {}) if isinstance(comparison_group, dict) else {}
+    baseline_summaries = payload.get("baseline_workflow_summaries") or []
+    candidate_summaries = payload.get("candidate_workflow_summaries") or []
+    valid_baseline_summaries = [summary for summary in baseline_summaries if isinstance(summary, dict)]
+    valid_candidate_summaries = [summary for summary in candidate_summaries if isinstance(summary, dict)]
+
+    def _avg(summaries: list[dict], key: str) -> float:
+        values = [summary.get(key, 0.0) or 0.0 for summary in summaries]
+        return sum(values) / len(values) if values else 0.0
+
+    return {
+        "baseline_count": len(valid_baseline_summaries),
+        "candidate_count": len(valid_candidate_summaries),
+        "avg_baseline_left_executed_rate": _avg(valid_baseline_summaries, "avg_left_executed_rate"),
+        "avg_candidate_left_executed_rate": _avg(valid_candidate_summaries, "avg_left_executed_rate"),
+        "avg_baseline_right_executed_rate": _avg(valid_baseline_summaries, "avg_right_executed_rate"),
+        "avg_candidate_right_executed_rate": _avg(valid_candidate_summaries, "avg_right_executed_rate"),
+        "avg_baseline_left_vetoed_rate": _avg(valid_baseline_summaries, "avg_left_vetoed_rate"),
+        "avg_candidate_left_vetoed_rate": _avg(valid_candidate_summaries, "avg_left_vetoed_rate"),
+        "avg_baseline_right_vetoed_rate": _avg(valid_baseline_summaries, "avg_right_vetoed_rate"),
+        "avg_candidate_right_vetoed_rate": _avg(valid_candidate_summaries, "avg_right_vetoed_rate"),
+        "comparison_summary_version": 1,
+    }
+
+
+
 def extract_policy_baseline_workflow_summaries(evaluation_sessions: Optional[list[dict]]) -> list[dict]:
     summaries = []
     for evaluation_session in evaluation_sessions or []:
