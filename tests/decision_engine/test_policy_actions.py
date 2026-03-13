@@ -1210,10 +1210,10 @@ def test_build_policy_evaluation_aggregate_averages_lifecycle_rates():
     ])
 
     assert aggregate["result_count"] == 2
-    assert aggregate["avg_executed_rate"] == 0.65
-    assert aggregate["avg_vetoed_rate"] == 0.15000000000000002
-    assert aggregate["avg_rejected_rate"] == 0.125
-    assert aggregate["avg_invalid_rate"] == 0.07500000000000001
+    assert aggregate["avg_executed_rate"] == pytest.approx(0.65)
+    assert aggregate["avg_vetoed_rate"] == pytest.approx(0.15)
+    assert aggregate["avg_rejected_rate"] == pytest.approx(0.125)
+    assert aggregate["avg_invalid_rate"] == pytest.approx(0.075)
     assert aggregate["aggregate_version"] == 1
 
 
@@ -1229,3 +1229,28 @@ def test_build_policy_evaluation_aggregate_handles_empty_inputs():
         "avg_invalid_rate": 0.0,
         "aggregate_version": 1,
     }
+
+
+
+def test_build_policy_evaluation_aggregate_handles_malformed_data():
+    aggregate = build_policy_evaluation_aggregate([
+        {
+            "scorecard": {
+                "executed_rate": 0.5,
+                "vetoed_rate": 0.2,
+                "rejected_rate": 0.2,
+                "invalid_rate": 0.1,
+                "scorecard_version": 1,
+            },
+            "result_version": 1,
+        },
+        None,
+        {"scorecard": "not_a_dict", "result_version": 1},
+        {"other_key": "no_scorecard", "result_version": 1},
+    ])
+
+    assert aggregate["result_count"] == 3
+    assert aggregate["avg_executed_rate"] == pytest.approx(0.5)
+    assert aggregate["avg_vetoed_rate"] == pytest.approx(0.2)
+    assert aggregate["avg_rejected_rate"] == pytest.approx(0.2)
+    assert aggregate["avg_invalid_rate"] == pytest.approx(0.1)
