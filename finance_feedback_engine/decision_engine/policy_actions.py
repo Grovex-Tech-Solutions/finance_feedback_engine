@@ -553,6 +553,30 @@ def build_policy_evaluation_summary(evaluation_run: Optional[dict]) -> dict:
 
 
 
+def build_policy_evaluation_scorecard(evaluation_summary: Optional[dict]) -> dict:
+    payload = dict(evaluation_summary or {}) if isinstance(evaluation_summary, dict) or evaluation_summary is None else {}
+    record_count = payload.get("record_count") or 0
+    if record_count <= 0:
+        return {
+            "record_count": 0,
+            "executed_rate": 0.0,
+            "vetoed_rate": 0.0,
+            "rejected_rate": 0.0,
+            "invalid_rate": 0.0,
+            "scorecard_version": 1,
+        }
+
+    return {
+        "record_count": record_count,
+        "executed_rate": (payload.get("executed_count") or 0) / record_count,
+        "vetoed_rate": (payload.get("vetoed_count") or 0) / record_count,
+        "rejected_rate": (payload.get("rejected_count") or 0) / record_count,
+        "invalid_rate": (payload.get("invalid_count") or 0) / record_count,
+        "scorecard_version": 1,
+    }
+
+
+
 def extract_policy_evaluation_runs(evaluation_batches: Optional[list[dict]]) -> list[dict]:
     runs: list[dict] = []
     for batch in evaluation_batches or []:

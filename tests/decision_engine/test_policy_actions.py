@@ -18,6 +18,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_evaluation_batch,
     build_policy_evaluation_run,
     build_policy_evaluation_summary,
+    build_policy_evaluation_scorecard,
     extract_policy_evaluation_runs,
     get_legacy_action_compatibility,
     get_policy_action_family,
@@ -976,3 +977,38 @@ def test_policy_evaluation_summary_ignores_non_dict_records_cleanly():
 
     assert summary["record_count"] == 1
     assert summary["executed_count"] == 1
+
+
+
+def test_build_policy_evaluation_scorecard_derives_lifecycle_rates():
+    summary = {
+        "record_count": 10,
+        "executed_count": 5,
+        "vetoed_count": 2,
+        "rejected_count": 2,
+        "invalid_count": 1,
+        "summary_version": 1,
+    }
+
+    scorecard = build_policy_evaluation_scorecard(summary)
+
+    assert scorecard["record_count"] == 10
+    assert scorecard["executed_rate"] == 0.5
+    assert scorecard["vetoed_rate"] == 0.2
+    assert scorecard["rejected_rate"] == 0.2
+    assert scorecard["invalid_rate"] == 0.1
+    assert scorecard["scorecard_version"] == 1
+
+
+
+def test_build_policy_evaluation_scorecard_handles_zero_record_summary():
+    scorecard = build_policy_evaluation_scorecard({"record_count": 0, "summary_version": 1})
+
+    assert scorecard == {
+        "record_count": 0,
+        "executed_rate": 0.0,
+        "vetoed_rate": 0.0,
+        "rejected_rate": 0.0,
+        "invalid_rate": 0.0,
+        "scorecard_version": 1,
+    }
