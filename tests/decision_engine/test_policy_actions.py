@@ -2129,3 +2129,92 @@ def test_extract_policy_baseline_workflow_summaries_skips_invalid_inputs():
     ])
 
     assert summaries == []
+
+
+
+def test_baseline_evaluation_session_and_workflow_summary_versions_align():
+    evaluation_session = build_policy_baseline_evaluation_session([
+        {
+            "summary_count": 1,
+            "avg_left_executed_rate": 0.5,
+            "avg_right_executed_rate": 0.8,
+            "avg_left_vetoed_rate": 0.2,
+            "avg_right_vetoed_rate": 0.1,
+            "baseline_report_version": 1,
+        }
+    ])
+
+    workflow_summary = build_policy_baseline_workflow_summary(evaluation_session)
+
+    assert evaluation_session["evaluation_session_version"] == 1
+    assert workflow_summary["workflow_summary_version"] == 1
+
+
+
+def test_workflow_summary_preserves_left_right_lifecycle_distinctions():
+    evaluation_session = build_policy_baseline_evaluation_session([
+        {
+            "summary_count": 1,
+            "avg_left_executed_rate": 0.25,
+            "avg_right_executed_rate": 0.5,
+            "avg_left_vetoed_rate": 0.3,
+            "avg_right_vetoed_rate": 0.1,
+            "baseline_report_version": 1,
+        }
+    ])
+
+    workflow_summary = build_policy_baseline_workflow_summary(evaluation_session)
+
+    assert workflow_summary["avg_left_executed_rate"] == pytest.approx(0.25)
+    assert workflow_summary["avg_right_executed_rate"] == pytest.approx(0.5)
+    assert workflow_summary["avg_left_vetoed_rate"] == pytest.approx(0.3)
+    assert workflow_summary["avg_right_vetoed_rate"] == pytest.approx(0.1)
+
+
+
+def test_extract_policy_baseline_workflow_summaries_skips_partial_inputs_cleanly():
+    summaries = extract_policy_baseline_workflow_summaries([
+        {
+            "baseline_reports": [
+                {
+                    "summary_count": 1,
+                    "avg_left_executed_rate": 0.5,
+                    "avg_right_executed_rate": 0.8,
+                    "avg_left_vetoed_rate": 0.2,
+                    "avg_right_vetoed_rate": 0.1,
+                    "baseline_report_version": 1,
+                },
+                None,
+                {
+                    "summary_count": 1,
+                    "avg_left_executed_rate": 0.6,
+                    "avg_right_executed_rate": 0.7,
+                    "avg_left_vetoed_rate": 0.25,
+                    "avg_right_vetoed_rate": 0.15,
+                    "baseline_report_version": 1,
+                },
+            ],
+            "report_count": 3,
+            "evaluation_session_version": 1,
+        },
+        None,
+    ])
+
+    assert len(summaries) == 1
+    assert summaries[0]["report_count"] == 2
+    assert summaries[0]["avg_left_executed_rate"] == pytest.approx(0.55)
+    assert summaries[0]["avg_right_executed_rate"] == pytest.approx(0.75)
+
+
+
+def test_workflow_summary_handles_partial_inputs_cleanly():
+    workflow_summary = build_policy_baseline_workflow_summary({"baseline_reports": [None], "evaluation_session_version": 1})
+
+    assert workflow_summary == {
+        "report_count": 0,
+        "avg_left_executed_rate": 0.0,
+        "avg_right_executed_rate": 0.0,
+        "avg_left_vetoed_rate": 0.0,
+        "avg_right_vetoed_rate": 0.0,
+        "workflow_summary_version": 1,
+    }
