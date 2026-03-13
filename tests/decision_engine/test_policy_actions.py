@@ -25,6 +25,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_candidate_comparison_set,
     build_policy_candidate_benchmark_summary,
     build_policy_baseline_evaluation_set,
+    build_policy_baseline_evaluation_report,
     extract_policy_candidate_benchmark_summaries,
     extract_policy_evaluation_comparisons,
     extract_policy_evaluation_results,
@@ -1792,4 +1793,49 @@ def test_build_policy_baseline_evaluation_set_handles_empty_inputs():
         "benchmark_summaries": [],
         "summary_count": 0,
         "evaluation_set_version": 1,
+    }
+
+
+
+def test_build_policy_baseline_evaluation_report_averages_summary_rates():
+    evaluation_set = build_policy_baseline_evaluation_set([
+        {
+            "comparison_count": 1,
+            "avg_left_executed_rate": 0.5,
+            "avg_right_executed_rate": 0.8,
+            "avg_left_vetoed_rate": 0.2,
+            "avg_right_vetoed_rate": 0.1,
+            "benchmark_summary_version": 1,
+        },
+        {
+            "comparison_count": 1,
+            "avg_left_executed_rate": 0.6,
+            "avg_right_executed_rate": 0.7,
+            "avg_left_vetoed_rate": 0.25,
+            "avg_right_vetoed_rate": 0.15,
+            "benchmark_summary_version": 1,
+        },
+    ])
+
+    report = build_policy_baseline_evaluation_report(evaluation_set)
+
+    assert report["summary_count"] == 2
+    assert report["avg_left_executed_rate"] == pytest.approx(0.55)
+    assert report["avg_right_executed_rate"] == pytest.approx(0.75)
+    assert report["avg_left_vetoed_rate"] == pytest.approx(0.225)
+    assert report["avg_right_vetoed_rate"] == pytest.approx(0.125)
+    assert report["baseline_report_version"] == 1
+
+
+
+def test_build_policy_baseline_evaluation_report_handles_empty_inputs():
+    report = build_policy_baseline_evaluation_report({"benchmark_summaries": [], "evaluation_set_version": 1})
+
+    assert report == {
+        "summary_count": 0,
+        "avg_left_executed_rate": 0.0,
+        "avg_right_executed_rate": 0.0,
+        "avg_left_vetoed_rate": 0.0,
+        "avg_right_vetoed_rate": 0.0,
+        "baseline_report_version": 1,
     }

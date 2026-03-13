@@ -677,6 +677,35 @@ def build_policy_baseline_evaluation_set(benchmark_summaries: Optional[list[dict
 
 
 
+def build_policy_baseline_evaluation_report(evaluation_set: Optional[dict]) -> dict:
+    payload = dict(evaluation_set or {}) if isinstance(evaluation_set, dict) else {}
+    summaries = payload.get("benchmark_summaries") or []
+    valid_summaries = [summary for summary in summaries if isinstance(summary, dict)]
+    if not valid_summaries:
+        return {
+            "summary_count": 0,
+            "avg_left_executed_rate": 0.0,
+            "avg_right_executed_rate": 0.0,
+            "avg_left_vetoed_rate": 0.0,
+            "avg_right_vetoed_rate": 0.0,
+            "baseline_report_version": 1,
+        }
+
+    def _avg(key: str) -> float:
+        values = [summary.get(key, 0.0) or 0.0 for summary in valid_summaries]
+        return sum(values) / len(values) if values else 0.0
+
+    return {
+        "summary_count": len(valid_summaries),
+        "avg_left_executed_rate": _avg("avg_left_executed_rate"),
+        "avg_right_executed_rate": _avg("avg_right_executed_rate"),
+        "avg_left_vetoed_rate": _avg("avg_left_vetoed_rate"),
+        "avg_right_vetoed_rate": _avg("avg_right_vetoed_rate"),
+        "baseline_report_version": 1,
+    }
+
+
+
 def extract_policy_candidate_benchmark_summaries(comparison_sets: Optional[list[dict]]) -> list[dict]:
     summaries: list[dict] = []
     for comparison_set in comparison_sets or []:
