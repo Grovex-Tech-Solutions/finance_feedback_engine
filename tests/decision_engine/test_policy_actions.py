@@ -24,6 +24,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_evaluation_comparison,
     build_policy_candidate_comparison_set,
     build_policy_candidate_benchmark_summary,
+    extract_policy_candidate_benchmark_summaries,
     extract_policy_evaluation_comparisons,
     extract_policy_evaluation_results,
     extract_policy_evaluation_runs,
@@ -1607,3 +1608,61 @@ def test_build_policy_candidate_benchmark_summary_handles_malformed_comparisons(
     assert summary["avg_right_executed_rate"] == pytest.approx((0.8 + 0.7) / 2)
     assert summary["avg_left_vetoed_rate"] == pytest.approx(0.2)
     assert summary["avg_right_vetoed_rate"] == pytest.approx((0.1 + 0.15) / 2)
+
+
+
+def test_extract_policy_candidate_benchmark_summaries_builds_summaries():
+    comparison_sets = [
+        {
+            "comparisons": [
+                {
+                    "left": {"avg_executed_rate": 0.5, "avg_vetoed_rate": 0.2, "aggregate_version": 1},
+                    "right": {"avg_executed_rate": 0.8, "avg_vetoed_rate": 0.1, "aggregate_version": 1},
+                    "comparison_version": 1,
+                }
+            ],
+            "comparison_count": 1,
+            "comparison_set_version": 1,
+        },
+        {
+            "comparisons": [
+                {
+                    "left": {"avg_executed_rate": 0.6, "avg_vetoed_rate": 0.25, "aggregate_version": 1},
+                    "right": {"avg_executed_rate": 0.7, "avg_vetoed_rate": 0.15, "aggregate_version": 1},
+                    "comparison_version": 1,
+                }
+            ],
+            "comparison_count": 1,
+            "comparison_set_version": 1,
+        },
+    ]
+
+    summaries = extract_policy_candidate_benchmark_summaries(comparison_sets)
+
+    assert len(summaries) == 2
+    assert summaries[0]["avg_left_executed_rate"] == pytest.approx(0.5)
+    assert summaries[0]["avg_right_executed_rate"] == pytest.approx(0.8)
+    assert summaries[1]["avg_left_executed_rate"] == pytest.approx(0.6)
+    assert summaries[1]["avg_right_executed_rate"] == pytest.approx(0.7)
+
+
+
+def test_extract_policy_candidate_benchmark_summaries_skips_invalid_inputs():
+    summaries = extract_policy_candidate_benchmark_summaries([
+        {
+            "comparisons": [
+                {
+                    "left": {"avg_executed_rate": 0.5, "avg_vetoed_rate": 0.2, "aggregate_version": 1},
+                    "right": {"avg_executed_rate": 0.8, "avg_vetoed_rate": 0.1, "aggregate_version": 1},
+                    "comparison_version": 1,
+                }
+            ],
+            "comparison_count": 1,
+            "comparison_set_version": 1,
+        },
+        None,
+        [],
+    ])
+
+    assert len(summaries) == 1
+    assert summaries[0]["comparison_count"] == 1

@@ -667,6 +667,16 @@ def build_policy_candidate_benchmark_summary(comparison_set: Optional[dict]) -> 
 
 
 
+def extract_policy_candidate_benchmark_summaries(comparison_sets: Optional[list[dict]]) -> list[dict]:
+    summaries: list[dict] = []
+    for comparison_set in comparison_sets or []:
+        if not isinstance(comparison_set, dict):
+            continue
+        summaries.append(build_policy_candidate_benchmark_summary(comparison_set))
+    return summaries
+
+
+
 def extract_policy_evaluation_comparisons(evaluation_results: Optional[list[dict]]) -> list[dict]:
     valid_results = []
     for result in evaluation_results or []:
