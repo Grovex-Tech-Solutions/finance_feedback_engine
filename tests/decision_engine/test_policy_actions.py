@@ -1110,3 +1110,74 @@ def test_extract_policy_evaluation_results_skips_invalid_runs_cleanly():
 
     assert len(results) == 1
     assert results[0]["summary"]["record_count"] == 1
+
+
+
+def test_policy_evaluation_result_versions_align():
+    summary = {
+        "record_count": 4,
+        "executed_count": 2,
+        "vetoed_count": 1,
+        "rejected_count": 1,
+        "invalid_count": 0,
+        "summary_version": 1,
+    }
+    scorecard = build_policy_evaluation_scorecard(summary)
+    result = build_policy_evaluation_result(summary, scorecard)
+
+    assert result["summary"]["summary_version"] == 1
+    assert result["scorecard"]["scorecard_version"] == 1
+    assert result["result_version"] == 1
+
+
+
+def test_policy_evaluation_result_preserves_lifecycle_distinctions():
+    summary = {
+        "record_count": 4,
+        "executed_count": 1,
+        "vetoed_count": 1,
+        "rejected_count": 1,
+        "invalid_count": 1,
+        "summary_version": 1,
+    }
+    scorecard = build_policy_evaluation_scorecard(summary)
+    result = build_policy_evaluation_result(summary, scorecard)
+
+    assert result["summary"]["executed_count"] == 1
+    assert result["summary"]["vetoed_count"] == 1
+    assert result["summary"]["rejected_count"] == 1
+    assert result["summary"]["invalid_count"] == 1
+    assert result["scorecard"]["executed_rate"] == 0.25
+    assert result["scorecard"]["vetoed_rate"] == 0.25
+    assert result["scorecard"]["rejected_rate"] == 0.25
+    assert result["scorecard"]["invalid_rate"] == 0.25
+
+
+
+def test_extract_policy_evaluation_results_skips_partial_inputs_and_stays_stable():
+    results = extract_policy_evaluation_results([
+        {
+            "records": [
+                {"decision_id": "decision-result-clean-1", "control_outcome_status": "executed", "evaluation_record_version": 1},
+                {"decision_id": "decision-result-partial-1"},
+                None,
+            ],
+            "record_count": 3,
+            "run_version": 1,
+        },
+        None,
+    ])
+
+    assert len(results) == 1
+    assert results[0]["summary"]["record_count"] == 1
+    assert results[0]["summary"]["executed_count"] == 1
+    assert results[0]["scorecard"]["executed_rate"] == 1.0
+
+
+
+def test_policy_evaluation_result_handles_partial_inputs_cleanly():
+    result = build_policy_evaluation_result({"record_count": 0, "summary_version": 1}, None)
+
+    assert result["summary"]["record_count"] == 0
+    assert result["scorecard"] == {}
+    assert result["result_version"] == 1

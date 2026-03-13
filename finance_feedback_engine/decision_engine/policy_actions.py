@@ -594,7 +594,8 @@ def extract_policy_evaluation_results(evaluation_runs: Optional[list[dict]]) -> 
     for evaluation_run in evaluation_runs or []:
         if not isinstance(evaluation_run, dict):
             continue
-        summary = build_policy_evaluation_summary(evaluation_run)
+        normalized_run = build_policy_evaluation_run(evaluation_run.get("records"))
+        summary = build_policy_evaluation_summary(normalized_run)
         scorecard = build_policy_evaluation_scorecard(summary)
         results.append(build_policy_evaluation_result(summary, scorecard))
     return results
