@@ -2445,3 +2445,134 @@ def test_extract_policy_baseline_candidate_comparison_summaries_skips_invalid_in
     ])
 
     assert summaries == []
+
+
+
+def test_comparison_group_and_summary_versions_align():
+    comparison_group = build_policy_baseline_candidate_comparison_group(
+        [
+            {
+                "report_count": 1,
+                "avg_left_executed_rate": 0.5,
+                "avg_right_executed_rate": 0.8,
+                "avg_left_vetoed_rate": 0.2,
+                "avg_right_vetoed_rate": 0.1,
+                "workflow_summary_version": 1,
+            }
+        ],
+        [
+            {
+                "report_count": 1,
+                "avg_left_executed_rate": 0.6,
+                "avg_right_executed_rate": 0.7,
+                "avg_left_vetoed_rate": 0.25,
+                "avg_right_vetoed_rate": 0.15,
+                "workflow_summary_version": 1,
+            }
+        ],
+    )
+
+    comparison_summary = build_policy_baseline_candidate_comparison_summary(comparison_group)
+
+    assert comparison_group["comparison_group_version"] == 1
+    assert comparison_summary["comparison_summary_version"] == 1
+
+
+
+def test_comparison_summary_preserves_baseline_candidate_lifecycle_distinctions():
+    comparison_group = build_policy_baseline_candidate_comparison_group(
+        [
+            {
+                "report_count": 1,
+                "avg_left_executed_rate": 0.25,
+                "avg_right_executed_rate": 0.5,
+                "avg_left_vetoed_rate": 0.3,
+                "avg_right_vetoed_rate": 0.1,
+                "workflow_summary_version": 1,
+            }
+        ],
+        [
+            {
+                "report_count": 1,
+                "avg_left_executed_rate": 0.6,
+                "avg_right_executed_rate": 0.7,
+                "avg_left_vetoed_rate": 0.15,
+                "avg_right_vetoed_rate": 0.2,
+                "workflow_summary_version": 1,
+            }
+        ],
+    )
+
+    comparison_summary = build_policy_baseline_candidate_comparison_summary(comparison_group)
+
+    assert comparison_summary["avg_baseline_left_executed_rate"] == pytest.approx(0.25)
+    assert comparison_summary["avg_baseline_right_executed_rate"] == pytest.approx(0.5)
+    assert comparison_summary["avg_baseline_left_vetoed_rate"] == pytest.approx(0.3)
+    assert comparison_summary["avg_baseline_right_vetoed_rate"] == pytest.approx(0.1)
+    assert comparison_summary["avg_candidate_left_executed_rate"] == pytest.approx(0.6)
+    assert comparison_summary["avg_candidate_right_executed_rate"] == pytest.approx(0.7)
+    assert comparison_summary["avg_candidate_left_vetoed_rate"] == pytest.approx(0.15)
+    assert comparison_summary["avg_candidate_right_vetoed_rate"] == pytest.approx(0.2)
+
+
+
+def test_extract_policy_baseline_candidate_comparison_summaries_skips_partial_inputs_cleanly():
+    summaries = extract_policy_baseline_candidate_comparison_summaries([
+        {
+            "baseline_workflow_summaries": [
+                {
+                    "report_count": 1,
+                    "avg_left_executed_rate": 0.5,
+                    "avg_right_executed_rate": 0.8,
+                    "avg_left_vetoed_rate": 0.2,
+                    "avg_right_vetoed_rate": 0.1,
+                    "workflow_summary_version": 1,
+                },
+                None,
+            ],
+            "candidate_workflow_summaries": [
+                {
+                    "report_count": 1,
+                    "avg_left_executed_rate": 0.6,
+                    "avg_right_executed_rate": 0.7,
+                    "avg_left_vetoed_rate": 0.25,
+                    "avg_right_vetoed_rate": 0.15,
+                    "workflow_summary_version": 1,
+                },
+                None,
+            ],
+            "baseline_count": 2,
+            "candidate_count": 2,
+            "comparison_group_version": 1,
+        },
+        None,
+    ])
+
+    assert len(summaries) == 1
+    assert summaries[0]["baseline_count"] == 1
+    assert summaries[0]["candidate_count"] == 1
+    assert summaries[0]["avg_baseline_left_executed_rate"] == pytest.approx(0.5)
+    assert summaries[0]["avg_candidate_left_executed_rate"] == pytest.approx(0.6)
+
+
+
+def test_comparison_summary_handles_partial_inputs_cleanly():
+    comparison_summary = build_policy_baseline_candidate_comparison_summary({
+        "baseline_workflow_summaries": [None],
+        "candidate_workflow_summaries": [None],
+        "comparison_group_version": 1,
+    })
+
+    assert comparison_summary == {
+        "baseline_count": 0,
+        "candidate_count": 0,
+        "avg_baseline_left_executed_rate": 0.0,
+        "avg_candidate_left_executed_rate": 0.0,
+        "avg_baseline_right_executed_rate": 0.0,
+        "avg_candidate_right_executed_rate": 0.0,
+        "avg_baseline_left_vetoed_rate": 0.0,
+        "avg_candidate_left_vetoed_rate": 0.0,
+        "avg_baseline_right_vetoed_rate": 0.0,
+        "avg_candidate_right_vetoed_rate": 0.0,
+        "comparison_summary_version": 1,
+    }
