@@ -971,6 +971,55 @@ def build_policy_selection_runtime_switch_set(
 
 
 
+def build_policy_selection_runtime_switch_summary(
+    runtime_switch_set: Optional[dict],
+) -> dict:
+    payload = dict(runtime_switch_set or {}) if isinstance(runtime_switch_set, dict) else {}
+    rollout_decision_summaries = payload.get("rollout_decision_summaries") or []
+    valid_rollout_decision_summaries = [
+        summary for summary in rollout_decision_summaries if isinstance(summary, dict)
+    ]
+
+    keep_baseline_active_count = 0
+    shadow_candidate_active_count = 0
+    candidate_primary_active_count = 0
+    defer_switch_count = 0
+    comparable_summary_count = 0
+
+    for summary in valid_rollout_decision_summaries:
+        try:
+            shadow_candidate_count = int(summary.get("shadow_candidate_count"))
+            hold_baseline_count = int(summary.get("hold_baseline_count"))
+            defer_rollout_count = int(summary.get("defer_rollout_count"))
+            summary_count = int(summary.get("summary_count"))
+        except (TypeError, ValueError):
+            continue
+
+        if summary_count <= 0:
+            continue
+
+        comparable_summary_count += 1
+        if shadow_candidate_count > hold_baseline_count and shadow_candidate_count > 0:
+            shadow_candidate_active_count += 1
+        elif hold_baseline_count > shadow_candidate_count and hold_baseline_count > 0:
+            keep_baseline_active_count += 1
+        elif shadow_candidate_count > 1:
+            candidate_primary_active_count += 1
+        else:
+            defer_switch_count += 1
+
+    return {
+        "summary_count": comparable_summary_count,
+        "keep_baseline_active_count": keep_baseline_active_count,
+        "shadow_candidate_active_count": shadow_candidate_active_count,
+        "candidate_primary_active_count": candidate_primary_active_count,
+        "defer_switch_count": defer_switch_count,
+        "runtime_switch_summary_version": 1,
+    }
+
+
+
+
 def extract_policy_selection_rollout_decision_summaries(
     rollout_decision_sets: Optional[list[dict]],
 ) -> list[dict]:
