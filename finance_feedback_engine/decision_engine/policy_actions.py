@@ -1020,6 +1020,27 @@ def build_policy_selection_runtime_switch_summary(
 
 
 
+def extract_policy_selection_runtime_switch_summaries(
+    runtime_switch_sets: Optional[list[dict]],
+) -> list[dict]:
+    summaries = []
+    for runtime_switch_set in runtime_switch_sets or []:
+        if not isinstance(runtime_switch_set, dict):
+            continue
+        rollout_decision_summaries = runtime_switch_set.get("rollout_decision_summaries")
+        if not isinstance(rollout_decision_summaries, list):
+            continue
+        if not any(isinstance(summary, dict) for summary in rollout_decision_summaries):
+            continue
+        runtime_switch_summary = build_policy_selection_runtime_switch_summary(runtime_switch_set)
+        if runtime_switch_summary.get("summary_count", 0) <= 0:
+            continue
+        summaries.append(runtime_switch_summary)
+    return summaries
+
+
+
+
 def extract_policy_selection_rollout_decision_summaries(
     rollout_decision_sets: Optional[list[dict]],
 ) -> list[dict]:

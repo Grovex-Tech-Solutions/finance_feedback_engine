@@ -37,6 +37,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_rollout_decision_summary,
     build_policy_selection_runtime_switch_set,
     build_policy_selection_runtime_switch_summary,
+    extract_policy_selection_runtime_switch_summaries,
     extract_policy_selection_rollout_decision_summaries,
     extract_policy_selection_promotion_decision_summaries,
     extract_policy_selection_recommendation_summaries,
@@ -3652,6 +3653,55 @@ def test_build_policy_selection_runtime_switch_set_defensively_copies_rollout_in
     rollout_decision_summary["shadow_candidate_count"] = 99
 
     assert runtime_switch_set["rollout_decision_summaries"][0]["shadow_candidate_count"] == 1
+
+
+
+
+def test_extract_policy_selection_runtime_switch_summaries_builds_exportable_summaries():
+    summaries = extract_policy_selection_runtime_switch_summaries([
+        {
+            "rollout_decision_summaries": [
+                {
+                    "summary_count": 1,
+                    "shadow_candidate_count": 1,
+                    "hold_baseline_count": 0,
+                    "defer_rollout_count": 0,
+                    "rollout_decision_summary_version": 1,
+                }
+            ],
+            "summary_count": 1,
+            "runtime_switch_set_version": 1,
+        }
+    ])
+
+    assert summaries == [{
+        "summary_count": 1,
+        "keep_baseline_active_count": 0,
+        "shadow_candidate_active_count": 1,
+        "candidate_primary_active_count": 0,
+        "defer_switch_count": 0,
+        "runtime_switch_summary_version": 1,
+    }]
+
+
+
+def test_extract_policy_selection_runtime_switch_summaries_skips_invalid_inputs():
+    summaries = extract_policy_selection_runtime_switch_summaries([
+        None,
+        {},
+        {"rollout_decision_summaries": None},
+        {"rollout_decision_summaries": []},
+        {"rollout_decision_summaries": [None, 'bad', 123]},
+        {
+            "rollout_decision_summaries": [
+                {"rollout_decision_summary_version": 1},
+            ],
+            "summary_count": 1,
+            "runtime_switch_set_version": 1,
+        },
+    ])
+
+    assert summaries == []
 
 
 
