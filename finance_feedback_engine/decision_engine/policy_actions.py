@@ -851,6 +851,51 @@ def build_policy_selection_promotion_decision_set(
 
 
 
+def build_policy_selection_promotion_decision_summary(
+    promotion_decision_set: Optional[dict],
+) -> dict:
+    payload = dict(promotion_decision_set or {}) if isinstance(promotion_decision_set, dict) else {}
+    recommendation_summaries = payload.get("recommendation_summaries") or []
+    valid_recommendation_summaries = [
+        summary for summary in recommendation_summaries if isinstance(summary, dict)
+    ]
+
+    promote_candidate_count = 0
+    keep_baseline_count = 0
+    defer_count = 0
+    comparable_summary_count = 0
+
+    for summary in valid_recommendation_summaries:
+        try:
+            better_candidate_count = int(summary.get("better_candidate_count"))
+            better_baseline_count = int(summary.get("better_baseline_count"))
+            inconclusive_count = int(summary.get("inconclusive_count"))
+            summary_count = int(summary.get("summary_count"))
+        except (TypeError, ValueError):
+            continue
+
+        if summary_count <= 0:
+            continue
+
+        comparable_summary_count += 1
+        if better_candidate_count > better_baseline_count and better_candidate_count > 0:
+            promote_candidate_count += 1
+        elif better_baseline_count > better_candidate_count and better_baseline_count > 0:
+            keep_baseline_count += 1
+        else:
+            defer_count += 1
+
+    return {
+        "summary_count": comparable_summary_count,
+        "promote_candidate_count": promote_candidate_count,
+        "keep_baseline_count": keep_baseline_count,
+        "defer_count": defer_count,
+        "promotion_decision_summary_version": 1,
+    }
+
+
+
+
 def extract_policy_selection_recommendation_summaries(
     recommendation_sets: Optional[list[dict]],
 ) -> list[dict]:

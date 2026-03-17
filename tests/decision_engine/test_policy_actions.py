@@ -32,6 +32,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_recommendation_set,
     build_policy_selection_recommendation_summary,
     build_policy_selection_promotion_decision_set,
+    build_policy_selection_promotion_decision_summary,
     extract_policy_selection_recommendation_summaries,
     extract_policy_baseline_candidate_comparison_summaries,
     extract_policy_baseline_workflow_summaries,
@@ -2820,6 +2821,93 @@ def test_build_policy_selection_promotion_decision_set_filters_non_dict_items():
 
     assert promotion_decision_set["summary_count"] == 1
     assert promotion_decision_set["recommendation_summaries"][0]["summary_count"] == 1
+
+
+
+
+def test_build_policy_selection_promotion_decision_summary_counts_outcomes_cleanly():
+    promotion_decision_summary = build_policy_selection_promotion_decision_summary({
+        "recommendation_summaries": [
+            {
+                "summary_count": 1,
+                "better_candidate_count": 1,
+                "better_baseline_count": 0,
+                "inconclusive_count": 0,
+                "recommendation_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "better_candidate_count": 0,
+                "better_baseline_count": 1,
+                "inconclusive_count": 0,
+                "recommendation_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "better_candidate_count": 0,
+                "better_baseline_count": 0,
+                "inconclusive_count": 1,
+                "recommendation_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "promotion_decision_set_version": 1,
+    })
+
+    assert promotion_decision_summary == {
+        "summary_count": 3,
+        "promote_candidate_count": 1,
+        "keep_baseline_count": 1,
+        "defer_count": 1,
+        "promotion_decision_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_promotion_decision_summary_handles_empty_inputs():
+    promotion_decision_summary = build_policy_selection_promotion_decision_summary({
+        "recommendation_summaries": [],
+        "summary_count": 0,
+        "promotion_decision_set_version": 1,
+    })
+
+    assert promotion_decision_summary == {
+        "summary_count": 0,
+        "promote_candidate_count": 0,
+        "keep_baseline_count": 0,
+        "defer_count": 0,
+        "promotion_decision_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_promotion_decision_summary_handles_none_inputs():
+    promotion_decision_summary = build_policy_selection_promotion_decision_summary(None)
+
+    assert promotion_decision_summary == {
+        "summary_count": 0,
+        "promote_candidate_count": 0,
+        "keep_baseline_count": 0,
+        "defer_count": 0,
+        "promotion_decision_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_promotion_decision_summary_skips_invalid_items_cleanly():
+    promotion_decision_summary = build_policy_selection_promotion_decision_summary({
+        "recommendation_summaries": [None, "bad", 123, {"recommendation_summary_version": 1}],
+        "summary_count": 4,
+        "promotion_decision_set_version": 1,
+    })
+
+    assert promotion_decision_summary == {
+        "summary_count": 0,
+        "promote_candidate_count": 0,
+        "keep_baseline_count": 0,
+        "defer_count": 0,
+        "promotion_decision_summary_version": 1,
+    }
 
 
 
