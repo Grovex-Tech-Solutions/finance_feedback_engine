@@ -2678,6 +2678,92 @@ def test_extract_policy_selection_recommendation_summaries_skips_invalid_inputs(
 
 
 
+def test_selection_recommendation_versions_align_across_stage17_helpers():
+    comparison_summary = {
+        "avg_baseline_left_executed_rate": 0.4,
+        "avg_candidate_left_executed_rate": 0.6,
+        "avg_baseline_right_executed_rate": 0.5,
+        "avg_candidate_right_executed_rate": 0.7,
+        "avg_baseline_left_vetoed_rate": 0.2,
+        "avg_candidate_left_vetoed_rate": 0.1,
+        "avg_baseline_right_vetoed_rate": 0.2,
+        "avg_candidate_right_vetoed_rate": 0.1,
+        "comparison_summary_version": 1,
+    }
+
+    recommendation_set = build_policy_selection_recommendation_set([comparison_summary])
+    recommendation_summary = build_policy_selection_recommendation_summary(recommendation_set)
+    exported = extract_policy_selection_recommendation_summaries([recommendation_set])
+
+    assert recommendation_set["recommendation_set_version"] == 1
+    assert recommendation_summary["recommendation_summary_version"] == 1
+    assert exported[0]["recommendation_summary_version"] == 1
+
+
+
+def test_build_policy_selection_recommendation_set_defensively_copies_input_summaries():
+    comparison_summary = {
+        "avg_baseline_left_executed_rate": 0.4,
+        "avg_candidate_left_executed_rate": 0.6,
+        "comparison_summary_version": 1,
+    }
+    recommendation_set = build_policy_selection_recommendation_set([comparison_summary])
+
+    comparison_summary["avg_candidate_left_executed_rate"] = 9.9
+
+    assert recommendation_set["comparison_summaries"][0]["avg_candidate_left_executed_rate"] == 0.6
+
+
+
+def test_extract_policy_selection_recommendation_summaries_preserves_recommendation_outcomes():
+    recommendation_set = {
+        "comparison_summaries": [
+            {
+                "avg_baseline_left_executed_rate": 0.4,
+                "avg_candidate_left_executed_rate": 0.6,
+                "avg_baseline_right_executed_rate": 0.5,
+                "avg_candidate_right_executed_rate": 0.7,
+                "avg_baseline_left_vetoed_rate": 0.2,
+                "avg_candidate_left_vetoed_rate": 0.1,
+                "avg_baseline_right_vetoed_rate": 0.2,
+                "avg_candidate_right_vetoed_rate": 0.1,
+                "comparison_summary_version": 1,
+            },
+            {
+                "avg_baseline_left_executed_rate": 0.7,
+                "avg_candidate_left_executed_rate": 0.5,
+                "avg_baseline_right_executed_rate": 0.8,
+                "avg_candidate_right_executed_rate": 0.6,
+                "avg_baseline_left_vetoed_rate": 0.1,
+                "avg_candidate_left_vetoed_rate": 0.2,
+                "avg_baseline_right_vetoed_rate": 0.1,
+                "avg_candidate_right_vetoed_rate": 0.2,
+                "comparison_summary_version": 1,
+            },
+            {
+                "avg_baseline_left_executed_rate": 0.5,
+                "avg_candidate_left_executed_rate": 0.5,
+                "avg_baseline_right_executed_rate": 0.5,
+                "avg_candidate_right_executed_rate": 0.5,
+                "avg_baseline_left_vetoed_rate": 0.1,
+                "avg_candidate_left_vetoed_rate": 0.1,
+                "avg_baseline_right_vetoed_rate": 0.1,
+                "avg_candidate_right_vetoed_rate": 0.1,
+                "comparison_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "recommendation_set_version": 1,
+    }
+
+    direct = build_policy_selection_recommendation_summary(recommendation_set)
+    exported = extract_policy_selection_recommendation_summaries([recommendation_set])
+
+    assert exported == [direct]
+
+
+
+
 def test_extract_policy_baseline_candidate_comparison_summaries_skips_invalid_inputs():
     summaries = extract_policy_baseline_candidate_comparison_summaries([
         None,
