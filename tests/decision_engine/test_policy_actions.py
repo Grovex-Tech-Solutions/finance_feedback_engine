@@ -41,6 +41,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_deployment_execution_summary,
     build_policy_selection_orchestration_set,
     build_policy_selection_orchestration_summary,
+    extract_policy_selection_orchestration_summaries,
     extract_policy_selection_deployment_execution_summaries,
     extract_policy_selection_runtime_switch_summaries,
     extract_policy_selection_rollout_decision_summaries,
@@ -4382,6 +4383,56 @@ def test_build_policy_selection_orchestration_set_defensively_copies_deployment_
     deployment_execution_summary["deploy_shadow_only_count"] = 99
 
     assert orchestration_set["deployment_execution_summaries"][0]["deploy_shadow_only_count"] == 1
+
+
+
+
+def test_extract_policy_selection_orchestration_summaries_builds_exportable_summaries():
+    summaries = extract_policy_selection_orchestration_summaries([
+        {
+            "deployment_execution_summaries": [
+                {
+                    "summary_count": 1,
+                    "deploy_shadow_only_count": 1,
+                    "deploy_candidate_primary_count": 0,
+                    "retain_current_deployment_count": 0,
+                    "defer_deployment_count": 0,
+                    "deployment_execution_summary_version": 1,
+                }
+            ],
+            "summary_count": 1,
+            "orchestration_set_version": 1,
+        }
+    ])
+
+    assert summaries == [{
+        "summary_count": 1,
+        "schedule_shadow_deploy_count": 1,
+        "schedule_primary_cutover_count": 0,
+        "hold_current_schedule_count": 0,
+        "defer_orchestration_count": 0,
+        "orchestration_summary_version": 1,
+    }]
+
+
+
+def test_extract_policy_selection_orchestration_summaries_skips_invalid_inputs():
+    summaries = extract_policy_selection_orchestration_summaries([
+        None,
+        {},
+        {"deployment_execution_summaries": None},
+        {"deployment_execution_summaries": []},
+        {"deployment_execution_summaries": [None, 'bad', 123]},
+        {
+            "deployment_execution_summaries": [
+                {"deployment_execution_summary_version": 1},
+            ],
+            "summary_count": 1,
+            "orchestration_set_version": 1,
+        },
+    ])
+
+    assert summaries == []
 
 
 

@@ -1150,6 +1150,27 @@ def build_policy_selection_orchestration_summary(
 
 
 
+def extract_policy_selection_orchestration_summaries(
+    orchestration_sets: Optional[list[dict]],
+) -> list[dict]:
+    summaries = []
+    for orchestration_set in orchestration_sets or []:
+        if not isinstance(orchestration_set, dict):
+            continue
+        deployment_execution_summaries = orchestration_set.get("deployment_execution_summaries")
+        if not isinstance(deployment_execution_summaries, list):
+            continue
+        if not any(isinstance(summary, dict) for summary in deployment_execution_summaries):
+            continue
+        orchestration_summary = build_policy_selection_orchestration_summary(orchestration_set)
+        if orchestration_summary.get("summary_count", 0) <= 0:
+            continue
+        summaries.append(orchestration_summary)
+    return summaries
+
+
+
+
 def extract_policy_selection_deployment_execution_summaries(
     deployment_execution_sets: Optional[list[dict]],
 ) -> list[dict]:
