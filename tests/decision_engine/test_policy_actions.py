@@ -3028,6 +3028,78 @@ def test_extract_policy_selection_promotion_decision_summaries_skips_invalid_inp
 
 
 
+def test_extract_policy_selection_promotion_decision_summaries_preserves_outcomes():
+    promotion_decision_set = {
+        "recommendation_summaries": [
+            {
+                "summary_count": 1,
+                "better_candidate_count": 1,
+                "better_baseline_count": 0,
+                "inconclusive_count": 0,
+                "recommendation_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "better_candidate_count": 0,
+                "better_baseline_count": 1,
+                "inconclusive_count": 0,
+                "recommendation_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "better_candidate_count": 0,
+                "better_baseline_count": 0,
+                "inconclusive_count": 1,
+                "recommendation_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "promotion_decision_set_version": 1,
+    }
+
+    direct = build_policy_selection_promotion_decision_summary(promotion_decision_set)
+    exported = extract_policy_selection_promotion_decision_summaries([promotion_decision_set])
+
+    assert exported == [direct]
+
+
+
+def test_promotion_decision_versions_align_across_export_helpers():
+    promotion_decision_set = build_policy_selection_promotion_decision_set([
+        {
+            "summary_count": 1,
+            "better_candidate_count": 1,
+            "better_baseline_count": 0,
+            "inconclusive_count": 0,
+            "recommendation_summary_version": 1,
+        }
+    ])
+    promotion_decision_summary = build_policy_selection_promotion_decision_summary(promotion_decision_set)
+    exported = extract_policy_selection_promotion_decision_summaries([promotion_decision_set])
+
+    assert promotion_decision_set["promotion_decision_set_version"] == 1
+    assert promotion_decision_summary["promotion_decision_summary_version"] == 1
+    assert exported[0]["promotion_decision_summary_version"] == 1
+
+
+
+def test_build_policy_selection_promotion_decision_set_defensively_copies_recommendation_summaries():
+    recommendation_summary = {
+        "summary_count": 1,
+        "better_candidate_count": 1,
+        "better_baseline_count": 0,
+        "inconclusive_count": 0,
+        "recommendation_summary_version": 1,
+    }
+    promotion_decision_set = build_policy_selection_promotion_decision_set([recommendation_summary])
+
+    recommendation_summary["better_candidate_count"] = 99
+
+    assert promotion_decision_set["recommendation_summaries"][0]["better_candidate_count"] == 1
+
+
+
+
 def test_extract_policy_baseline_candidate_comparison_summaries_skips_invalid_inputs():
     summaries = extract_policy_baseline_candidate_comparison_summaries([
         None,
