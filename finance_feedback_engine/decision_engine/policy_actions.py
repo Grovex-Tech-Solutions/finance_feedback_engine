@@ -1165,6 +1165,63 @@ def build_policy_selection_scheduler_request_set(
 
 
 
+def build_policy_selection_scheduler_request_summary(
+    scheduler_request_set: Optional[dict],
+) -> dict:
+    payload = dict(scheduler_request_set or {}) if isinstance(scheduler_request_set, dict) else {}
+    summaries = payload.get("orchestration_summaries") or []
+    valid_summaries = [summary for summary in summaries if isinstance(summary, dict)]
+    if not valid_summaries:
+        return {
+            "summary_count": 0,
+            "request_shadow_schedule_count": 0,
+            "request_primary_cutover_schedule_count": 0,
+            "keep_manual_schedule_count": 0,
+            "defer_scheduler_request_count": 0,
+            "scheduler_request_summary_version": 1,
+        }
+
+    request_shadow_schedule_count = 0
+    request_primary_cutover_schedule_count = 0
+    keep_manual_schedule_count = 0
+    defer_scheduler_request_count = 0
+    comparable_summary_count = 0
+
+    for summary in valid_summaries:
+        try:
+            schedule_shadow_deploy_count = int(summary.get("schedule_shadow_deploy_count"))
+            schedule_primary_cutover_count = int(summary.get("schedule_primary_cutover_count"))
+            hold_current_schedule_count = int(summary.get("hold_current_schedule_count"))
+            defer_orchestration_count = int(summary.get("defer_orchestration_count"))
+            summary_count = int(summary.get("summary_count"))
+        except (TypeError, ValueError):
+            continue
+
+        if summary_count <= 0:
+            continue
+
+        comparable_summary_count += 1
+        if schedule_primary_cutover_count > 0:
+            request_primary_cutover_schedule_count += 1
+        elif schedule_shadow_deploy_count > 0:
+            request_shadow_schedule_count += 1
+        elif hold_current_schedule_count > 0:
+            keep_manual_schedule_count += 1
+        else:
+            defer_scheduler_request_count += 1
+
+    return {
+        "summary_count": comparable_summary_count,
+        "request_shadow_schedule_count": request_shadow_schedule_count,
+        "request_primary_cutover_schedule_count": request_primary_cutover_schedule_count,
+        "keep_manual_schedule_count": keep_manual_schedule_count,
+        "defer_scheduler_request_count": defer_scheduler_request_count,
+        "scheduler_request_summary_version": 1,
+    }
+
+
+
+
 def extract_policy_selection_orchestration_summaries(
     orchestration_sets: Optional[list[dict]],
 ) -> list[dict]:

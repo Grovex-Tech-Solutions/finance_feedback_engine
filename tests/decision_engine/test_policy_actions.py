@@ -42,6 +42,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_orchestration_set,
     build_policy_selection_orchestration_summary,
     build_policy_selection_scheduler_request_set,
+    build_policy_selection_scheduler_request_summary,
     extract_policy_selection_orchestration_summaries,
     extract_policy_selection_deployment_execution_summaries,
     extract_policy_selection_runtime_switch_summaries,
@@ -4211,6 +4212,161 @@ def test_build_policy_selection_scheduler_request_set_filters_non_dict_items():
 
     assert scheduler_request_set["summary_count"] == 1
     assert scheduler_request_set["orchestration_summaries"][0]["summary_count"] == 1
+
+
+
+
+def test_build_policy_selection_scheduler_request_summary_counts_outcomes_cleanly():
+    scheduler_request_summary = build_policy_selection_scheduler_request_summary({
+        "orchestration_summaries": [
+            {
+                "summary_count": 1,
+                "schedule_shadow_deploy_count": 1,
+                "schedule_primary_cutover_count": 0,
+                "hold_current_schedule_count": 0,
+                "defer_orchestration_count": 0,
+                "orchestration_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "schedule_shadow_deploy_count": 0,
+                "schedule_primary_cutover_count": 1,
+                "hold_current_schedule_count": 0,
+                "defer_orchestration_count": 0,
+                "orchestration_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "schedule_shadow_deploy_count": 0,
+                "schedule_primary_cutover_count": 0,
+                "hold_current_schedule_count": 1,
+                "defer_orchestration_count": 0,
+                "orchestration_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "schedule_shadow_deploy_count": 0,
+                "schedule_primary_cutover_count": 0,
+                "hold_current_schedule_count": 0,
+                "defer_orchestration_count": 1,
+                "orchestration_summary_version": 1,
+            },
+        ],
+        "summary_count": 4,
+        "scheduler_request_set_version": 1,
+    })
+
+    assert scheduler_request_summary == {
+        "summary_count": 4,
+        "request_shadow_schedule_count": 1,
+        "request_primary_cutover_schedule_count": 1,
+        "keep_manual_schedule_count": 1,
+        "defer_scheduler_request_count": 1,
+        "scheduler_request_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_scheduler_request_summary_handles_empty_inputs():
+    scheduler_request_summary = build_policy_selection_scheduler_request_summary({
+        "orchestration_summaries": [],
+        "summary_count": 0,
+        "scheduler_request_set_version": 1,
+    })
+
+    assert scheduler_request_summary == {
+        "summary_count": 0,
+        "request_shadow_schedule_count": 0,
+        "request_primary_cutover_schedule_count": 0,
+        "keep_manual_schedule_count": 0,
+        "defer_scheduler_request_count": 0,
+        "scheduler_request_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_scheduler_request_summary_handles_none_inputs():
+    scheduler_request_summary = build_policy_selection_scheduler_request_summary(None)
+
+    assert scheduler_request_summary == {
+        "summary_count": 0,
+        "request_shadow_schedule_count": 0,
+        "request_primary_cutover_schedule_count": 0,
+        "keep_manual_schedule_count": 0,
+        "defer_scheduler_request_count": 0,
+        "scheduler_request_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_scheduler_request_summary_skips_invalid_items_cleanly():
+    scheduler_request_summary = build_policy_selection_scheduler_request_summary({
+        "orchestration_summaries": [None, "bad", 123, {"orchestration_summary_version": 1}],
+        "summary_count": 4,
+        "scheduler_request_set_version": 1,
+    })
+
+    assert scheduler_request_summary == {
+        "summary_count": 0,
+        "request_shadow_schedule_count": 0,
+        "request_primary_cutover_schedule_count": 0,
+        "keep_manual_schedule_count": 0,
+        "defer_scheduler_request_count": 0,
+        "scheduler_request_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_scheduler_request_summary_skips_partial_inputs_cleanly():
+    scheduler_request_summary = build_policy_selection_scheduler_request_summary({
+        "orchestration_summaries": [
+            {
+                "summary_count": 1,
+                "schedule_shadow_deploy_count": 1,
+                "schedule_primary_cutover_count": 0,
+                "hold_current_schedule_count": 0,
+                "defer_orchestration_count": 0,
+                "orchestration_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "schedule_primary_cutover_count": 1,
+                "orchestration_summary_version": 1,
+            },
+            {
+                "orchestration_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "scheduler_request_set_version": 1,
+    })
+
+    assert scheduler_request_summary == {
+        "summary_count": 1,
+        "request_shadow_schedule_count": 1,
+        "request_primary_cutover_schedule_count": 0,
+        "keep_manual_schedule_count": 0,
+        "defer_scheduler_request_count": 0,
+        "scheduler_request_summary_version": 1,
+    }
+
+
+
+def test_scheduler_request_versions_align_across_stage23_helpers():
+    orchestration_summary = {
+        "summary_count": 1,
+        "schedule_shadow_deploy_count": 1,
+        "schedule_primary_cutover_count": 0,
+        "hold_current_schedule_count": 0,
+        "defer_orchestration_count": 0,
+        "orchestration_summary_version": 1,
+    }
+
+    scheduler_request_set = build_policy_selection_scheduler_request_set([orchestration_summary])
+    scheduler_request_summary = build_policy_selection_scheduler_request_summary(scheduler_request_set)
+
+    assert scheduler_request_set["scheduler_request_set_version"] == 1
+    assert scheduler_request_summary["scheduler_request_summary_version"] == 1
 
 
 
