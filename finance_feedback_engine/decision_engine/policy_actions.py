@@ -1222,6 +1222,27 @@ def build_policy_selection_scheduler_request_summary(
 
 
 
+def extract_policy_selection_scheduler_request_summaries(
+    scheduler_request_sets: Optional[list[dict]],
+) -> list[dict]:
+    summaries = []
+    for scheduler_request_set in scheduler_request_sets or []:
+        if not isinstance(scheduler_request_set, dict):
+            continue
+        orchestration_summaries = scheduler_request_set.get("orchestration_summaries")
+        if not isinstance(orchestration_summaries, list):
+            continue
+        if not any(isinstance(summary, dict) for summary in orchestration_summaries):
+            continue
+        scheduler_request_summary = build_policy_selection_scheduler_request_summary(scheduler_request_set)
+        if scheduler_request_summary.get("summary_count", 0) <= 0:
+            continue
+        summaries.append(scheduler_request_summary)
+    return summaries
+
+
+
+
 def extract_policy_selection_orchestration_summaries(
     orchestration_sets: Optional[list[dict]],
 ) -> list[dict]:
