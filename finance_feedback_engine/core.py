@@ -1,6 +1,7 @@
 """Core Finance Feedback Engine module."""
 
 import asyncio
+import json
 import logging
 import os
 import socket
@@ -33,6 +34,7 @@ from .trading_platforms.platform_factory import PlatformFactory
 from .utils.credential_validator import validate_credentials
 from .utils.config_schema_validator import validate_and_warn
 from .utils.cache_metrics import CacheMetrics
+from .utils.circuit_breaker import CircuitBreaker
 from .utils.failure_logger import log_quorum_failure
 from .utils.model_installer import ensure_models_installed
 
@@ -353,6 +355,13 @@ class FinanceFeedbackEngine:
         persistence_config = config.get("persistence", {})
         self.decision_store = DecisionStore(persistence_config)
 
+        execution_cb_config = config.get("platform_execute_circuit_breaker", {})
+        self._execution_breaker = CircuitBreaker(
+            failure_threshold=int(execution_cb_config.get("failure_threshold", 5)),
+            recovery_timeout=float(execution_cb_config.get("recovery_timeout_seconds", 15)),
+            name="finance_feedback_engine.execute_decision",
+        )
+
         # Initialize Prometheus metrics
         self._meter = get_meter(__name__)
         self._metrics = create_counters(self._meter)
@@ -397,6 +406,9 @@ class FinanceFeedbackEngine:
                 logger.info("No persisted memory found, starting fresh (using new adapter)")
 
             logger.info("Portfolio Memory Engine enabled")
+
+        # Backward-compatible alias expected by legacy callers/tests
+        self.portfolio_memory = self.memory_engine
 
         # Initialize trade outcome recorder (THR-235)
         self.trade_outcome_recorder: Optional[TradeOutcomeRecorder] = None
@@ -460,6 +472,170 @@ class FinanceFeedbackEngine:
 
         # Run startup health checks
         self._run_startup_health_checks()
+
+
+    def _load_decision_for_execution(self, decision_id: str) -> tuple[Optional[Dict[str, Any]], str]:
+        """Load a decision from the canonical store, with a small legacy fallback."""
+        decision = self.decision_store.get_decision_by_id(decision_id)
+        if decision:
+            return decision, "store"
+
+        legacy_candidates = [
+            self.decision_store.storage_path / f"{decision_id}.json",
+            self.decision_store.storage_path.parent / f"{decision_id}.json",
+        ]
+        for candidate in legacy_candidates:
+            if candidate.exists():
+                try:
+                    return json.loads(candidate.read_text()), "legacy-file"
+                except Exception as e:
+                    raise ValueError(f"Failed to load decision {decision_id}: {e}") from e
+
+        return None, "missing"
+
+    def _prepare_execution_decision(self, decision_id: str, decision: Dict[str, Any]) -> Dict[str, Any]:
+        prepared = dict(decision)
+        prepared.setdefault("id", decision_id)
+        prepared.setdefault("timestamp", datetime.now(UTC).isoformat())
+
+        market_data = prepared.get("market_data") or {}
+        if prepared.get("entry_price") is None:
+            close_price = market_data.get("close")
+            if isinstance(close_price, (int, float)) and close_price > 0:
+                prepared["entry_price"] = float(close_price)
+
+        if prepared.get("recommended_position_size") is None and prepared.get("position_size") is not None:
+            prepared["recommended_position_size"] = prepared.get("position_size")
+
+        if prepared.get("suggested_amount") is None:
+            if prepared.get("amount") is not None:
+                prepared["suggested_amount"] = prepared.get("amount")
+            else:
+                size = prepared.get("recommended_position_size")
+                price = prepared.get("entry_price")
+                try:
+                    if size is not None and price is not None:
+                        prepared["suggested_amount"] = float(size) * float(price)
+                except (TypeError, ValueError):
+                    pass
+
+        return prepared
+
+    def _validate_execution_decision(self, decision: Dict[str, Any]) -> List[str]:
+        errors: List[str] = []
+        action = str(decision.get("action", "")).upper()
+        if action not in {"BUY", "SELL", "HOLD"}:
+            errors.append(f"Invalid action '{action}'")
+
+        try:
+            confidence = int(decision.get("confidence", -1))
+            if not 0 <= confidence <= 100:
+                errors.append(f"Confidence {confidence} out of range [0, 100]")
+        except (TypeError, ValueError) as e:
+            errors.append(f"Invalid confidence value: {e}")
+
+        if action in {"BUY", "SELL"}:
+            amount = decision.get("suggested_amount")
+            try:
+                if amount is None or float(amount) <= 0:
+                    errors.append("Decision missing positive suggested_amount")
+            except (TypeError, ValueError):
+                errors.append("Decision missing positive suggested_amount")
+
+        return errors
+
+    def execute_decision(
+        self, decision_id: str, modified_decision: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Backward-compatible execution entrypoint used by CLI/bot/test paths."""
+        source = "modified"
+        if modified_decision is not None:
+            decision = dict(modified_decision)
+        else:
+            decision, source = self._load_decision_for_execution(decision_id)
+            if decision is None:
+                raise ValueError(f"Decision {decision_id} not found")
+
+        decision = self._prepare_execution_decision(decision_id, decision)
+        errors = self._validate_execution_decision(decision)
+        if errors:
+            message = "; ".join(errors)
+            if source == "store":
+                logger.warning("Decision %s failed execution validation: %s", decision_id, message)
+                return {"success": False, "decision_id": decision_id, "message": message, "error": message}
+            raise ValueError(message)
+
+        if self.trading_platform is None:
+            raise RuntimeError("Trading platform is not initialized")
+
+        result = self._execution_breaker.call_sync(self.trading_platform.execute_trade, decision)
+        decision["execution_result"] = result
+        decision["executed_at"] = datetime.now(UTC).isoformat()
+        if result.get("execution_price") and not decision.get("entry_price"):
+            decision["entry_price"] = result.get("execution_price")
+
+        if source in {"store", "modified"}:
+            try:
+                self.decision_store.update_decision(decision)
+            except Exception:
+                logger.exception("Failed to persist execution result for decision %s", decision_id)
+
+        return result
+
+    def record_trade_outcome(
+        self,
+        decision_or_id: Any,
+        exit_price: Optional[float] = None,
+        exit_timestamp: Optional[str] = None,
+        hit_stop_loss: bool = False,
+        hit_take_profit: bool = False,
+    ) -> Any:
+        """Backward-compatible outcome recorder shim."""
+        if not self.memory_engine:
+            raise RuntimeError("Portfolio memory is not enabled")
+
+        if isinstance(decision_or_id, str):
+            decision, _ = self._load_decision_for_execution(decision_or_id)
+            if decision is None:
+                raise ValueError(f"Decision {decision_or_id} not found")
+        else:
+            decision = decision_or_id
+
+        legacy_engine = getattr(self.memory_engine, "_legacy_engine", None)
+        coordinator = getattr(self.memory_engine, "_coordinator", None)
+        if legacy_engine is None:
+            raise RuntimeError("Portfolio memory legacy engine unavailable")
+
+        outcome = legacy_engine.record_trade_outcome(
+            decision,
+            exit_price=exit_price,
+            exit_timestamp=exit_timestamp,
+            hit_stop_loss=hit_stop_loss,
+            hit_take_profit=hit_take_profit,
+        )
+
+        if coordinator is not None:
+            coordinator.record_trade_outcome(outcome)
+        else:
+            self.memory_engine.record_trade_outcome(outcome)
+
+        ensemble_metadata = (decision.get("ensemble_metadata") or {}) if isinstance(decision, dict) else {}
+        provider_decisions = ensemble_metadata.get("provider_decisions")
+        ensemble_manager = getattr(self.decision_engine, "ensemble_manager", None)
+        if provider_decisions and ensemble_manager and hasattr(ensemble_manager, "update_base_weights"):
+            try:
+                performance_metric = getattr(outcome, "pnl_percentage", None)
+                if performance_metric is None:
+                    performance_metric = getattr(outcome, "realized_pnl", 0.0)
+                ensemble_manager.update_base_weights(
+                    provider_decisions,
+                    str(getattr(outcome, "action", decision.get("action", "HOLD"))).upper(),
+                    float(performance_metric or 0.0),
+                )
+            except Exception:
+                logger.exception("Failed to update ensemble weights for decision %s", getattr(outcome, "decision_id", "unknown"))
+
+        return outcome
 
     def _run_startup_health_checks(self):
         """

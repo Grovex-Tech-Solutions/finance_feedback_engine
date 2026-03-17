@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """Test script to verify 4h→6h granularity mapping fix."""
 
-import sys
-sys.path.insert(0, '/Users/cmp6510/.openclaw/workspace/ffe-local/finance_feedback_engine')
-
-from data_providers.coinbase_data import CoinbaseDataProvider
+from finance_feedback_engine.data_providers.coinbase_data import CoinbaseDataProvider
 
 def test_granularity_mapping():
     """Test that 4h granularity is correctly mapped to 6h (21600s)."""
