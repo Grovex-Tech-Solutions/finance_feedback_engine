@@ -774,6 +774,65 @@ def build_policy_selection_recommendation_set(
 
 
 
+def build_policy_selection_recommendation_summary(
+    recommendation_set: Optional[dict],
+) -> dict:
+    payload = dict(recommendation_set or {}) if isinstance(recommendation_set, dict) else {}
+    comparison_summaries = payload.get("comparison_summaries") or []
+    valid_comparison_summaries = [
+        summary for summary in comparison_summaries if isinstance(summary, dict)
+    ]
+
+    better_candidate_count = 0
+    better_baseline_count = 0
+    inconclusive_count = 0
+
+    for summary in valid_comparison_summaries:
+        baseline_score = 0.0
+        candidate_score = 0.0
+        comparable = False
+        for baseline_key, candidate_key in [
+            ("avg_baseline_left_executed_rate", "avg_candidate_left_executed_rate"),
+            ("avg_baseline_right_executed_rate", "avg_candidate_right_executed_rate"),
+            ("avg_baseline_left_vetoed_rate", "avg_candidate_left_vetoed_rate"),
+            ("avg_baseline_right_vetoed_rate", "avg_candidate_right_vetoed_rate"),
+        ]:
+            baseline_raw = summary.get(baseline_key)
+            candidate_raw = summary.get(candidate_key)
+            try:
+                baseline_value = float(baseline_raw)
+                candidate_value = float(candidate_raw)
+            except (TypeError, ValueError):
+                continue
+
+            comparable = True
+            if baseline_key.endswith("executed_rate"):
+                baseline_score += baseline_value
+                candidate_score += candidate_value
+            else:
+                baseline_score -= baseline_value
+                candidate_score -= candidate_value
+
+        if not comparable:
+            continue
+        if candidate_score > baseline_score:
+            better_candidate_count += 1
+        elif baseline_score > candidate_score:
+            better_baseline_count += 1
+        else:
+            inconclusive_count += 1
+
+    return {
+        "summary_count": len(valid_comparison_summaries),
+        "better_candidate_count": better_candidate_count,
+        "better_baseline_count": better_baseline_count,
+        "inconclusive_count": inconclusive_count,
+        "recommendation_summary_version": 1,
+    }
+
+
+
+
 def extract_policy_baseline_candidate_comparison_summaries(comparison_groups: Optional[list[dict]]) -> list[dict]:
     summaries = []
     for comparison_group in comparison_groups or []:

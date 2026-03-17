@@ -30,6 +30,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_baseline_candidate_comparison_group,
     build_policy_baseline_candidate_comparison_summary,
     build_policy_selection_recommendation_set,
+    build_policy_selection_recommendation_summary,
     extract_policy_baseline_candidate_comparison_summaries,
     extract_policy_baseline_workflow_summaries,
     build_policy_baseline_evaluation_report,
@@ -2487,6 +2488,102 @@ def test_build_policy_selection_recommendation_set_filters_non_dict_items():
 
     assert recommendation_set["summary_count"] == 1
     assert recommendation_set["comparison_summaries"][0]["baseline_count"] == 1
+
+
+
+
+def test_build_policy_selection_recommendation_summary_counts_outcomes_cleanly():
+    recommendation_summary = build_policy_selection_recommendation_summary({
+        "comparison_summaries": [
+            {
+                "avg_baseline_left_executed_rate": 0.4,
+                "avg_candidate_left_executed_rate": 0.6,
+                "avg_baseline_right_executed_rate": 0.5,
+                "avg_candidate_right_executed_rate": 0.7,
+                "avg_baseline_left_vetoed_rate": 0.2,
+                "avg_candidate_left_vetoed_rate": 0.1,
+                "avg_baseline_right_vetoed_rate": 0.2,
+                "avg_candidate_right_vetoed_rate": 0.1,
+                "comparison_summary_version": 1,
+            },
+            {
+                "avg_baseline_left_executed_rate": 0.7,
+                "avg_candidate_left_executed_rate": 0.5,
+                "avg_baseline_right_executed_rate": 0.8,
+                "avg_candidate_right_executed_rate": 0.6,
+                "avg_baseline_left_vetoed_rate": 0.1,
+                "avg_candidate_left_vetoed_rate": 0.2,
+                "avg_baseline_right_vetoed_rate": 0.1,
+                "avg_candidate_right_vetoed_rate": 0.2,
+                "comparison_summary_version": 1,
+            },
+            {
+                "avg_baseline_left_executed_rate": 0.5,
+                "avg_candidate_left_executed_rate": 0.5,
+                "avg_baseline_right_executed_rate": 0.5,
+                "avg_candidate_right_executed_rate": 0.5,
+                "avg_baseline_left_vetoed_rate": 0.1,
+                "avg_candidate_left_vetoed_rate": 0.1,
+                "avg_baseline_right_vetoed_rate": 0.1,
+                "avg_candidate_right_vetoed_rate": 0.1,
+                "comparison_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "recommendation_set_version": 1,
+    })
+
+    assert recommendation_summary == {
+        "summary_count": 3,
+        "better_candidate_count": 1,
+        "better_baseline_count": 1,
+        "inconclusive_count": 1,
+        "recommendation_summary_version": 1,
+    }
+
+
+def test_build_policy_selection_recommendation_summary_handles_empty_inputs():
+    recommendation_summary = build_policy_selection_recommendation_summary({
+        "comparison_summaries": [],
+        "summary_count": 0,
+        "recommendation_set_version": 1,
+    })
+
+    assert recommendation_summary == {
+        "summary_count": 0,
+        "better_candidate_count": 0,
+        "better_baseline_count": 0,
+        "inconclusive_count": 0,
+        "recommendation_summary_version": 1,
+    }
+
+
+def test_build_policy_selection_recommendation_summary_handles_none_inputs():
+    recommendation_summary = build_policy_selection_recommendation_summary(None)
+
+    assert recommendation_summary == {
+        "summary_count": 0,
+        "better_candidate_count": 0,
+        "better_baseline_count": 0,
+        "inconclusive_count": 0,
+        "recommendation_summary_version": 1,
+    }
+
+
+def test_build_policy_selection_recommendation_summary_skips_invalid_items_cleanly():
+    recommendation_summary = build_policy_selection_recommendation_summary({
+        "comparison_summaries": [None, "bad", 123, {"comparison_summary_version": 1}],
+        "summary_count": 4,
+        "recommendation_set_version": 1,
+    })
+
+    assert recommendation_summary == {
+        "summary_count": 1,
+        "better_candidate_count": 0,
+        "better_baseline_count": 0,
+        "inconclusive_count": 0,
+        "recommendation_summary_version": 1,
+    }
 
 
 
