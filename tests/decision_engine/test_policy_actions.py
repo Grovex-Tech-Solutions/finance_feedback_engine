@@ -33,6 +33,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_recommendation_summary,
     build_policy_selection_promotion_decision_set,
     build_policy_selection_promotion_decision_summary,
+    extract_policy_selection_promotion_decision_summaries,
     extract_policy_selection_recommendation_summaries,
     extract_policy_baseline_candidate_comparison_summaries,
     extract_policy_baseline_workflow_summaries,
@@ -2975,6 +2976,54 @@ def test_build_policy_selection_promotion_decision_set_defensively_copies_input_
     recommendation_summary["better_candidate_count"] = 9
 
     assert promotion_decision_set["recommendation_summaries"][0]["better_candidate_count"] == 1
+
+
+
+
+def test_extract_policy_selection_promotion_decision_summaries_builds_exportable_summaries():
+    summaries = extract_policy_selection_promotion_decision_summaries([
+        {
+            "recommendation_summaries": [
+                {
+                    "summary_count": 1,
+                    "better_candidate_count": 1,
+                    "better_baseline_count": 0,
+                    "inconclusive_count": 0,
+                    "recommendation_summary_version": 1,
+                }
+            ],
+            "summary_count": 1,
+            "promotion_decision_set_version": 1,
+        }
+    ])
+
+    assert summaries == [{
+        "summary_count": 1,
+        "promote_candidate_count": 1,
+        "keep_baseline_count": 0,
+        "defer_count": 0,
+        "promotion_decision_summary_version": 1,
+    }]
+
+
+
+def test_extract_policy_selection_promotion_decision_summaries_skips_invalid_inputs():
+    summaries = extract_policy_selection_promotion_decision_summaries([
+        None,
+        {},
+        {"recommendation_summaries": None},
+        {"recommendation_summaries": []},
+        {"recommendation_summaries": [None, 'bad', 123]},
+        {
+            "recommendation_summaries": [
+                {"recommendation_summary_version": 1},
+            ],
+            "summary_count": 1,
+            "promotion_decision_set_version": 1,
+        },
+    ])
+
+    assert summaries == []
 
 
 
