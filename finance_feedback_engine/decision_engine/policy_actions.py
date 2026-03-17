@@ -1020,6 +1020,21 @@ def build_policy_selection_runtime_switch_summary(
 
 
 
+def build_policy_selection_deployment_execution_set(
+    runtime_switch_summaries: Optional[list[dict]],
+) -> dict:
+    valid_runtime_switch_summaries = [
+        summary for summary in (runtime_switch_summaries or []) if isinstance(summary, dict)
+    ]
+    return {
+        "runtime_switch_summaries": [dict(summary) for summary in valid_runtime_switch_summaries],
+        "summary_count": len(valid_runtime_switch_summaries),
+        "deployment_execution_set_version": 1,
+    }
+
+
+
+
 def extract_policy_selection_runtime_switch_summaries(
     runtime_switch_sets: Optional[list[dict]],
 ) -> list[dict]:

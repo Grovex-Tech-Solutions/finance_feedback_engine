@@ -37,6 +37,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_rollout_decision_summary,
     build_policy_selection_runtime_switch_set,
     build_policy_selection_runtime_switch_summary,
+    build_policy_selection_deployment_execution_set,
     extract_policy_selection_runtime_switch_summaries,
     extract_policy_selection_rollout_decision_summaries,
     extract_policy_selection_promotion_decision_summaries,
@@ -3774,6 +3775,67 @@ def test_build_policy_selection_runtime_switch_set_defensively_copies_rollout_su
     rollout_decision_summary["shadow_candidate_count"] = 99
 
     assert runtime_switch_set["rollout_decision_summaries"][0]["shadow_candidate_count"] == 1
+
+
+
+
+def test_build_policy_selection_deployment_execution_set_wraps_runtime_switch_summaries_cleanly():
+    deployment_execution_set = build_policy_selection_deployment_execution_set([
+        {
+            "summary_count": 1,
+            "keep_baseline_active_count": 0,
+            "shadow_candidate_active_count": 1,
+            "candidate_primary_active_count": 0,
+            "defer_switch_count": 0,
+            "runtime_switch_summary_version": 1,
+        }
+    ])
+
+    assert deployment_execution_set["summary_count"] == 1
+    assert deployment_execution_set["deployment_execution_set_version"] == 1
+    assert deployment_execution_set["runtime_switch_summaries"][0]["shadow_candidate_active_count"] == 1
+
+
+
+def test_build_policy_selection_deployment_execution_set_handles_empty_inputs():
+    deployment_execution_set = build_policy_selection_deployment_execution_set([])
+
+    assert deployment_execution_set == {
+        "runtime_switch_summaries": [],
+        "summary_count": 0,
+        "deployment_execution_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_deployment_execution_set_handles_none_inputs():
+    deployment_execution_set = build_policy_selection_deployment_execution_set(None)
+
+    assert deployment_execution_set == {
+        "runtime_switch_summaries": [],
+        "summary_count": 0,
+        "deployment_execution_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_deployment_execution_set_filters_non_dict_items():
+    deployment_execution_set = build_policy_selection_deployment_execution_set([
+        {
+            "summary_count": 1,
+            "keep_baseline_active_count": 0,
+            "shadow_candidate_active_count": 1,
+            "candidate_primary_active_count": 0,
+            "defer_switch_count": 0,
+            "runtime_switch_summary_version": 1,
+        },
+        None,
+        "bad",
+        123,
+    ])
+
+    assert deployment_execution_set["summary_count"] == 1
+    assert deployment_execution_set["runtime_switch_summaries"][0]["summary_count"] == 1
 
 
 
