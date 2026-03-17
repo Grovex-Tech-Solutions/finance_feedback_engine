@@ -3248,6 +3248,73 @@ def test_build_policy_selection_rollout_decision_summary_skips_invalid_items_cle
 
 
 
+def test_build_policy_selection_rollout_decision_summary_skips_partial_inputs_cleanly():
+    rollout_decision_summary = build_policy_selection_rollout_decision_summary({
+        "promotion_decision_summaries": [
+            {
+                "summary_count": 1,
+                "promote_candidate_count": 1,
+                "keep_baseline_count": 0,
+                "defer_count": 0,
+                "promotion_decision_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "promote_candidate_count": 0,
+                "promotion_decision_summary_version": 1,
+            },
+            {
+                "promotion_decision_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "rollout_decision_set_version": 1,
+    })
+
+    assert rollout_decision_summary == {
+        "summary_count": 1,
+        "shadow_candidate_count": 1,
+        "hold_baseline_count": 0,
+        "defer_rollout_count": 0,
+        "rollout_decision_summary_version": 1,
+    }
+
+
+
+def test_rollout_decision_versions_align_across_stage19_helpers():
+    promotion_decision_summary = {
+        "summary_count": 1,
+        "promote_candidate_count": 1,
+        "keep_baseline_count": 0,
+        "defer_count": 0,
+        "promotion_decision_summary_version": 1,
+    }
+
+    rollout_decision_set = build_policy_selection_rollout_decision_set([promotion_decision_summary])
+    rollout_decision_summary = build_policy_selection_rollout_decision_summary(rollout_decision_set)
+
+    assert rollout_decision_set["rollout_decision_set_version"] == 1
+    assert rollout_decision_summary["rollout_decision_summary_version"] == 1
+
+
+
+def test_build_policy_selection_rollout_decision_set_defensively_copies_promotion_summaries():
+    promotion_decision_summary = {
+        "summary_count": 1,
+        "promote_candidate_count": 1,
+        "keep_baseline_count": 0,
+        "defer_count": 0,
+        "promotion_decision_summary_version": 1,
+    }
+    rollout_decision_set = build_policy_selection_rollout_decision_set([promotion_decision_summary])
+
+    promotion_decision_summary["promote_candidate_count"] = 99
+
+    assert rollout_decision_set["promotion_decision_summaries"][0]["promote_candidate_count"] == 1
+
+
+
+
 def test_extract_policy_baseline_candidate_comparison_summaries_skips_invalid_inputs():
     summaries = extract_policy_baseline_candidate_comparison_summaries([
         None,
