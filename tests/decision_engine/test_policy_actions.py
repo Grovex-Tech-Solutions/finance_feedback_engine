@@ -5396,6 +5396,90 @@ def test_provider_client_shape_versions_align_across_stage28_helpers():
 
 
 
+def test_build_policy_selection_provider_client_shape_set_defensively_copies_provider_binding_contract_inputs():
+    provider_binding_contract_summary = {
+        "summary_count": 1,
+        "shadow_provider_binding_contract_count": 1,
+        "primary_cutover_provider_binding_contract_count": 0,
+        "manual_hold_provider_binding_contract_count": 0,
+        "deferred_provider_binding_contract_count": 0,
+        "provider_binding_contract_summary_version": 1,
+    }
+    provider_client_shape_set = build_policy_selection_provider_client_shape_set([provider_binding_contract_summary])
+
+    provider_binding_contract_summary["shadow_provider_binding_contract_count"] = 99
+
+    assert provider_client_shape_set["provider_binding_contract_summaries"][0]["shadow_provider_binding_contract_count"] == 1
+
+
+
+def test_provider_client_shape_versions_align_across_stage28_layers():
+    provider_binding_contract_summary = {
+        "summary_count": 1,
+        "shadow_provider_binding_contract_count": 1,
+        "primary_cutover_provider_binding_contract_count": 0,
+        "manual_hold_provider_binding_contract_count": 0,
+        "deferred_provider_binding_contract_count": 0,
+        "provider_binding_contract_summary_version": 1,
+    }
+
+    provider_client_shape_set = build_policy_selection_provider_client_shape_set([provider_binding_contract_summary])
+    provider_client_shape_summary = build_policy_selection_provider_client_shape_summary(provider_client_shape_set)
+
+    assert provider_binding_contract_summary["provider_binding_contract_summary_version"] == 1
+    assert provider_client_shape_set["provider_client_shape_set_version"] == 1
+    assert provider_client_shape_summary["provider_client_shape_summary_version"] == 1
+
+
+
+def test_build_policy_selection_provider_client_shape_summary_preserves_outcomes():
+    provider_client_shape_set = build_policy_selection_provider_client_shape_set([
+        {
+            "summary_count": 1,
+            "shadow_provider_binding_contract_count": 1,
+            "primary_cutover_provider_binding_contract_count": 0,
+            "manual_hold_provider_binding_contract_count": 0,
+            "deferred_provider_binding_contract_count": 0,
+            "provider_binding_contract_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_provider_binding_contract_count": 0,
+            "primary_cutover_provider_binding_contract_count": 1,
+            "manual_hold_provider_binding_contract_count": 0,
+            "deferred_provider_binding_contract_count": 0,
+            "provider_binding_contract_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_provider_binding_contract_count": 0,
+            "primary_cutover_provider_binding_contract_count": 0,
+            "manual_hold_provider_binding_contract_count": 1,
+            "deferred_provider_binding_contract_count": 0,
+            "provider_binding_contract_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_provider_binding_contract_count": 0,
+            "primary_cutover_provider_binding_contract_count": 0,
+            "manual_hold_provider_binding_contract_count": 0,
+            "deferred_provider_binding_contract_count": 1,
+            "provider_binding_contract_summary_version": 1,
+        },
+    ])
+
+    assert build_policy_selection_provider_client_shape_summary(provider_client_shape_set) == {
+        "summary_count": 4,
+        "shadow_provider_client_shape_count": 1,
+        "primary_cutover_provider_client_shape_count": 1,
+        "manual_hold_provider_client_shape_count": 1,
+        "deferred_provider_client_shape_count": 1,
+        "provider_client_shape_summary_version": 1,
+    }
+
+
+
+
 def test_build_policy_selection_provider_client_shape_set_wraps_provider_binding_contract_summaries_cleanly():
     provider_client_shape_set = build_policy_selection_provider_client_shape_set([
         {
