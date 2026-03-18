@@ -51,6 +51,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_provider_implementation_contract_set,
     build_policy_selection_provider_implementation_contract_summary,
     build_policy_selection_execution_interface_contract_set,
+    build_policy_selection_execution_interface_contract_summary,
     extract_policy_selection_provider_implementation_contract_summaries,
     extract_policy_selection_provider_client_shape_summaries,
     build_policy_selection_provider_client_shape_summary,
@@ -7633,3 +7634,162 @@ def test_build_policy_selection_execution_interface_contract_set_defensively_cop
     provider_implementation_contract_summary["shadow_provider_implementation_contract_count"] = 99
 
     assert execution_interface_contract_set["provider_implementation_contract_summaries"][0]["shadow_provider_implementation_contract_count"] == 1
+
+
+
+def test_build_policy_selection_execution_interface_contract_summary_counts_outcomes_cleanly():
+    execution_interface_contract_summary = build_policy_selection_execution_interface_contract_summary({
+        "provider_implementation_contract_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_provider_implementation_contract_count": 1,
+                "primary_cutover_provider_implementation_contract_count": 0,
+                "manual_hold_provider_implementation_contract_count": 0,
+                "deferred_provider_implementation_contract_count": 0,
+                "provider_implementation_contract_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_provider_implementation_contract_count": 0,
+                "primary_cutover_provider_implementation_contract_count": 1,
+                "manual_hold_provider_implementation_contract_count": 0,
+                "deferred_provider_implementation_contract_count": 0,
+                "provider_implementation_contract_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_provider_implementation_contract_count": 0,
+                "primary_cutover_provider_implementation_contract_count": 0,
+                "manual_hold_provider_implementation_contract_count": 1,
+                "deferred_provider_implementation_contract_count": 0,
+                "provider_implementation_contract_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_provider_implementation_contract_count": 0,
+                "primary_cutover_provider_implementation_contract_count": 0,
+                "manual_hold_provider_implementation_contract_count": 0,
+                "deferred_provider_implementation_contract_count": 1,
+                "provider_implementation_contract_summary_version": 1,
+            },
+        ],
+        "summary_count": 4,
+        "execution_interface_contract_set_version": 1,
+    })
+
+    assert execution_interface_contract_summary == {
+        "summary_count": 4,
+        "shadow_execution_interface_contract_count": 1,
+        "primary_cutover_execution_interface_contract_count": 1,
+        "manual_hold_execution_interface_contract_count": 1,
+        "deferred_execution_interface_contract_count": 1,
+        "execution_interface_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_execution_interface_contract_summary_handles_empty_inputs():
+    execution_interface_contract_summary = build_policy_selection_execution_interface_contract_summary({
+        "provider_implementation_contract_summaries": [],
+        "summary_count": 0,
+        "execution_interface_contract_set_version": 1,
+    })
+
+    assert execution_interface_contract_summary == {
+        "summary_count": 0,
+        "shadow_execution_interface_contract_count": 0,
+        "primary_cutover_execution_interface_contract_count": 0,
+        "manual_hold_execution_interface_contract_count": 0,
+        "deferred_execution_interface_contract_count": 0,
+        "execution_interface_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_execution_interface_contract_summary_handles_none_inputs():
+    execution_interface_contract_summary = build_policy_selection_execution_interface_contract_summary(None)
+
+    assert execution_interface_contract_summary == {
+        "summary_count": 0,
+        "shadow_execution_interface_contract_count": 0,
+        "primary_cutover_execution_interface_contract_count": 0,
+        "manual_hold_execution_interface_contract_count": 0,
+        "deferred_execution_interface_contract_count": 0,
+        "execution_interface_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_execution_interface_contract_summary_skips_invalid_items_cleanly():
+    execution_interface_contract_summary = build_policy_selection_execution_interface_contract_summary({
+        "provider_implementation_contract_summaries": [
+            None,
+            "bad",
+            123,
+            {"provider_implementation_contract_summary_version": 1},
+        ],
+        "summary_count": 4,
+        "execution_interface_contract_set_version": 1,
+    })
+
+    assert execution_interface_contract_summary == {
+        "summary_count": 0,
+        "shadow_execution_interface_contract_count": 0,
+        "primary_cutover_execution_interface_contract_count": 0,
+        "manual_hold_execution_interface_contract_count": 0,
+        "deferred_execution_interface_contract_count": 0,
+        "execution_interface_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_execution_interface_contract_summary_skips_partial_inputs_cleanly():
+    execution_interface_contract_summary = build_policy_selection_execution_interface_contract_summary({
+        "provider_implementation_contract_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_provider_implementation_contract_count": 1,
+                "primary_cutover_provider_implementation_contract_count": 0,
+                "manual_hold_provider_implementation_contract_count": 0,
+                "deferred_provider_implementation_contract_count": 0,
+                "provider_implementation_contract_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "primary_cutover_provider_implementation_contract_count": 1,
+                "provider_implementation_contract_summary_version": 1,
+            },
+            {
+                "provider_implementation_contract_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "execution_interface_contract_set_version": 1,
+    })
+
+    assert execution_interface_contract_summary == {
+        "summary_count": 1,
+        "shadow_execution_interface_contract_count": 1,
+        "primary_cutover_execution_interface_contract_count": 0,
+        "manual_hold_execution_interface_contract_count": 0,
+        "deferred_execution_interface_contract_count": 0,
+        "execution_interface_contract_summary_version": 1,
+    }
+
+
+
+def test_execution_interface_contract_versions_align_across_stage30_helpers():
+    provider_implementation_contract_summary = {
+        "summary_count": 1,
+        "shadow_provider_implementation_contract_count": 1,
+        "primary_cutover_provider_implementation_contract_count": 0,
+        "manual_hold_provider_implementation_contract_count": 0,
+        "deferred_provider_implementation_contract_count": 0,
+        "provider_implementation_contract_summary_version": 1,
+    }
+
+    execution_interface_contract_set = build_policy_selection_execution_interface_contract_set([provider_implementation_contract_summary])
+    execution_interface_contract_summary = build_policy_selection_execution_interface_contract_summary(execution_interface_contract_set)
+
+    assert execution_interface_contract_set["execution_interface_contract_set_version"] == 1
+    assert execution_interface_contract_summary["execution_interface_contract_summary_version"] == 1
