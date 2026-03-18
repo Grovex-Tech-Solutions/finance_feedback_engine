@@ -1681,6 +1681,25 @@ def build_policy_selection_execution_interface_contract_summary(
 
 
 
+def build_policy_selection_execution_request_set(
+    execution_interface_contract_summaries: Optional[list[dict]],
+) -> dict:
+    valid_execution_interface_contract_summaries = [
+        summary
+        for summary in (execution_interface_contract_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "execution_interface_contract_summaries": [
+            dict(summary) for summary in valid_execution_interface_contract_summaries
+        ],
+        "summary_count": len(valid_execution_interface_contract_summaries),
+        "execution_request_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_provider_client_shape_summary(
     provider_client_shape_set: Optional[dict],
 ) -> dict:
