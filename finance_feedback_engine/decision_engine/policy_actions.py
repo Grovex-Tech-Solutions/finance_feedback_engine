@@ -1700,6 +1700,67 @@ def build_policy_selection_execution_request_set(
 
 
 
+def build_policy_selection_execution_request_summary(
+    execution_request_set: Optional[dict],
+) -> dict:
+    payload = (
+        dict(execution_request_set or {})
+        if isinstance(execution_request_set, dict)
+        else {}
+    )
+    summaries = payload.get("execution_interface_contract_summaries") or []
+    valid_summaries = [summary for summary in summaries if isinstance(summary, dict)]
+    if not valid_summaries:
+        return {
+            "summary_count": 0,
+            "shadow_execution_request_count": 0,
+            "primary_cutover_execution_request_count": 0,
+            "manual_hold_execution_request_count": 0,
+            "deferred_execution_request_count": 0,
+            "execution_request_summary_version": 1,
+        }
+
+    shadow_execution_request_count = 0
+    primary_cutover_execution_request_count = 0
+    manual_hold_execution_request_count = 0
+    deferred_execution_request_count = 0
+    comparable_summary_count = 0
+
+    for summary in valid_summaries:
+        try:
+            shadow_execution_interface_contract_count = int(summary.get("shadow_execution_interface_contract_count"))
+            primary_cutover_execution_interface_contract_count = int(summary.get("primary_cutover_execution_interface_contract_count"))
+            manual_hold_execution_interface_contract_count = int(summary.get("manual_hold_execution_interface_contract_count"))
+            deferred_execution_interface_contract_count = int(summary.get("deferred_execution_interface_contract_count"))
+            summary_count = int(summary.get("summary_count"))
+        except (TypeError, ValueError):
+            continue
+
+        if summary_count <= 0:
+            continue
+
+        comparable_summary_count += 1
+        if primary_cutover_execution_interface_contract_count > 0:
+            primary_cutover_execution_request_count += 1
+        elif shadow_execution_interface_contract_count > 0:
+            shadow_execution_request_count += 1
+        elif manual_hold_execution_interface_contract_count > 0:
+            manual_hold_execution_request_count += 1
+        else:
+            deferred_execution_request_count += 1
+
+    return {
+        "summary_count": comparable_summary_count,
+        "shadow_execution_request_count": shadow_execution_request_count,
+        "primary_cutover_execution_request_count": primary_cutover_execution_request_count,
+        "manual_hold_execution_request_count": manual_hold_execution_request_count,
+        "deferred_execution_request_count": deferred_execution_request_count,
+        "execution_request_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_provider_client_shape_summary(
     provider_client_shape_set: Optional[dict],
 ) -> dict:
