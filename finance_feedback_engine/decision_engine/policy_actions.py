@@ -1294,6 +1294,21 @@ def build_policy_selection_job_spec_summary(
 
 
 
+def build_policy_selection_submission_envelope_set(
+    job_spec_summaries: Optional[list[dict]],
+) -> dict:
+    valid_job_spec_summaries = [
+        summary for summary in (job_spec_summaries or []) if isinstance(summary, dict)
+    ]
+    return {
+        "job_spec_summaries": [dict(summary) for summary in valid_job_spec_summaries],
+        "summary_count": len(valid_job_spec_summaries),
+        "submission_envelope_set_version": 1,
+    }
+
+
+
+
 def extract_policy_selection_job_spec_summaries(
     job_spec_sets: Optional[list[dict]],
 ) -> list[dict]:

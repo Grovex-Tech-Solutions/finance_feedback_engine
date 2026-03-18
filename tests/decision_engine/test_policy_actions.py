@@ -43,6 +43,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_orchestration_summary,
     build_policy_selection_job_spec_set,
     build_policy_selection_job_spec_summary,
+    build_policy_selection_submission_envelope_set,
     build_policy_selection_scheduler_request_set,
     extract_policy_selection_job_spec_summaries,
     build_policy_selection_scheduler_request_summary,
@@ -4155,6 +4156,67 @@ def test_build_policy_selection_deployment_execution_set_defensively_copies_runt
     runtime_switch_summary["shadow_candidate_active_count"] = 99
 
     assert deployment_execution_set["runtime_switch_summaries"][0]["shadow_candidate_active_count"] == 1
+
+
+
+
+def test_build_policy_selection_submission_envelope_set_wraps_job_spec_summaries_cleanly():
+    submission_envelope_set = build_policy_selection_submission_envelope_set([
+        {
+            "summary_count": 1,
+            "shadow_schedule_job_spec_count": 1,
+            "primary_cutover_job_spec_count": 0,
+            "manual_hold_job_spec_count": 0,
+            "deferred_job_spec_count": 0,
+            "job_spec_summary_version": 1,
+        }
+    ])
+
+    assert submission_envelope_set["summary_count"] == 1
+    assert submission_envelope_set["submission_envelope_set_version"] == 1
+    assert submission_envelope_set["job_spec_summaries"][0]["shadow_schedule_job_spec_count"] == 1
+
+
+
+def test_build_policy_selection_submission_envelope_set_handles_empty_inputs():
+    submission_envelope_set = build_policy_selection_submission_envelope_set([])
+
+    assert submission_envelope_set == {
+        "job_spec_summaries": [],
+        "summary_count": 0,
+        "submission_envelope_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_submission_envelope_set_handles_none_inputs():
+    submission_envelope_set = build_policy_selection_submission_envelope_set(None)
+
+    assert submission_envelope_set == {
+        "job_spec_summaries": [],
+        "summary_count": 0,
+        "submission_envelope_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_submission_envelope_set_filters_non_dict_items():
+    submission_envelope_set = build_policy_selection_submission_envelope_set([
+        {
+            "summary_count": 1,
+            "shadow_schedule_job_spec_count": 1,
+            "primary_cutover_job_spec_count": 0,
+            "manual_hold_job_spec_count": 0,
+            "deferred_job_spec_count": 0,
+            "job_spec_summary_version": 1,
+        },
+        None,
+        "bad",
+        123,
+    ])
+
+    assert submission_envelope_set["summary_count"] == 1
+    assert submission_envelope_set["job_spec_summaries"][0]["summary_count"] == 1
 
 
 
