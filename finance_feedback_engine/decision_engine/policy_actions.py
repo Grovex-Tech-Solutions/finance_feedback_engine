@@ -1738,6 +1738,31 @@ def build_policy_selection_provider_client_shape_summary(
 
 
 
+def extract_policy_selection_execution_interface_contract_summaries(
+    execution_interface_contract_sets: Optional[list[dict]],
+) -> list[dict]:
+    summaries = []
+    for execution_interface_contract_set in execution_interface_contract_sets or []:
+        if not isinstance(execution_interface_contract_set, dict):
+            continue
+        provider_implementation_contract_summaries = execution_interface_contract_set.get(
+            "provider_implementation_contract_summaries"
+        )
+        if not isinstance(provider_implementation_contract_summaries, list):
+            continue
+        if not any(isinstance(summary, dict) for summary in provider_implementation_contract_summaries):
+            continue
+        execution_interface_contract_summary = build_policy_selection_execution_interface_contract_summary(
+            execution_interface_contract_set
+        )
+        if execution_interface_contract_summary.get("summary_count", 0) <= 0:
+            continue
+        summaries.append(execution_interface_contract_summary)
+    return summaries
+
+
+
+
 def extract_policy_selection_provider_implementation_contract_summaries(
     provider_implementation_contract_sets: Optional[list[dict]],
 ) -> list[dict]:
