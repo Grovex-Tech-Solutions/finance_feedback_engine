@@ -5171,6 +5171,74 @@ def test_extract_policy_selection_provider_binding_contract_summaries_skips_inva
 
 
 
+def test_extract_policy_selection_provider_binding_contract_summaries_preserves_outcomes():
+    provider_binding_contract_set = {
+        "adapter_payload_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_adapter_payload_count": 1,
+                "primary_cutover_adapter_payload_count": 0,
+                "manual_hold_adapter_payload_count": 0,
+                "deferred_adapter_payload_count": 0,
+                "adapter_payload_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_adapter_payload_count": 0,
+                "primary_cutover_adapter_payload_count": 1,
+                "manual_hold_adapter_payload_count": 0,
+                "deferred_adapter_payload_count": 0,
+                "adapter_payload_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_adapter_payload_count": 0,
+                "primary_cutover_adapter_payload_count": 0,
+                "manual_hold_adapter_payload_count": 1,
+                "deferred_adapter_payload_count": 0,
+                "adapter_payload_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_adapter_payload_count": 0,
+                "primary_cutover_adapter_payload_count": 0,
+                "manual_hold_adapter_payload_count": 0,
+                "deferred_adapter_payload_count": 1,
+                "adapter_payload_summary_version": 1,
+            },
+        ],
+        "summary_count": 4,
+        "provider_binding_contract_set_version": 1,
+    }
+
+    direct = build_policy_selection_provider_binding_contract_summary(provider_binding_contract_set)
+    exported = extract_policy_selection_provider_binding_contract_summaries([provider_binding_contract_set])
+
+    assert exported == [direct]
+
+
+
+def test_provider_binding_contract_versions_align_across_export_helpers():
+    provider_binding_contract_set = build_policy_selection_provider_binding_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_adapter_payload_count": 1,
+            "primary_cutover_adapter_payload_count": 0,
+            "manual_hold_adapter_payload_count": 0,
+            "deferred_adapter_payload_count": 0,
+            "adapter_payload_summary_version": 1,
+        }
+    ])
+    provider_binding_contract_summary = build_policy_selection_provider_binding_contract_summary(provider_binding_contract_set)
+    exported = extract_policy_selection_provider_binding_contract_summaries([provider_binding_contract_set])
+
+    assert provider_binding_contract_set["provider_binding_contract_set_version"] == 1
+    assert provider_binding_contract_summary["provider_binding_contract_summary_version"] == 1
+    assert exported[0]["provider_binding_contract_summary_version"] == 1
+
+
+
+
 def test_build_policy_selection_provider_binding_contract_set_wraps_adapter_payload_summaries_cleanly():
     provider_binding_contract_set = build_policy_selection_provider_binding_contract_set([
         {
