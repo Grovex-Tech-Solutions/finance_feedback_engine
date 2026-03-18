@@ -55,6 +55,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_execution_request_set,
     build_policy_selection_execution_request_summary,
     build_policy_selection_submission_transport_envelope_set,
+    build_policy_selection_submission_transport_envelope_summary,
     extract_policy_selection_execution_request_summaries,
     extract_policy_selection_execution_interface_contract_summaries,
     extract_policy_selection_provider_implementation_contract_summaries,
@@ -8355,3 +8356,162 @@ def test_build_policy_selection_submission_transport_envelope_set_defensively_co
     execution_request_summary["shadow_execution_request_count"] = 99
 
     assert submission_transport_envelope_set["execution_request_summaries"][0]["shadow_execution_request_count"] == 1
+
+
+
+def test_build_policy_selection_submission_transport_envelope_summary_counts_outcomes_cleanly():
+    submission_transport_envelope_summary = build_policy_selection_submission_transport_envelope_summary({
+        "execution_request_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_execution_request_count": 1,
+                "primary_cutover_execution_request_count": 0,
+                "manual_hold_execution_request_count": 0,
+                "deferred_execution_request_count": 0,
+                "execution_request_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_execution_request_count": 0,
+                "primary_cutover_execution_request_count": 1,
+                "manual_hold_execution_request_count": 0,
+                "deferred_execution_request_count": 0,
+                "execution_request_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_execution_request_count": 0,
+                "primary_cutover_execution_request_count": 0,
+                "manual_hold_execution_request_count": 1,
+                "deferred_execution_request_count": 0,
+                "execution_request_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "shadow_execution_request_count": 0,
+                "primary_cutover_execution_request_count": 0,
+                "manual_hold_execution_request_count": 0,
+                "deferred_execution_request_count": 1,
+                "execution_request_summary_version": 1,
+            },
+        ],
+        "summary_count": 4,
+        "submission_transport_envelope_set_version": 1,
+    })
+
+    assert submission_transport_envelope_summary == {
+        "summary_count": 4,
+        "shadow_submission_transport_envelope_count": 1,
+        "primary_cutover_submission_transport_envelope_count": 1,
+        "manual_hold_submission_transport_envelope_count": 1,
+        "deferred_submission_transport_envelope_count": 1,
+        "submission_transport_envelope_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_submission_transport_envelope_summary_handles_empty_inputs():
+    submission_transport_envelope_summary = build_policy_selection_submission_transport_envelope_summary({
+        "execution_request_summaries": [],
+        "summary_count": 0,
+        "submission_transport_envelope_set_version": 1,
+    })
+
+    assert submission_transport_envelope_summary == {
+        "summary_count": 0,
+        "shadow_submission_transport_envelope_count": 0,
+        "primary_cutover_submission_transport_envelope_count": 0,
+        "manual_hold_submission_transport_envelope_count": 0,
+        "deferred_submission_transport_envelope_count": 0,
+        "submission_transport_envelope_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_submission_transport_envelope_summary_handles_none_inputs():
+    submission_transport_envelope_summary = build_policy_selection_submission_transport_envelope_summary(None)
+
+    assert submission_transport_envelope_summary == {
+        "summary_count": 0,
+        "shadow_submission_transport_envelope_count": 0,
+        "primary_cutover_submission_transport_envelope_count": 0,
+        "manual_hold_submission_transport_envelope_count": 0,
+        "deferred_submission_transport_envelope_count": 0,
+        "submission_transport_envelope_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_submission_transport_envelope_summary_skips_invalid_items_cleanly():
+    submission_transport_envelope_summary = build_policy_selection_submission_transport_envelope_summary({
+        "execution_request_summaries": [
+            None,
+            "bad",
+            123,
+            {"execution_request_summary_version": 1},
+        ],
+        "summary_count": 4,
+        "submission_transport_envelope_set_version": 1,
+    })
+
+    assert submission_transport_envelope_summary == {
+        "summary_count": 0,
+        "shadow_submission_transport_envelope_count": 0,
+        "primary_cutover_submission_transport_envelope_count": 0,
+        "manual_hold_submission_transport_envelope_count": 0,
+        "deferred_submission_transport_envelope_count": 0,
+        "submission_transport_envelope_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_submission_transport_envelope_summary_skips_partial_inputs_cleanly():
+    submission_transport_envelope_summary = build_policy_selection_submission_transport_envelope_summary({
+        "execution_request_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_execution_request_count": 1,
+                "primary_cutover_execution_request_count": 0,
+                "manual_hold_execution_request_count": 0,
+                "deferred_execution_request_count": 0,
+                "execution_request_summary_version": 1,
+            },
+            {
+                "summary_count": 1,
+                "primary_cutover_execution_request_count": 1,
+                "execution_request_summary_version": 1,
+            },
+            {
+                "execution_request_summary_version": 1,
+            },
+        ],
+        "summary_count": 3,
+        "submission_transport_envelope_set_version": 1,
+    })
+
+    assert submission_transport_envelope_summary == {
+        "summary_count": 1,
+        "shadow_submission_transport_envelope_count": 1,
+        "primary_cutover_submission_transport_envelope_count": 0,
+        "manual_hold_submission_transport_envelope_count": 0,
+        "deferred_submission_transport_envelope_count": 0,
+        "submission_transport_envelope_summary_version": 1,
+    }
+
+
+
+def test_submission_transport_envelope_versions_align_across_stage32_helpers():
+    execution_request_summary = {
+        "summary_count": 1,
+        "shadow_execution_request_count": 1,
+        "primary_cutover_execution_request_count": 0,
+        "manual_hold_execution_request_count": 0,
+        "deferred_execution_request_count": 0,
+        "execution_request_summary_version": 1,
+    }
+
+    submission_transport_envelope_set = build_policy_selection_submission_transport_envelope_set([execution_request_summary])
+    submission_transport_envelope_summary = build_policy_selection_submission_transport_envelope_summary(submission_transport_envelope_set)
+
+    assert submission_transport_envelope_set["submission_transport_envelope_set_version"] == 1
+    assert submission_transport_envelope_summary["submission_transport_envelope_summary_version"] == 1

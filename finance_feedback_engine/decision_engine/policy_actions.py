@@ -1776,6 +1776,67 @@ def build_policy_selection_submission_transport_envelope_set(
 
 
 
+def build_policy_selection_submission_transport_envelope_summary(
+    submission_transport_envelope_set: Optional[dict],
+) -> dict:
+    payload = (
+        dict(submission_transport_envelope_set or {})
+        if isinstance(submission_transport_envelope_set, dict)
+        else {}
+    )
+    summaries = payload.get("execution_request_summaries") or []
+    valid_summaries = [summary for summary in summaries if isinstance(summary, dict)]
+    if not valid_summaries:
+        return {
+            "summary_count": 0,
+            "shadow_submission_transport_envelope_count": 0,
+            "primary_cutover_submission_transport_envelope_count": 0,
+            "manual_hold_submission_transport_envelope_count": 0,
+            "deferred_submission_transport_envelope_count": 0,
+            "submission_transport_envelope_summary_version": 1,
+        }
+
+    shadow_submission_transport_envelope_count = 0
+    primary_cutover_submission_transport_envelope_count = 0
+    manual_hold_submission_transport_envelope_count = 0
+    deferred_submission_transport_envelope_count = 0
+    comparable_summary_count = 0
+
+    for summary in valid_summaries:
+        try:
+            shadow_execution_request_count = int(summary.get("shadow_execution_request_count"))
+            primary_cutover_execution_request_count = int(summary.get("primary_cutover_execution_request_count"))
+            manual_hold_execution_request_count = int(summary.get("manual_hold_execution_request_count"))
+            deferred_execution_request_count = int(summary.get("deferred_execution_request_count"))
+            summary_count = int(summary.get("summary_count"))
+        except (TypeError, ValueError):
+            continue
+
+        if summary_count <= 0:
+            continue
+
+        comparable_summary_count += 1
+        if primary_cutover_execution_request_count > 0:
+            primary_cutover_submission_transport_envelope_count += 1
+        elif shadow_execution_request_count > 0:
+            shadow_submission_transport_envelope_count += 1
+        elif manual_hold_execution_request_count > 0:
+            manual_hold_submission_transport_envelope_count += 1
+        else:
+            deferred_submission_transport_envelope_count += 1
+
+    return {
+        "summary_count": comparable_summary_count,
+        "shadow_submission_transport_envelope_count": shadow_submission_transport_envelope_count,
+        "primary_cutover_submission_transport_envelope_count": primary_cutover_submission_transport_envelope_count,
+        "manual_hold_submission_transport_envelope_count": manual_hold_submission_transport_envelope_count,
+        "deferred_submission_transport_envelope_count": deferred_submission_transport_envelope_count,
+        "submission_transport_envelope_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_provider_client_shape_summary(
     provider_client_shape_set: Optional[dict],
 ) -> dict:
