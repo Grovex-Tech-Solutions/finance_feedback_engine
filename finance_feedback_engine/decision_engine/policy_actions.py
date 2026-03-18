@@ -1510,6 +1510,27 @@ def build_policy_selection_provider_binding_contract_summary(
 
 
 
+def extract_policy_selection_provider_binding_contract_summaries(
+    provider_binding_contract_sets: Optional[list[dict]],
+) -> list[dict]:
+    summaries = []
+    for provider_binding_contract_set in provider_binding_contract_sets or []:
+        if not isinstance(provider_binding_contract_set, dict):
+            continue
+        adapter_payload_summaries = provider_binding_contract_set.get("adapter_payload_summaries")
+        if not isinstance(adapter_payload_summaries, list):
+            continue
+        if not any(isinstance(summary, dict) for summary in adapter_payload_summaries):
+            continue
+        provider_binding_contract_summary = build_policy_selection_provider_binding_contract_summary(provider_binding_contract_set)
+        if provider_binding_contract_summary.get("summary_count", 0) <= 0:
+            continue
+        summaries.append(provider_binding_contract_summary)
+    return summaries
+
+
+
+
 def extract_policy_selection_adapter_payload_summaries(
     adapter_payload_sets: Optional[list[dict]],
 ) -> list[dict]:

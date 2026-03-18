@@ -48,6 +48,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_provider_binding_contract_set,
     build_policy_selection_provider_binding_contract_summary,
     build_policy_selection_submission_envelope_set,
+    extract_policy_selection_provider_binding_contract_summaries,
     extract_policy_selection_adapter_payload_summaries,
     build_policy_selection_submission_envelope_summary,
     build_policy_selection_scheduler_request_set,
@@ -5116,6 +5117,56 @@ def test_build_policy_selection_provider_binding_contract_summary_preserves_outc
         "deferred_provider_binding_contract_count": 1,
         "provider_binding_contract_summary_version": 1,
     }
+
+
+
+
+def test_extract_policy_selection_provider_binding_contract_summaries_builds_exportable_summaries():
+    summaries = extract_policy_selection_provider_binding_contract_summaries([
+        {
+            "adapter_payload_summaries": [
+                {
+                    "summary_count": 1,
+                    "shadow_adapter_payload_count": 1,
+                    "primary_cutover_adapter_payload_count": 0,
+                    "manual_hold_adapter_payload_count": 0,
+                    "deferred_adapter_payload_count": 0,
+                    "adapter_payload_summary_version": 1,
+                }
+            ],
+            "summary_count": 1,
+            "provider_binding_contract_set_version": 1,
+        }
+    ])
+
+    assert summaries == [{
+        "summary_count": 1,
+        "shadow_provider_binding_contract_count": 1,
+        "primary_cutover_provider_binding_contract_count": 0,
+        "manual_hold_provider_binding_contract_count": 0,
+        "deferred_provider_binding_contract_count": 0,
+        "provider_binding_contract_summary_version": 1,
+    }]
+
+
+
+def test_extract_policy_selection_provider_binding_contract_summaries_skips_invalid_inputs():
+    summaries = extract_policy_selection_provider_binding_contract_summaries([
+        None,
+        {},
+        {"adapter_payload_summaries": None},
+        {"adapter_payload_summaries": []},
+        {"adapter_payload_summaries": [None, 'bad', 123]},
+        {
+            "adapter_payload_summaries": [
+                {"adapter_payload_summary_version": 1},
+            ],
+            "summary_count": 1,
+            "provider_binding_contract_set_version": 1,
+        },
+    ])
+
+    assert summaries == []
 
 
 
