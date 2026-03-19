@@ -1917,6 +1917,25 @@ def build_policy_selection_provider_dispatch_contract_summary(
 
 
 
+def build_policy_selection_execution_receipt_set(
+    execution_result_summaries: Optional[list[dict]],
+) -> dict:
+    valid_execution_result_summaries = [
+        summary
+        for summary in (execution_result_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "execution_result_summaries": [
+            dict(summary) for summary in valid_execution_result_summaries
+        ],
+        "summary_count": len(valid_execution_result_summaries),
+        "execution_receipt_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_execution_result_summary(
     execution_result_set: Optional[dict],
 ) -> dict:
