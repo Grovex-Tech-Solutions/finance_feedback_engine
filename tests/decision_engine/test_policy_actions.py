@@ -66,6 +66,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_execution_receipt_summary,
     build_policy_selection_execution_tracking_set,
     build_policy_selection_execution_tracking_summary,
+    extract_policy_selection_execution_tracking_summaries,
     extract_policy_selection_execution_receipt_summaries,
     extract_policy_selection_execution_result_summaries,
     extract_policy_selection_dispatch_attempt_contract_summaries,
@@ -10638,3 +10639,51 @@ def test_execution_tracking_chain_skips_non_comparable_upstream_summaries_withou
         "deferred_execution_tracking_count": 0,
         "execution_tracking_summary_version": 1,
     }
+
+
+
+def test_extract_policy_selection_execution_tracking_summaries_skips_invalid_sets_and_returns_direct_summary_shape():
+    execution_tracking_set = {
+        "execution_receipt_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_execution_receipt_count": 1,
+                "primary_cutover_execution_receipt_count": 0,
+                "manual_hold_execution_receipt_count": 0,
+                "deferred_execution_receipt_count": 0,
+                "execution_receipt_summary_version": 1,
+            }
+        ],
+        "summary_count": 1,
+        "execution_tracking_set_version": 1,
+    }
+
+    direct = build_policy_selection_execution_tracking_summary(execution_tracking_set)
+    exported = extract_policy_selection_execution_tracking_summaries([None, "skip", execution_tracking_set, {"execution_receipt_summaries": []}])
+
+    assert exported == [direct]
+
+
+
+def test_extract_policy_selection_execution_tracking_summaries_preserves_deferred_counts_for_export():
+    execution_tracking_set = build_policy_selection_execution_tracking_set([
+        {
+            "summary_count": 1,
+            "shadow_execution_receipt_count": 0,
+            "primary_cutover_execution_receipt_count": 0,
+            "manual_hold_execution_receipt_count": 0,
+            "deferred_execution_receipt_count": 1,
+            "execution_receipt_summary_version": 1,
+        }
+    ])
+
+    exported = extract_policy_selection_execution_tracking_summaries([execution_tracking_set])
+
+    assert exported == [{
+        "summary_count": 1,
+        "shadow_execution_tracking_count": 0,
+        "primary_cutover_execution_tracking_count": 0,
+        "manual_hold_execution_tracking_count": 0,
+        "deferred_execution_tracking_count": 1,
+        "execution_tracking_summary_version": 1,
+    }]
