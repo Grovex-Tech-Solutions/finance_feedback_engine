@@ -58,6 +58,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_submission_transport_envelope_summary,
     build_policy_selection_provider_dispatch_contract_set,
     build_policy_selection_provider_dispatch_contract_summary,
+    build_policy_selection_dispatch_attempt_contract_set,
     extract_policy_selection_provider_dispatch_contract_summaries,
     extract_policy_selection_submission_transport_envelope_summaries,
     extract_policy_selection_execution_request_summaries,
@@ -8996,3 +8997,83 @@ def test_provider_dispatch_contract_versions_align_across_export_helpers():
     assert provider_dispatch_contract_set["provider_dispatch_contract_set_version"] == 1
     assert provider_dispatch_contract_summary["provider_dispatch_contract_summary_version"] == 1
     assert exported[0]["provider_dispatch_contract_summary_version"] == 1
+
+
+
+def test_build_policy_selection_dispatch_attempt_contract_set_wraps_provider_dispatch_contract_summaries_cleanly():
+    dispatch_attempt_contract_set = build_policy_selection_dispatch_attempt_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_provider_dispatch_contract_count": 1,
+            "primary_cutover_provider_dispatch_contract_count": 0,
+            "manual_hold_provider_dispatch_contract_count": 0,
+            "deferred_provider_dispatch_contract_count": 0,
+            "provider_dispatch_contract_summary_version": 1,
+        }
+    ])
+
+    assert dispatch_attempt_contract_set["summary_count"] == 1
+    assert dispatch_attempt_contract_set["dispatch_attempt_contract_set_version"] == 1
+    assert dispatch_attempt_contract_set["provider_dispatch_contract_summaries"][0]["shadow_provider_dispatch_contract_count"] == 1
+
+
+
+def test_build_policy_selection_dispatch_attempt_contract_set_handles_empty_inputs():
+    dispatch_attempt_contract_set = build_policy_selection_dispatch_attempt_contract_set([])
+
+    assert dispatch_attempt_contract_set == {
+        "provider_dispatch_contract_summaries": [],
+        "summary_count": 0,
+        "dispatch_attempt_contract_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_dispatch_attempt_contract_set_handles_none_inputs():
+    dispatch_attempt_contract_set = build_policy_selection_dispatch_attempt_contract_set(None)
+
+    assert dispatch_attempt_contract_set == {
+        "provider_dispatch_contract_summaries": [],
+        "summary_count": 0,
+        "dispatch_attempt_contract_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_dispatch_attempt_contract_set_filters_non_dict_items():
+    dispatch_attempt_contract_set = build_policy_selection_dispatch_attempt_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_provider_dispatch_contract_count": 1,
+            "primary_cutover_provider_dispatch_contract_count": 0,
+            "manual_hold_provider_dispatch_contract_count": 0,
+            "deferred_provider_dispatch_contract_count": 0,
+            "provider_dispatch_contract_summary_version": 1,
+        },
+        None,
+        "bad",
+        123,
+    ])
+
+    assert dispatch_attempt_contract_set["summary_count"] == 1
+    assert dispatch_attempt_contract_set["provider_dispatch_contract_summaries"][0]["summary_count"] == 1
+
+
+
+def test_build_policy_selection_dispatch_attempt_contract_set_defensively_copies_provider_dispatch_contract_inputs():
+    provider_dispatch_contract_summary = {
+        "summary_count": 1,
+        "shadow_provider_dispatch_contract_count": 1,
+        "primary_cutover_provider_dispatch_contract_count": 0,
+        "manual_hold_provider_dispatch_contract_count": 0,
+        "deferred_provider_dispatch_contract_count": 0,
+        "provider_dispatch_contract_summary_version": 1,
+    }
+
+    dispatch_attempt_contract_set = build_policy_selection_dispatch_attempt_contract_set([
+        provider_dispatch_contract_summary
+    ])
+
+    provider_dispatch_contract_summary["shadow_provider_dispatch_contract_count"] = 99
+
+    assert dispatch_attempt_contract_set["provider_dispatch_contract_summaries"][0]["shadow_provider_dispatch_contract_count"] == 1
