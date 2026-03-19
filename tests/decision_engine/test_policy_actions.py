@@ -73,6 +73,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_learning_feedback_set,
     build_policy_selection_learning_feedback_summary,
     build_policy_selection_learning_analytics_set,
+    build_policy_selection_learning_analytics_summary,
     extract_policy_selection_learning_feedback_summaries,
     extract_policy_selection_trade_outcome_summaries,
     extract_policy_selection_execution_fill_summaries,
@@ -12199,3 +12200,260 @@ def test_build_policy_selection_learning_analytics_set_defensively_copies_learni
     summary["shadow_learning_feedback_count"] = 99
 
     assert learning_analytics_set["learning_feedback_summaries"][0]["shadow_learning_feedback_count"] == 1
+
+
+
+def test_build_policy_selection_learning_analytics_summary_counts_shadow_paths_from_learning_feedback_summaries():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 1,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        }
+    ])
+
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+
+    assert learning_analytics_summary == {
+        "summary_count": 1,
+        "shadow_learning_analytics_count": 1,
+        "primary_cutover_learning_analytics_count": 0,
+        "manual_hold_learning_analytics_count": 0,
+        "deferred_learning_analytics_count": 0,
+        "learning_analytics_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_summary_counts_primary_cutover_paths_from_learning_feedback_summaries():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 1,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        }
+    ])
+
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+
+    assert learning_analytics_summary == {
+        "summary_count": 1,
+        "shadow_learning_analytics_count": 0,
+        "primary_cutover_learning_analytics_count": 1,
+        "manual_hold_learning_analytics_count": 0,
+        "deferred_learning_analytics_count": 0,
+        "learning_analytics_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_summary_counts_manual_hold_paths_from_learning_feedback_summaries():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 1,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        }
+    ])
+
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+
+    assert learning_analytics_summary == {
+        "summary_count": 1,
+        "shadow_learning_analytics_count": 0,
+        "primary_cutover_learning_analytics_count": 0,
+        "manual_hold_learning_analytics_count": 1,
+        "deferred_learning_analytics_count": 0,
+        "learning_analytics_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_summary_defaults_to_deferred_paths_from_learning_feedback_summaries():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 1,
+            "learning_feedback_summary_version": 1,
+        }
+    ])
+
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+
+    assert learning_analytics_summary == {
+        "summary_count": 1,
+        "shadow_learning_analytics_count": 0,
+        "primary_cutover_learning_analytics_count": 0,
+        "manual_hold_learning_analytics_count": 0,
+        "deferred_learning_analytics_count": 1,
+        "learning_analytics_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_summary_handles_empty_inputs():
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary({})
+
+    assert learning_analytics_summary == {
+        "summary_count": 0,
+        "shadow_learning_analytics_count": 0,
+        "primary_cutover_learning_analytics_count": 0,
+        "manual_hold_learning_analytics_count": 0,
+        "deferred_learning_analytics_count": 0,
+        "learning_analytics_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_summary_skips_non_comparable_entries():
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary({
+        "learning_feedback_summaries": [
+            None,
+            "skip",
+            {
+                "summary_count": 0,
+                "shadow_learning_feedback_count": 1,
+                "primary_cutover_learning_feedback_count": 0,
+                "manual_hold_learning_feedback_count": 0,
+                "deferred_learning_feedback_count": 0,
+            },
+            {
+                "summary_count": "bad",
+                "shadow_learning_feedback_count": 0,
+                "primary_cutover_learning_feedback_count": 1,
+                "manual_hold_learning_feedback_count": 0,
+                "deferred_learning_feedback_count": 0,
+            },
+            {
+                "summary_count": 1,
+                "shadow_learning_feedback_count": 0,
+                "primary_cutover_learning_feedback_count": 1,
+                "manual_hold_learning_feedback_count": 0,
+                "deferred_learning_feedback_count": 0,
+            },
+        ]
+    })
+
+    assert learning_analytics_summary == {
+        "summary_count": 1,
+        "shadow_learning_analytics_count": 0,
+        "primary_cutover_learning_analytics_count": 1,
+        "manual_hold_learning_analytics_count": 0,
+        "deferred_learning_analytics_count": 0,
+        "learning_analytics_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_summary_round_trips_with_set_builder_and_preserves_versions():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 1,
+            "learning_feedback_summary_version": 1,
+        }
+    ])
+
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+
+    assert learning_analytics_set["learning_analytics_set_version"] == 1
+    assert learning_analytics_summary["summary_count"] == 1
+    assert learning_analytics_summary["deferred_learning_analytics_count"] == 1
+    assert learning_analytics_summary["learning_analytics_summary_version"] == 1
+
+
+
+def test_build_policy_selection_learning_analytics_summary_matches_direct_and_export_ready_counts():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 1,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 1,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        },
+    ])
+
+    direct = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+
+    assert direct == {
+        "summary_count": 2,
+        "shadow_learning_analytics_count": 1,
+        "primary_cutover_learning_analytics_count": 0,
+        "manual_hold_learning_analytics_count": 1,
+        "deferred_learning_analytics_count": 0,
+        "learning_analytics_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_summary_accumulates_multiple_comparable_entries():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 1,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 1,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 1,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 1,
+            "learning_feedback_summary_version": 1,
+        },
+    ])
+
+    learning_analytics_summary = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+
+    assert learning_analytics_summary == {
+        "summary_count": 4,
+        "shadow_learning_analytics_count": 1,
+        "primary_cutover_learning_analytics_count": 1,
+        "manual_hold_learning_analytics_count": 1,
+        "deferred_learning_analytics_count": 1,
+        "learning_analytics_summary_version": 1,
+    }
