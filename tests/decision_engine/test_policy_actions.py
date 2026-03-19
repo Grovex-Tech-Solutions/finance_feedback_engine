@@ -68,6 +68,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_execution_tracking_summary,
     build_policy_selection_execution_fill_set,
     build_policy_selection_execution_fill_summary,
+    build_policy_selection_trade_outcome_set,
     extract_policy_selection_execution_fill_summaries,
     extract_policy_selection_execution_tracking_summaries,
     extract_policy_selection_execution_receipt_summaries,
@@ -11165,3 +11166,80 @@ def test_extract_policy_selection_execution_fill_summaries_preserves_deferred_co
         "deferred_execution_fill_count": 1,
         "execution_fill_summary_version": 1,
     }]
+
+
+
+def test_build_policy_selection_trade_outcome_set_wraps_execution_fill_summaries_cleanly():
+    trade_outcome_set = build_policy_selection_trade_outcome_set([
+        {
+            "summary_count": 1,
+            "shadow_execution_fill_count": 1,
+            "primary_cutover_execution_fill_count": 0,
+            "manual_hold_execution_fill_count": 0,
+            "deferred_execution_fill_count": 0,
+            "execution_fill_summary_version": 1,
+        }
+    ])
+
+    assert trade_outcome_set["summary_count"] == 1
+    assert trade_outcome_set["trade_outcome_set_version"] == 1
+    assert trade_outcome_set["execution_fill_summaries"][0]["shadow_execution_fill_count"] == 1
+
+
+
+def test_build_policy_selection_trade_outcome_set_handles_empty_inputs():
+    trade_outcome_set = build_policy_selection_trade_outcome_set([])
+
+    assert trade_outcome_set == {
+        "execution_fill_summaries": [],
+        "summary_count": 0,
+        "trade_outcome_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_trade_outcome_set_handles_none_inputs():
+    trade_outcome_set = build_policy_selection_trade_outcome_set(None)
+
+    assert trade_outcome_set == {
+        "execution_fill_summaries": [],
+        "summary_count": 0,
+        "trade_outcome_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_trade_outcome_set_filters_non_dict_items():
+    trade_outcome_set = build_policy_selection_trade_outcome_set([
+        None,
+        "skip",
+        7,
+        {
+            "summary_count": 1,
+            "shadow_execution_fill_count": 0,
+            "primary_cutover_execution_fill_count": 1,
+            "manual_hold_execution_fill_count": 0,
+            "deferred_execution_fill_count": 0,
+            "execution_fill_summary_version": 1,
+        },
+    ])
+
+    assert trade_outcome_set["summary_count"] == 1
+    assert trade_outcome_set["execution_fill_summaries"][0]["summary_count"] == 1
+
+
+
+def test_build_policy_selection_trade_outcome_set_defensively_copies_execution_fill_inputs():
+    summary = {
+        "summary_count": 1,
+        "shadow_execution_fill_count": 1,
+        "primary_cutover_execution_fill_count": 0,
+        "manual_hold_execution_fill_count": 0,
+        "deferred_execution_fill_count": 0,
+        "execution_fill_summary_version": 1,
+    }
+
+    trade_outcome_set = build_policy_selection_trade_outcome_set([summary])
+    summary["shadow_execution_fill_count"] = 99
+
+    assert trade_outcome_set["execution_fill_summaries"][0]["shadow_execution_fill_count"] == 1

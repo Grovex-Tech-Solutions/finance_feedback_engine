@@ -1974,6 +1974,25 @@ def build_policy_selection_execution_fill_set(
 
 
 
+def build_policy_selection_trade_outcome_set(
+    execution_fill_summaries: Optional[list[dict]],
+) -> dict:
+    valid_execution_fill_summaries = [
+        summary
+        for summary in (execution_fill_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "execution_fill_summaries": [
+            dict(summary) for summary in valid_execution_fill_summaries
+        ],
+        "summary_count": len(valid_execution_fill_summaries),
+        "trade_outcome_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_execution_fill_summary(
     execution_fill_set: Optional[dict],
 ) -> dict:
