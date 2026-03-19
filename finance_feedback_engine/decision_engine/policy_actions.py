@@ -2012,6 +2012,25 @@ def build_policy_selection_learning_feedback_set(
 
 
 
+def build_policy_selection_learning_analytics_set(
+    learning_feedback_summaries: Optional[list[dict]],
+) -> dict:
+    valid_learning_feedback_summaries = [
+        summary
+        for summary in (learning_feedback_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "learning_feedback_summaries": [
+            dict(summary) for summary in valid_learning_feedback_summaries
+        ],
+        "summary_count": len(valid_learning_feedback_summaries),
+        "learning_analytics_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_learning_feedback_summary(
     learning_feedback_set: Optional[dict],
 ) -> dict:

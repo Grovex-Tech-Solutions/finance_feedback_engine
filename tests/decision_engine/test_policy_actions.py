@@ -72,6 +72,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_trade_outcome_summary,
     build_policy_selection_learning_feedback_set,
     build_policy_selection_learning_feedback_summary,
+    build_policy_selection_learning_analytics_set,
     extract_policy_selection_learning_feedback_summaries,
     extract_policy_selection_trade_outcome_summaries,
     extract_policy_selection_execution_fill_summaries,
@@ -12121,3 +12122,80 @@ def test_extract_policy_selection_learning_feedback_summaries_preserves_deferred
         "deferred_learning_feedback_count": 1,
         "learning_feedback_summary_version": 1,
     }]
+
+
+
+def test_build_policy_selection_learning_analytics_set_wraps_learning_feedback_summaries_cleanly():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 1,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        }
+    ])
+
+    assert learning_analytics_set["summary_count"] == 1
+    assert learning_analytics_set["learning_analytics_set_version"] == 1
+    assert learning_analytics_set["learning_feedback_summaries"][0]["shadow_learning_feedback_count"] == 1
+
+
+
+def test_build_policy_selection_learning_analytics_set_handles_empty_inputs():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([])
+
+    assert learning_analytics_set == {
+        "learning_feedback_summaries": [],
+        "summary_count": 0,
+        "learning_analytics_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_set_handles_none_inputs():
+    learning_analytics_set = build_policy_selection_learning_analytics_set(None)
+
+    assert learning_analytics_set == {
+        "learning_feedback_summaries": [],
+        "summary_count": 0,
+        "learning_analytics_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_analytics_set_filters_non_dict_items():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        None,
+        "skip",
+        7,
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 1,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 0,
+            "learning_feedback_summary_version": 1,
+        },
+    ])
+
+    assert learning_analytics_set["summary_count"] == 1
+    assert learning_analytics_set["learning_feedback_summaries"][0]["summary_count"] == 1
+
+
+
+def test_build_policy_selection_learning_analytics_set_defensively_copies_learning_feedback_inputs():
+    summary = {
+        "summary_count": 1,
+        "shadow_learning_feedback_count": 1,
+        "primary_cutover_learning_feedback_count": 0,
+        "manual_hold_learning_feedback_count": 0,
+        "deferred_learning_feedback_count": 0,
+        "learning_feedback_summary_version": 1,
+    }
+
+    learning_analytics_set = build_policy_selection_learning_analytics_set([summary])
+    summary["shadow_learning_feedback_count"] = 99
+
+    assert learning_analytics_set["learning_feedback_summaries"][0]["shadow_learning_feedback_count"] == 1
