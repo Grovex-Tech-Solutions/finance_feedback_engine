@@ -10057,3 +10057,106 @@ def test_build_policy_selection_execution_receipt_summary_accumulates_multiple_c
         "deferred_execution_receipt_count": 1,
         "execution_receipt_summary_version": 1,
     }
+
+
+
+def test_execution_receipt_chain_preserves_shadow_path_from_dispatch_attempt_contract_summary():
+    dispatch_attempt_contract_summary = {
+        "summary_count": 1,
+        "shadow_dispatch_attempt_contract_count": 1,
+        "primary_cutover_dispatch_attempt_contract_count": 0,
+        "manual_hold_dispatch_attempt_contract_count": 0,
+        "deferred_dispatch_attempt_contract_count": 0,
+        "dispatch_attempt_contract_summary_version": 1,
+    }
+
+    execution_result_set = build_policy_selection_execution_result_set([dispatch_attempt_contract_summary])
+    execution_result_summary = build_policy_selection_execution_result_summary(execution_result_set)
+    execution_receipt_set = build_policy_selection_execution_receipt_set([execution_result_summary])
+    execution_receipt_summary = build_policy_selection_execution_receipt_summary(execution_receipt_set)
+
+    assert execution_result_summary == {
+        "summary_count": 1,
+        "shadow_execution_result_count": 1,
+        "primary_cutover_execution_result_count": 0,
+        "manual_hold_execution_result_count": 0,
+        "deferred_execution_result_count": 0,
+        "execution_result_summary_version": 1,
+    }
+    assert execution_receipt_summary == {
+        "summary_count": 1,
+        "shadow_execution_receipt_count": 1,
+        "primary_cutover_execution_receipt_count": 0,
+        "manual_hold_execution_receipt_count": 0,
+        "deferred_execution_receipt_count": 0,
+        "execution_receipt_summary_version": 1,
+    }
+
+
+
+def test_execution_receipt_chain_preserves_manual_hold_and_deferred_mix_from_execution_result_summaries():
+    execution_result_summaries = [
+        {
+            "summary_count": 1,
+            "shadow_execution_result_count": 0,
+            "primary_cutover_execution_result_count": 0,
+            "manual_hold_execution_result_count": 1,
+            "deferred_execution_result_count": 0,
+            "execution_result_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_execution_result_count": 0,
+            "primary_cutover_execution_result_count": 0,
+            "manual_hold_execution_result_count": 0,
+            "deferred_execution_result_count": 1,
+            "execution_result_summary_version": 1,
+        },
+    ]
+
+    execution_receipt_set = build_policy_selection_execution_receipt_set(execution_result_summaries)
+    execution_receipt_summary = build_policy_selection_execution_receipt_summary(execution_receipt_set)
+
+    assert execution_receipt_set["summary_count"] == 2
+    assert execution_receipt_summary == {
+        "summary_count": 2,
+        "shadow_execution_receipt_count": 0,
+        "primary_cutover_execution_receipt_count": 0,
+        "manual_hold_execution_receipt_count": 1,
+        "deferred_execution_receipt_count": 1,
+        "execution_receipt_summary_version": 1,
+    }
+
+
+
+def test_execution_receipt_chain_skips_non_comparable_upstream_summaries_without_mutating_versions():
+    execution_receipt_set = build_policy_selection_execution_receipt_set([
+        {
+            "summary_count": 0,
+            "shadow_execution_result_count": 1,
+            "primary_cutover_execution_result_count": 0,
+            "manual_hold_execution_result_count": 0,
+            "deferred_execution_result_count": 0,
+            "execution_result_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_execution_result_count": 0,
+            "primary_cutover_execution_result_count": 1,
+            "manual_hold_execution_result_count": 0,
+            "deferred_execution_result_count": 0,
+            "execution_result_summary_version": 1,
+        },
+    ])
+
+    execution_receipt_summary = build_policy_selection_execution_receipt_summary(execution_receipt_set)
+
+    assert execution_receipt_set["execution_receipt_set_version"] == 1
+    assert execution_receipt_summary == {
+        "summary_count": 1,
+        "shadow_execution_receipt_count": 0,
+        "primary_cutover_execution_receipt_count": 1,
+        "manual_hold_execution_receipt_count": 0,
+        "deferred_execution_receipt_count": 0,
+        "execution_receipt_summary_version": 1,
+    }
