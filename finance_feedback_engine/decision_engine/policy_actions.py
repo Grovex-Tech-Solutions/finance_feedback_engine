@@ -1955,6 +1955,25 @@ def build_policy_selection_execution_tracking_set(
 
 
 
+def build_policy_selection_execution_fill_set(
+    execution_tracking_summaries: Optional[list[dict]],
+) -> dict:
+    valid_execution_tracking_summaries = [
+        summary
+        for summary in (execution_tracking_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "execution_tracking_summaries": [
+            dict(summary) for summary in valid_execution_tracking_summaries
+        ],
+        "summary_count": len(valid_execution_tracking_summaries),
+        "execution_fill_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_execution_tracking_summary(
     execution_tracking_set: Optional[dict],
 ) -> dict:
