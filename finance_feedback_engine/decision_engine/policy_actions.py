@@ -1936,6 +1936,25 @@ def build_policy_selection_dispatch_attempt_contract_set(
 
 
 
+def build_policy_selection_execution_result_set(
+    dispatch_attempt_contract_summaries: Optional[list[dict]],
+) -> dict:
+    valid_dispatch_attempt_contract_summaries = [
+        summary
+        for summary in (dispatch_attempt_contract_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "dispatch_attempt_contract_summaries": [
+            dict(summary) for summary in valid_dispatch_attempt_contract_summaries
+        ],
+        "summary_count": len(valid_dispatch_attempt_contract_summaries),
+        "execution_result_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_dispatch_attempt_contract_summary(
     dispatch_attempt_contract_set: Optional[dict],
 ) -> dict:
