@@ -71,6 +71,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_trade_outcome_set,
     build_policy_selection_trade_outcome_summary,
     build_policy_selection_learning_feedback_set,
+    build_policy_selection_learning_feedback_summary,
     extract_policy_selection_trade_outcome_summaries,
     extract_policy_selection_execution_fill_summaries,
     extract_policy_selection_execution_tracking_summaries,
@@ -11721,3 +11722,260 @@ def test_build_policy_selection_learning_feedback_set_defensively_copies_trade_o
     summary["shadow_trade_outcome_count"] = 99
 
     assert learning_feedback_set["trade_outcome_summaries"][0]["shadow_trade_outcome_count"] == 1
+
+
+
+def test_build_policy_selection_learning_feedback_summary_counts_shadow_paths_from_trade_outcome_summaries():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 1,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        }
+    ])
+
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary(learning_feedback_set)
+
+    assert learning_feedback_summary == {
+        "summary_count": 1,
+        "shadow_learning_feedback_count": 1,
+        "primary_cutover_learning_feedback_count": 0,
+        "manual_hold_learning_feedback_count": 0,
+        "deferred_learning_feedback_count": 0,
+        "learning_feedback_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_summary_counts_primary_cutover_paths_from_trade_outcome_summaries():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 1,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        }
+    ])
+
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary(learning_feedback_set)
+
+    assert learning_feedback_summary == {
+        "summary_count": 1,
+        "shadow_learning_feedback_count": 0,
+        "primary_cutover_learning_feedback_count": 1,
+        "manual_hold_learning_feedback_count": 0,
+        "deferred_learning_feedback_count": 0,
+        "learning_feedback_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_summary_counts_manual_hold_paths_from_trade_outcome_summaries():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 1,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        }
+    ])
+
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary(learning_feedback_set)
+
+    assert learning_feedback_summary == {
+        "summary_count": 1,
+        "shadow_learning_feedback_count": 0,
+        "primary_cutover_learning_feedback_count": 0,
+        "manual_hold_learning_feedback_count": 1,
+        "deferred_learning_feedback_count": 0,
+        "learning_feedback_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_summary_defaults_to_deferred_paths_from_trade_outcome_summaries():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 1,
+            "trade_outcome_summary_version": 1,
+        }
+    ])
+
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary(learning_feedback_set)
+
+    assert learning_feedback_summary == {
+        "summary_count": 1,
+        "shadow_learning_feedback_count": 0,
+        "primary_cutover_learning_feedback_count": 0,
+        "manual_hold_learning_feedback_count": 0,
+        "deferred_learning_feedback_count": 1,
+        "learning_feedback_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_summary_handles_empty_inputs():
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary({})
+
+    assert learning_feedback_summary == {
+        "summary_count": 0,
+        "shadow_learning_feedback_count": 0,
+        "primary_cutover_learning_feedback_count": 0,
+        "manual_hold_learning_feedback_count": 0,
+        "deferred_learning_feedback_count": 0,
+        "learning_feedback_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_summary_skips_non_comparable_entries():
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary({
+        "trade_outcome_summaries": [
+            None,
+            "skip",
+            {
+                "summary_count": 0,
+                "shadow_trade_outcome_count": 1,
+                "primary_cutover_trade_outcome_count": 0,
+                "manual_hold_trade_outcome_count": 0,
+                "deferred_trade_outcome_count": 0,
+            },
+            {
+                "summary_count": "bad",
+                "shadow_trade_outcome_count": 0,
+                "primary_cutover_trade_outcome_count": 1,
+                "manual_hold_trade_outcome_count": 0,
+                "deferred_trade_outcome_count": 0,
+            },
+            {
+                "summary_count": 1,
+                "shadow_trade_outcome_count": 0,
+                "primary_cutover_trade_outcome_count": 1,
+                "manual_hold_trade_outcome_count": 0,
+                "deferred_trade_outcome_count": 0,
+            },
+        ]
+    })
+
+    assert learning_feedback_summary == {
+        "summary_count": 1,
+        "shadow_learning_feedback_count": 0,
+        "primary_cutover_learning_feedback_count": 1,
+        "manual_hold_learning_feedback_count": 0,
+        "deferred_learning_feedback_count": 0,
+        "learning_feedback_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_summary_round_trips_with_set_builder_and_preserves_versions():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 1,
+            "trade_outcome_summary_version": 1,
+        }
+    ])
+
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary(learning_feedback_set)
+
+    assert learning_feedback_set["learning_feedback_set_version"] == 1
+    assert learning_feedback_summary["summary_count"] == 1
+    assert learning_feedback_summary["deferred_learning_feedback_count"] == 1
+    assert learning_feedback_summary["learning_feedback_summary_version"] == 1
+
+
+
+def test_build_policy_selection_learning_feedback_summary_matches_direct_and_export_ready_counts():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 1,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 1,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        },
+    ])
+
+    direct = build_policy_selection_learning_feedback_summary(learning_feedback_set)
+
+    assert direct == {
+        "summary_count": 2,
+        "shadow_learning_feedback_count": 1,
+        "primary_cutover_learning_feedback_count": 0,
+        "manual_hold_learning_feedback_count": 1,
+        "deferred_learning_feedback_count": 0,
+        "learning_feedback_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_summary_accumulates_multiple_comparable_entries():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 1,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 1,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 1,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 1,
+            "trade_outcome_summary_version": 1,
+        },
+    ])
+
+    learning_feedback_summary = build_policy_selection_learning_feedback_summary(learning_feedback_set)
+
+    assert learning_feedback_summary == {
+        "summary_count": 4,
+        "shadow_learning_feedback_count": 1,
+        "primary_cutover_learning_feedback_count": 1,
+        "manual_hold_learning_feedback_count": 1,
+        "deferred_learning_feedback_count": 1,
+        "learning_feedback_summary_version": 1,
+    }
