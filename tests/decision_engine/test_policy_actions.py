@@ -74,6 +74,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_learning_feedback_summary,
     build_policy_selection_learning_analytics_set,
     build_policy_selection_learning_analytics_summary,
+    extract_policy_selection_learning_analytics_summaries,
     extract_policy_selection_learning_feedback_summaries,
     extract_policy_selection_trade_outcome_summaries,
     extract_policy_selection_execution_fill_summaries,
@@ -12550,3 +12551,51 @@ def test_learning_analytics_chain_skips_non_comparable_upstream_summaries_withou
         "deferred_learning_analytics_count": 0,
         "learning_analytics_summary_version": 1,
     }
+
+
+
+def test_extract_policy_selection_learning_analytics_summaries_skips_invalid_sets_and_returns_direct_summary_shape():
+    learning_analytics_set = {
+        "learning_feedback_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_learning_feedback_count": 1,
+                "primary_cutover_learning_feedback_count": 0,
+                "manual_hold_learning_feedback_count": 0,
+                "deferred_learning_feedback_count": 0,
+                "learning_feedback_summary_version": 1,
+            }
+        ],
+        "summary_count": 1,
+        "learning_analytics_set_version": 1,
+    }
+
+    direct = build_policy_selection_learning_analytics_summary(learning_analytics_set)
+    exported = extract_policy_selection_learning_analytics_summaries([None, "skip", learning_analytics_set, {"learning_feedback_summaries": []}])
+
+    assert exported == [direct]
+
+
+
+def test_extract_policy_selection_learning_analytics_summaries_preserves_deferred_counts_for_export():
+    learning_analytics_set = build_policy_selection_learning_analytics_set([
+        {
+            "summary_count": 1,
+            "shadow_learning_feedback_count": 0,
+            "primary_cutover_learning_feedback_count": 0,
+            "manual_hold_learning_feedback_count": 0,
+            "deferred_learning_feedback_count": 1,
+            "learning_feedback_summary_version": 1,
+        }
+    ])
+
+    exported = extract_policy_selection_learning_analytics_summaries([learning_analytics_set])
+
+    assert exported == [{
+        "summary_count": 1,
+        "shadow_learning_analytics_count": 0,
+        "primary_cutover_learning_analytics_count": 0,
+        "manual_hold_learning_analytics_count": 0,
+        "deferred_learning_analytics_count": 1,
+        "learning_analytics_summary_version": 1,
+    }]
