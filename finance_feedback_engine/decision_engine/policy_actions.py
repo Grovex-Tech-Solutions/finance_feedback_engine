@@ -1993,6 +1993,25 @@ def build_policy_selection_trade_outcome_set(
 
 
 
+def build_policy_selection_learning_feedback_set(
+    trade_outcome_summaries: Optional[list[dict]],
+) -> dict:
+    valid_trade_outcome_summaries = [
+        summary
+        for summary in (trade_outcome_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "trade_outcome_summaries": [
+            dict(summary) for summary in valid_trade_outcome_summaries
+        ],
+        "summary_count": len(valid_trade_outcome_summaries),
+        "learning_feedback_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_trade_outcome_summary(
     trade_outcome_set: Optional[dict],
 ) -> dict:

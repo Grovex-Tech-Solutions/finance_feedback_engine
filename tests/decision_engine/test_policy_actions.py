@@ -70,6 +70,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_execution_fill_summary,
     build_policy_selection_trade_outcome_set,
     build_policy_selection_trade_outcome_summary,
+    build_policy_selection_learning_feedback_set,
     extract_policy_selection_trade_outcome_summaries,
     extract_policy_selection_execution_fill_summaries,
     extract_policy_selection_execution_tracking_summaries,
@@ -11643,3 +11644,80 @@ def test_extract_policy_selection_trade_outcome_summaries_preserves_deferred_cou
         "deferred_trade_outcome_count": 1,
         "trade_outcome_summary_version": 1,
     }]
+
+
+
+def test_build_policy_selection_learning_feedback_set_wraps_trade_outcome_summaries_cleanly():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 1,
+            "primary_cutover_trade_outcome_count": 0,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        }
+    ])
+
+    assert learning_feedback_set["summary_count"] == 1
+    assert learning_feedback_set["learning_feedback_set_version"] == 1
+    assert learning_feedback_set["trade_outcome_summaries"][0]["shadow_trade_outcome_count"] == 1
+
+
+
+def test_build_policy_selection_learning_feedback_set_handles_empty_inputs():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([])
+
+    assert learning_feedback_set == {
+        "trade_outcome_summaries": [],
+        "summary_count": 0,
+        "learning_feedback_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_set_handles_none_inputs():
+    learning_feedback_set = build_policy_selection_learning_feedback_set(None)
+
+    assert learning_feedback_set == {
+        "trade_outcome_summaries": [],
+        "summary_count": 0,
+        "learning_feedback_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_learning_feedback_set_filters_non_dict_items():
+    learning_feedback_set = build_policy_selection_learning_feedback_set([
+        None,
+        "skip",
+        7,
+        {
+            "summary_count": 1,
+            "shadow_trade_outcome_count": 0,
+            "primary_cutover_trade_outcome_count": 1,
+            "manual_hold_trade_outcome_count": 0,
+            "deferred_trade_outcome_count": 0,
+            "trade_outcome_summary_version": 1,
+        },
+    ])
+
+    assert learning_feedback_set["summary_count"] == 1
+    assert learning_feedback_set["trade_outcome_summaries"][0]["summary_count"] == 1
+
+
+
+def test_build_policy_selection_learning_feedback_set_defensively_copies_trade_outcome_inputs():
+    summary = {
+        "summary_count": 1,
+        "shadow_trade_outcome_count": 1,
+        "primary_cutover_trade_outcome_count": 0,
+        "manual_hold_trade_outcome_count": 0,
+        "deferred_trade_outcome_count": 0,
+        "trade_outcome_summary_version": 1,
+    }
+
+    learning_feedback_set = build_policy_selection_learning_feedback_set([summary])
+    summary["shadow_trade_outcome_count"] = 99
+
+    assert learning_feedback_set["trade_outcome_summaries"][0]["shadow_trade_outcome_count"] == 1
