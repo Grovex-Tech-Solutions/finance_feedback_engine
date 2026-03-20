@@ -2192,6 +2192,25 @@ def extract_policy_selection_adaptive_control_runtime_apply_summaries(
 
 
 
+def build_policy_selection_adaptive_control_config_patch_contract_set(
+    adaptive_control_runtime_apply_summaries: Optional[list[dict]],
+) -> dict:
+    valid_adaptive_control_runtime_apply_summaries = [
+        summary
+        for summary in (adaptive_control_runtime_apply_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "adaptive_control_runtime_apply_summaries": [
+            dict(summary) for summary in valid_adaptive_control_runtime_apply_summaries
+        ],
+        "summary_count": len(valid_adaptive_control_runtime_apply_summaries),
+        "adaptive_control_config_patch_contract_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_persistence_set(
     adaptive_weight_mutation_summaries: Optional[list[dict]],
 ) -> dict:
