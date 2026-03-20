@@ -16,6 +16,7 @@ This directory tracks the seam-by-seam migration path used to keep the policy-se
 - Stage 46 — adaptive control snapshot
 - Stage 47 — adaptive control runtime apply
 - Stage 48 — adaptive control config patch contract
+- Stage 49 — adaptive control runtime config materialization
 
 ## Conventions
 Each stage should keep the same five-step PR flow:
