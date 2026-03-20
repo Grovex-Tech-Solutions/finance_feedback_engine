@@ -2050,6 +2050,25 @@ def build_policy_selection_adaptive_recommendation_set(
 
 
 
+def build_policy_selection_adaptive_activation_set(
+    adaptive_recommendation_summaries: Optional[list[dict]],
+) -> dict:
+    valid_adaptive_recommendation_summaries = [
+        summary
+        for summary in (adaptive_recommendation_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "adaptive_recommendation_summaries": [
+            dict(summary) for summary in valid_adaptive_recommendation_summaries
+        ],
+        "summary_count": len(valid_adaptive_recommendation_summaries),
+        "adaptive_activation_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_recommendation_summary(
     adaptive_recommendation_set: Optional[dict],
 ) -> dict:
