@@ -2180,6 +2180,18 @@ def build_policy_selection_adaptive_control_runtime_apply_summary(
 
 
 
+def extract_policy_selection_adaptive_control_runtime_apply_summaries(
+    adaptive_control_runtime_apply_sets: Optional[list[dict]],
+) -> list[dict]:
+    return [
+        build_policy_selection_adaptive_control_runtime_apply_summary(runtime_apply_set)
+        for runtime_apply_set in (adaptive_control_runtime_apply_sets or [])
+        if isinstance(runtime_apply_set, dict)
+    ]
+
+
+
+
 def build_policy_selection_adaptive_control_persistence_set(
     adaptive_weight_mutation_summaries: Optional[list[dict]],
 ) -> dict:
