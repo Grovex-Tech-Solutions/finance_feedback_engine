@@ -2107,6 +2107,25 @@ def build_policy_selection_adaptive_control_persistence_set(
 
 
 
+def build_policy_selection_adaptive_control_snapshot_set(
+    adaptive_control_persistence_summaries: Optional[list[dict]],
+) -> dict:
+    valid_adaptive_control_persistence_summaries = [
+        summary
+        for summary in (adaptive_control_persistence_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "adaptive_control_persistence_summaries": [
+            dict(summary) for summary in valid_adaptive_control_persistence_summaries
+        ],
+        "summary_count": len(valid_adaptive_control_persistence_summaries),
+        "adaptive_control_snapshot_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_persistence_summary(
     adaptive_control_persistence_set: Optional[dict],
 ) -> dict:
