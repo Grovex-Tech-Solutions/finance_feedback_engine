@@ -2439,6 +2439,52 @@ def build_policy_selection_adaptive_control_alert_dispatch_contract_summary(
 
 
 
+def build_policy_selection_adaptive_control_trade_execution_contract_summary(
+    adaptive_control_trade_execution_contract_set: Optional[dict],
+) -> dict:
+    comparable_summaries = [
+        summary
+        for summary in (adaptive_control_trade_execution_contract_set or {}).get(
+            "adaptive_control_alert_dispatch_contract_summaries", []
+        )
+        if isinstance(summary, dict)
+    ]
+
+    paper_trade_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("deferred_adaptive_control_alert_dispatch_contract_count", 0) > 0
+    )
+    sandbox_trade_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("primary_cutover_adaptive_control_alert_dispatch_contract_count", 0) > 0
+    )
+    live_trade_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("manual_hold_adaptive_control_alert_dispatch_contract_count", 0) > 0
+    )
+    rejected_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("shadow_adaptive_control_alert_dispatch_contract_count", 0) > 0
+    )
+    pending_review_count = 0
+
+    return {
+        "summary_count": len(comparable_summaries),
+        "paper_trade_adaptive_control_trade_execution_contract_count": paper_trade_count,
+        "sandbox_trade_adaptive_control_trade_execution_contract_count": sandbox_trade_count,
+        "live_trade_adaptive_control_trade_execution_contract_count": live_trade_count,
+        "rejected_adaptive_control_trade_execution_contract_count": rejected_count,
+        "pending_review_adaptive_control_trade_execution_contract_count": pending_review_count,
+        "adaptive_control_trade_execution_contract_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_trade_execution_contract_set(
     adaptive_control_alert_dispatch_contract_summaries: Optional[list[dict]],
 ) -> dict:

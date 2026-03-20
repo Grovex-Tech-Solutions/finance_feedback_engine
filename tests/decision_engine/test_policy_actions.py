@@ -103,6 +103,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_adaptive_control_alert_dispatch_contract_set,
     build_policy_selection_adaptive_control_alert_dispatch_contract_summary,
     build_policy_selection_adaptive_control_trade_execution_contract_set,
+    build_policy_selection_adaptive_control_trade_execution_contract_summary,
     extract_policy_selection_adaptive_control_dashboard_status_aggregation_contract_summaries,
     extract_policy_selection_adaptive_control_notification_delivery_contract_summaries,
     extract_policy_selection_adaptive_control_health_readiness_observability_contract_summaries,
@@ -18849,6 +18850,175 @@ def test_build_policy_selection_adaptive_control_trade_execution_contract_set_pr
         "adaptive_control_alert_dispatch_contract_summaries": [first, second],
         "adaptive_control_trade_execution_contract_set_version": 1,
     }
+
+
+
+def test_build_policy_selection_adaptive_control_trade_execution_contract_summary_counts_paper_trade_paths_from_alert_dispatch_contract_summaries():
+    trade_execution_contract_set = build_policy_selection_adaptive_control_trade_execution_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_control_alert_dispatch_contract_count": 0,
+            "primary_cutover_adaptive_control_alert_dispatch_contract_count": 0,
+            "manual_hold_adaptive_control_alert_dispatch_contract_count": 0,
+            "deferred_adaptive_control_alert_dispatch_contract_count": 1,
+            "adaptive_control_alert_dispatch_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_trade_execution_contract_summary(trade_execution_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "paper_trade_adaptive_control_trade_execution_contract_count": 1,
+        "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+        "live_trade_adaptive_control_trade_execution_contract_count": 0,
+        "rejected_adaptive_control_trade_execution_contract_count": 0,
+        "pending_review_adaptive_control_trade_execution_contract_count": 0,
+        "adaptive_control_trade_execution_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_trade_execution_contract_summary_counts_sandbox_trade_paths_from_alert_dispatch_contract_summaries():
+    trade_execution_contract_set = build_policy_selection_adaptive_control_trade_execution_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_control_alert_dispatch_contract_count": 0,
+            "primary_cutover_adaptive_control_alert_dispatch_contract_count": 1,
+            "manual_hold_adaptive_control_alert_dispatch_contract_count": 0,
+            "deferred_adaptive_control_alert_dispatch_contract_count": 0,
+            "adaptive_control_alert_dispatch_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_trade_execution_contract_summary(trade_execution_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+        "sandbox_trade_adaptive_control_trade_execution_contract_count": 1,
+        "live_trade_adaptive_control_trade_execution_contract_count": 0,
+        "rejected_adaptive_control_trade_execution_contract_count": 0,
+        "pending_review_adaptive_control_trade_execution_contract_count": 0,
+        "adaptive_control_trade_execution_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_trade_execution_contract_summary_counts_live_trade_paths_from_alert_dispatch_contract_summaries():
+    trade_execution_contract_set = build_policy_selection_adaptive_control_trade_execution_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_control_alert_dispatch_contract_count": 0,
+            "primary_cutover_adaptive_control_alert_dispatch_contract_count": 0,
+            "manual_hold_adaptive_control_alert_dispatch_contract_count": 1,
+            "deferred_adaptive_control_alert_dispatch_contract_count": 0,
+            "adaptive_control_alert_dispatch_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_trade_execution_contract_summary(trade_execution_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+        "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+        "live_trade_adaptive_control_trade_execution_contract_count": 1,
+        "rejected_adaptive_control_trade_execution_contract_count": 0,
+        "pending_review_adaptive_control_trade_execution_contract_count": 0,
+        "adaptive_control_trade_execution_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_trade_execution_contract_summary_defaults_to_rejected_paths_from_alert_dispatch_contract_summaries():
+    trade_execution_contract_set = build_policy_selection_adaptive_control_trade_execution_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_control_alert_dispatch_contract_count": 1,
+            "primary_cutover_adaptive_control_alert_dispatch_contract_count": 0,
+            "manual_hold_adaptive_control_alert_dispatch_contract_count": 0,
+            "deferred_adaptive_control_alert_dispatch_contract_count": 0,
+            "adaptive_control_alert_dispatch_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_trade_execution_contract_summary(trade_execution_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+        "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+        "live_trade_adaptive_control_trade_execution_contract_count": 0,
+        "rejected_adaptive_control_trade_execution_contract_count": 1,
+        "pending_review_adaptive_control_trade_execution_contract_count": 0,
+        "adaptive_control_trade_execution_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_trade_execution_contract_summary_handles_empty_inputs():
+    summary = build_policy_selection_adaptive_control_trade_execution_contract_summary({})
+
+    assert summary == {
+        "summary_count": 0,
+        "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+        "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+        "live_trade_adaptive_control_trade_execution_contract_count": 0,
+        "rejected_adaptive_control_trade_execution_contract_count": 0,
+        "pending_review_adaptive_control_trade_execution_contract_count": 0,
+        "adaptive_control_trade_execution_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_trade_execution_contract_summary_skips_non_comparable_entries():
+    summary = build_policy_selection_adaptive_control_trade_execution_contract_summary({
+        "adaptive_control_alert_dispatch_contract_summaries": [
+            None,
+            "skip",
+            {
+                "summary_count": 1,
+                "shadow_adaptive_control_alert_dispatch_contract_count": 0,
+                "primary_cutover_adaptive_control_alert_dispatch_contract_count": 1,
+                "manual_hold_adaptive_control_alert_dispatch_contract_count": 0,
+                "deferred_adaptive_control_alert_dispatch_contract_count": 0,
+                "adaptive_control_alert_dispatch_contract_summary_version": 1,
+            },
+        ],
+        "adaptive_control_trade_execution_contract_set_version": 1,
+    })
+
+    assert summary == {
+        "summary_count": 1,
+        "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+        "sandbox_trade_adaptive_control_trade_execution_contract_count": 1,
+        "live_trade_adaptive_control_trade_execution_contract_count": 0,
+        "rejected_adaptive_control_trade_execution_contract_count": 0,
+        "pending_review_adaptive_control_trade_execution_contract_count": 0,
+        "adaptive_control_trade_execution_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_trade_execution_contract_summary_round_trips_with_set_builder_and_preserves_versions():
+    trade_execution_contract_set = build_policy_selection_adaptive_control_trade_execution_contract_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_control_alert_dispatch_contract_count": 0,
+            "primary_cutover_adaptive_control_alert_dispatch_contract_count": 0,
+            "manual_hold_adaptive_control_alert_dispatch_contract_count": 0,
+            "deferred_adaptive_control_alert_dispatch_contract_count": 1,
+            "adaptive_control_alert_dispatch_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_trade_execution_contract_summary(trade_execution_contract_set)
+
+    assert trade_execution_contract_set["adaptive_control_trade_execution_contract_set_version"] == 1
+    assert summary["summary_count"] == 1
+    assert summary["paper_trade_adaptive_control_trade_execution_contract_count"] == 1
+    assert summary["adaptive_control_trade_execution_contract_summary_version"] == 1
 
 
 
