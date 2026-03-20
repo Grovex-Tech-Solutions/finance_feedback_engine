@@ -2088,6 +2088,18 @@ def build_policy_selection_adaptive_weight_mutation_set(
 
 
 
+def extract_policy_selection_adaptive_control_snapshot_summaries(
+    adaptive_control_snapshot_sets: Optional[list[dict]],
+) -> list[dict]:
+    return [
+        build_policy_selection_adaptive_control_snapshot_summary(snapshot_set)
+        for snapshot_set in (adaptive_control_snapshot_sets or [])
+        if isinstance(snapshot_set, dict)
+    ]
+
+
+
+
 def build_policy_selection_adaptive_control_persistence_set(
     adaptive_weight_mutation_summaries: Optional[list[dict]],
 ) -> dict:
