@@ -2484,6 +2484,18 @@ def build_policy_selection_adaptive_control_runtime_config_materialization_summa
 
 
 
+def extract_policy_selection_adaptive_control_agent_lifecycle_control_contract_summaries(
+    adaptive_control_agent_lifecycle_control_contract_sets: Optional[list[dict]],
+) -> list[dict]:
+    return [
+        build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary(lifecycle_control_contract_set)
+        for lifecycle_control_contract_set in (adaptive_control_agent_lifecycle_control_contract_sets or [])
+        if isinstance(lifecycle_control_contract_set, dict)
+    ]
+
+
+
+
 def extract_policy_selection_adaptive_control_config_update_transport_contract_summaries(
     adaptive_control_config_update_transport_contract_sets: Optional[list[dict]],
 ) -> list[dict]:
