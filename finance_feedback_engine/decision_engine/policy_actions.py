@@ -2501,6 +2501,52 @@ def build_policy_selection_adaptive_control_trade_execution_contract_summary(
 
 
 
+def build_policy_selection_adaptive_control_exchange_order_placement_contract_summary(
+    adaptive_control_exchange_order_placement_contract_set: Optional[dict],
+) -> dict:
+    comparable_summaries = [
+        summary
+        for summary in (adaptive_control_exchange_order_placement_contract_set or {}).get(
+            "adaptive_control_trade_execution_contract_summaries", []
+        )
+        if isinstance(summary, dict)
+    ]
+
+    pending_submission_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("paper_trade_adaptive_control_trade_execution_contract_count", 0) > 0
+    )
+    acknowledged_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("sandbox_trade_adaptive_control_trade_execution_contract_count", 0) > 0
+    )
+    rejected_by_exchange_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("rejected_adaptive_control_trade_execution_contract_count", 0) > 0
+    )
+    partially_filled_count = 0
+    fully_filled_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("live_trade_adaptive_control_trade_execution_contract_count", 0) > 0
+    )
+
+    return {
+        "summary_count": len(comparable_summaries),
+        "pending_submission_adaptive_control_exchange_order_placement_contract_count": pending_submission_count,
+        "acknowledged_adaptive_control_exchange_order_placement_contract_count": acknowledged_count,
+        "rejected_by_exchange_adaptive_control_exchange_order_placement_contract_count": rejected_by_exchange_count,
+        "partially_filled_adaptive_control_exchange_order_placement_contract_count": partially_filled_count,
+        "fully_filled_adaptive_control_exchange_order_placement_contract_count": fully_filled_count,
+        "adaptive_control_exchange_order_placement_contract_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_exchange_order_placement_contract_set(
     adaptive_control_trade_execution_contract_summaries: Optional[list[dict]],
 ) -> dict:

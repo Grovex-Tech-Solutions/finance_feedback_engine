@@ -105,6 +105,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_adaptive_control_trade_execution_contract_set,
     build_policy_selection_adaptive_control_trade_execution_contract_summary,
     build_policy_selection_adaptive_control_exchange_order_placement_contract_set,
+    build_policy_selection_adaptive_control_exchange_order_placement_contract_summary,
     extract_policy_selection_adaptive_control_dashboard_status_aggregation_contract_summaries,
     extract_policy_selection_adaptive_control_notification_delivery_contract_summaries,
     extract_policy_selection_adaptive_control_health_readiness_observability_contract_summaries,
@@ -19134,6 +19135,181 @@ def test_build_policy_selection_adaptive_control_exchange_order_placement_contra
         "adaptive_control_trade_execution_contract_summaries": [first, second],
         "adaptive_control_exchange_order_placement_contract_set_version": 1,
     }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_order_placement_contract_summary_counts_pending_submission_paths_from_trade_execution_contract_summaries():
+    order_placement_contract_set = build_policy_selection_adaptive_control_exchange_order_placement_contract_set([
+        {
+            "summary_count": 1,
+            "paper_trade_adaptive_control_trade_execution_contract_count": 1,
+            "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+            "live_trade_adaptive_control_trade_execution_contract_count": 0,
+            "rejected_adaptive_control_trade_execution_contract_count": 0,
+            "pending_review_adaptive_control_trade_execution_contract_count": 0,
+            "adaptive_control_trade_execution_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_order_placement_contract_summary(order_placement_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_submission_adaptive_control_exchange_order_placement_contract_count": 1,
+        "acknowledged_adaptive_control_exchange_order_placement_contract_count": 0,
+        "rejected_by_exchange_adaptive_control_exchange_order_placement_contract_count": 0,
+        "partially_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "fully_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "adaptive_control_exchange_order_placement_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_order_placement_contract_summary_counts_acknowledged_paths_from_trade_execution_contract_summaries():
+    order_placement_contract_set = build_policy_selection_adaptive_control_exchange_order_placement_contract_set([
+        {
+            "summary_count": 1,
+            "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+            "sandbox_trade_adaptive_control_trade_execution_contract_count": 1,
+            "live_trade_adaptive_control_trade_execution_contract_count": 0,
+            "rejected_adaptive_control_trade_execution_contract_count": 0,
+            "pending_review_adaptive_control_trade_execution_contract_count": 0,
+            "adaptive_control_trade_execution_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_order_placement_contract_summary(order_placement_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_submission_adaptive_control_exchange_order_placement_contract_count": 0,
+        "acknowledged_adaptive_control_exchange_order_placement_contract_count": 1,
+        "rejected_by_exchange_adaptive_control_exchange_order_placement_contract_count": 0,
+        "partially_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "fully_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "adaptive_control_exchange_order_placement_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_order_placement_contract_summary_counts_live_trade_paths_as_fully_filled():
+    order_placement_contract_set = build_policy_selection_adaptive_control_exchange_order_placement_contract_set([
+        {
+            "summary_count": 1,
+            "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+            "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+            "live_trade_adaptive_control_trade_execution_contract_count": 1,
+            "rejected_adaptive_control_trade_execution_contract_count": 0,
+            "pending_review_adaptive_control_trade_execution_contract_count": 0,
+            "adaptive_control_trade_execution_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_order_placement_contract_summary(order_placement_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_submission_adaptive_control_exchange_order_placement_contract_count": 0,
+        "acknowledged_adaptive_control_exchange_order_placement_contract_count": 0,
+        "rejected_by_exchange_adaptive_control_exchange_order_placement_contract_count": 0,
+        "partially_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "fully_filled_adaptive_control_exchange_order_placement_contract_count": 1,
+        "adaptive_control_exchange_order_placement_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_order_placement_contract_summary_counts_rejected_paths_as_rejected_by_exchange():
+    order_placement_contract_set = build_policy_selection_adaptive_control_exchange_order_placement_contract_set([
+        {
+            "summary_count": 1,
+            "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+            "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+            "live_trade_adaptive_control_trade_execution_contract_count": 0,
+            "rejected_adaptive_control_trade_execution_contract_count": 1,
+            "pending_review_adaptive_control_trade_execution_contract_count": 0,
+            "adaptive_control_trade_execution_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_order_placement_contract_summary(order_placement_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_submission_adaptive_control_exchange_order_placement_contract_count": 0,
+        "acknowledged_adaptive_control_exchange_order_placement_contract_count": 0,
+        "rejected_by_exchange_adaptive_control_exchange_order_placement_contract_count": 1,
+        "partially_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "fully_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "adaptive_control_exchange_order_placement_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_order_placement_contract_summary_handles_empty_inputs():
+    summary = build_policy_selection_adaptive_control_exchange_order_placement_contract_summary({})
+
+    assert summary == {
+        "summary_count": 0,
+        "pending_submission_adaptive_control_exchange_order_placement_contract_count": 0,
+        "acknowledged_adaptive_control_exchange_order_placement_contract_count": 0,
+        "rejected_by_exchange_adaptive_control_exchange_order_placement_contract_count": 0,
+        "partially_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "fully_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "adaptive_control_exchange_order_placement_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_order_placement_contract_summary_skips_non_comparable_entries():
+    summary = build_policy_selection_adaptive_control_exchange_order_placement_contract_summary({
+        "adaptive_control_trade_execution_contract_summaries": [
+            None,
+            "skip",
+            {
+                "summary_count": 1,
+                "paper_trade_adaptive_control_trade_execution_contract_count": 0,
+                "sandbox_trade_adaptive_control_trade_execution_contract_count": 1,
+                "live_trade_adaptive_control_trade_execution_contract_count": 0,
+                "rejected_adaptive_control_trade_execution_contract_count": 0,
+                "pending_review_adaptive_control_trade_execution_contract_count": 0,
+                "adaptive_control_trade_execution_contract_summary_version": 1,
+            },
+        ],
+        "adaptive_control_exchange_order_placement_contract_set_version": 1,
+    })
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_submission_adaptive_control_exchange_order_placement_contract_count": 0,
+        "acknowledged_adaptive_control_exchange_order_placement_contract_count": 1,
+        "rejected_by_exchange_adaptive_control_exchange_order_placement_contract_count": 0,
+        "partially_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "fully_filled_adaptive_control_exchange_order_placement_contract_count": 0,
+        "adaptive_control_exchange_order_placement_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_order_placement_contract_summary_round_trips_with_set_builder_and_preserves_versions():
+    order_placement_contract_set = build_policy_selection_adaptive_control_exchange_order_placement_contract_set([
+        {
+            "summary_count": 1,
+            "paper_trade_adaptive_control_trade_execution_contract_count": 1,
+            "sandbox_trade_adaptive_control_trade_execution_contract_count": 0,
+            "live_trade_adaptive_control_trade_execution_contract_count": 0,
+            "rejected_adaptive_control_trade_execution_contract_count": 0,
+            "pending_review_adaptive_control_trade_execution_contract_count": 0,
+            "adaptive_control_trade_execution_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_order_placement_contract_summary(order_placement_contract_set)
+
+    assert order_placement_contract_set["adaptive_control_exchange_order_placement_contract_set_version"] == 1
+    assert summary["summary_count"] == 1
+    assert summary["pending_submission_adaptive_control_exchange_order_placement_contract_count"] == 1
+    assert summary["adaptive_control_exchange_order_placement_contract_summary_version"] == 1
 
 
 
