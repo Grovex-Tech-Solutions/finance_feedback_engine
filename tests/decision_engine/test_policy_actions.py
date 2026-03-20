@@ -17079,6 +17079,112 @@ def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contrac
 
 
 
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary_chain_progresses_config_update_transport_contract_outputs_end_to_end():
+    transport_contract_summary = build_policy_selection_adaptive_control_config_update_transport_contract_summary(
+        build_policy_selection_adaptive_control_config_update_transport_contract_set([
+            {
+                "summary_count": 1,
+                "shadow_adaptive_control_runtime_config_materialization_count": 0,
+                "primary_cutover_adaptive_control_runtime_config_materialization_count": 1,
+                "manual_hold_adaptive_control_runtime_config_materialization_count": 0,
+                "deferred_adaptive_control_runtime_config_materialization_count": 0,
+                "adaptive_control_runtime_config_materialization_summary_version": 1,
+            }
+        ])
+    )
+
+    lifecycle_control_contract_set = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set(
+        [transport_contract_summary]
+    )
+    lifecycle_control_contract_summary = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary(
+        lifecycle_control_contract_set
+    )
+
+    assert lifecycle_control_contract_set == {
+        "adaptive_control_config_update_transport_contract_summaries": [transport_contract_summary],
+        "adaptive_control_agent_lifecycle_control_contract_set_version": 1,
+    }
+    assert lifecycle_control_contract_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_control_agent_lifecycle_control_contract_count": 0,
+        "primary_cutover_adaptive_control_agent_lifecycle_control_contract_count": 1,
+        "manual_hold_adaptive_control_agent_lifecycle_control_contract_count": 0,
+        "deferred_adaptive_control_agent_lifecycle_control_contract_count": 0,
+        "adaptive_control_agent_lifecycle_control_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary_chain_handles_mixed_lifecycle_control_path_counts():
+    first_transport_contract_summary = build_policy_selection_adaptive_control_config_update_transport_contract_summary(
+        build_policy_selection_adaptive_control_config_update_transport_contract_set([
+            {
+                "summary_count": 1,
+                "shadow_adaptive_control_runtime_config_materialization_count": 1,
+                "primary_cutover_adaptive_control_runtime_config_materialization_count": 0,
+                "manual_hold_adaptive_control_runtime_config_materialization_count": 0,
+                "deferred_adaptive_control_runtime_config_materialization_count": 0,
+                "adaptive_control_runtime_config_materialization_summary_version": 1,
+            }
+        ])
+    )
+    second_transport_contract_summary = build_policy_selection_adaptive_control_config_update_transport_contract_summary(
+        build_policy_selection_adaptive_control_config_update_transport_contract_set([
+            {
+                "summary_count": 1,
+                "shadow_adaptive_control_runtime_config_materialization_count": 0,
+                "primary_cutover_adaptive_control_runtime_config_materialization_count": 0,
+                "manual_hold_adaptive_control_runtime_config_materialization_count": 0,
+                "deferred_adaptive_control_runtime_config_materialization_count": 1,
+                "adaptive_control_runtime_config_materialization_summary_version": 1,
+            }
+        ])
+    )
+
+    lifecycle_control_contract_summary = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary(
+        build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set([
+            first_transport_contract_summary,
+            second_transport_contract_summary,
+        ])
+    )
+
+    assert lifecycle_control_contract_summary == {
+        "summary_count": 2,
+        "shadow_adaptive_control_agent_lifecycle_control_contract_count": 1,
+        "primary_cutover_adaptive_control_agent_lifecycle_control_contract_count": 0,
+        "manual_hold_adaptive_control_agent_lifecycle_control_contract_count": 0,
+        "deferred_adaptive_control_agent_lifecycle_control_contract_count": 1,
+        "adaptive_control_agent_lifecycle_control_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary_chain_preserves_deferred_counts_for_downstream_export():
+    transport_contract_summary = build_policy_selection_adaptive_control_config_update_transport_contract_summary(
+        build_policy_selection_adaptive_control_config_update_transport_contract_set([
+            {
+                "summary_count": 1,
+                "shadow_adaptive_control_runtime_config_materialization_count": 0,
+                "primary_cutover_adaptive_control_runtime_config_materialization_count": 0,
+                "manual_hold_adaptive_control_runtime_config_materialization_count": 0,
+                "deferred_adaptive_control_runtime_config_materialization_count": 1,
+                "adaptive_control_runtime_config_materialization_summary_version": 1,
+            }
+        ])
+    )
+
+    lifecycle_control_contract_summary = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary(
+        build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set([
+            transport_contract_summary
+        ])
+    )
+
+    assert lifecycle_control_contract_summary["summary_count"] == 1
+    assert lifecycle_control_contract_summary["deferred_adaptive_control_agent_lifecycle_control_contract_count"] == 1
+    assert lifecycle_control_contract_summary["adaptive_control_agent_lifecycle_control_contract_summary_version"] == 1
+
+
+
 def test_extract_policy_selection_adaptive_control_config_update_transport_contract_summaries_skips_invalid_sets_and_returns_direct_summary_shape():
     transport_contract_set = {
         "adaptive_control_runtime_config_materialization_summaries": [
