@@ -2069,6 +2069,25 @@ def build_policy_selection_adaptive_activation_set(
 
 
 
+def build_policy_selection_adaptive_weight_mutation_set(
+    adaptive_activation_summaries: Optional[list[dict]],
+) -> dict:
+    valid_adaptive_activation_summaries = [
+        summary
+        for summary in (adaptive_activation_summaries or [])
+        if isinstance(summary, dict)
+    ]
+    return {
+        "adaptive_activation_summaries": [
+            dict(summary) for summary in valid_adaptive_activation_summaries
+        ],
+        "summary_count": len(valid_adaptive_activation_summaries),
+        "adaptive_weight_mutation_set_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_activation_summary(
     adaptive_activation_set: Optional[dict],
 ) -> dict:
