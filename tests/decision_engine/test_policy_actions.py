@@ -14369,3 +14369,96 @@ def test_build_policy_selection_adaptive_control_persistence_summary_accumulates
         "deferred_adaptive_control_persistence_count": 1,
         "adaptive_control_persistence_summary_version": 1,
     }
+
+
+
+def test_adaptive_control_persistence_chain_preserves_shadow_path_from_adaptive_weight_mutation_summary():
+    adaptive_weight_mutation_summary = {
+        "summary_count": 1,
+        "shadow_adaptive_weight_mutation_count": 1,
+        "primary_cutover_adaptive_weight_mutation_count": 0,
+        "manual_hold_adaptive_weight_mutation_count": 0,
+        "deferred_adaptive_weight_mutation_count": 0,
+        "adaptive_weight_mutation_summary_version": 1,
+    }
+
+    adaptive_control_persistence_set = build_policy_selection_adaptive_control_persistence_set([adaptive_weight_mutation_summary])
+    adaptive_control_persistence_summary = build_policy_selection_adaptive_control_persistence_summary(adaptive_control_persistence_set)
+
+    assert adaptive_control_persistence_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_control_persistence_count": 1,
+        "primary_cutover_adaptive_control_persistence_count": 0,
+        "manual_hold_adaptive_control_persistence_count": 0,
+        "deferred_adaptive_control_persistence_count": 0,
+        "adaptive_control_persistence_summary_version": 1,
+    }
+
+
+
+def test_adaptive_control_persistence_chain_preserves_manual_hold_and_deferred_mix_from_adaptive_weight_mutation_summaries():
+    adaptive_weight_mutation_summaries = [
+        {
+            "summary_count": 1,
+            "shadow_adaptive_weight_mutation_count": 0,
+            "primary_cutover_adaptive_weight_mutation_count": 0,
+            "manual_hold_adaptive_weight_mutation_count": 1,
+            "deferred_adaptive_weight_mutation_count": 0,
+            "adaptive_weight_mutation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_weight_mutation_count": 0,
+            "primary_cutover_adaptive_weight_mutation_count": 0,
+            "manual_hold_adaptive_weight_mutation_count": 0,
+            "deferred_adaptive_weight_mutation_count": 1,
+            "adaptive_weight_mutation_summary_version": 1,
+        },
+    ]
+
+    adaptive_control_persistence_set = build_policy_selection_adaptive_control_persistence_set(adaptive_weight_mutation_summaries)
+    adaptive_control_persistence_summary = build_policy_selection_adaptive_control_persistence_summary(adaptive_control_persistence_set)
+
+    assert adaptive_control_persistence_set["summary_count"] == 2
+    assert adaptive_control_persistence_summary == {
+        "summary_count": 2,
+        "shadow_adaptive_control_persistence_count": 0,
+        "primary_cutover_adaptive_control_persistence_count": 0,
+        "manual_hold_adaptive_control_persistence_count": 1,
+        "deferred_adaptive_control_persistence_count": 1,
+        "adaptive_control_persistence_summary_version": 1,
+    }
+
+
+
+def test_adaptive_control_persistence_chain_skips_non_comparable_upstream_summaries_without_mutating_versions():
+    adaptive_control_persistence_set = build_policy_selection_adaptive_control_persistence_set([
+        {
+            "summary_count": 0,
+            "shadow_adaptive_weight_mutation_count": 1,
+            "primary_cutover_adaptive_weight_mutation_count": 0,
+            "manual_hold_adaptive_weight_mutation_count": 0,
+            "deferred_adaptive_weight_mutation_count": 0,
+            "adaptive_weight_mutation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_weight_mutation_count": 0,
+            "primary_cutover_adaptive_weight_mutation_count": 1,
+            "manual_hold_adaptive_weight_mutation_count": 0,
+            "deferred_adaptive_weight_mutation_count": 0,
+            "adaptive_weight_mutation_summary_version": 1,
+        },
+    ])
+
+    adaptive_control_persistence_summary = build_policy_selection_adaptive_control_persistence_summary(adaptive_control_persistence_set)
+
+    assert adaptive_control_persistence_set["adaptive_control_persistence_set_version"] == 1
+    assert adaptive_control_persistence_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_control_persistence_count": 0,
+        "primary_cutover_adaptive_control_persistence_count": 1,
+        "manual_hold_adaptive_control_persistence_count": 0,
+        "deferred_adaptive_control_persistence_count": 0,
+        "adaptive_control_persistence_summary_version": 1,
+    }
