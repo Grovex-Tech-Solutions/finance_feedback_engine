@@ -92,6 +92,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_adaptive_control_runtime_config_materialization_summary,
     build_policy_selection_adaptive_control_config_update_transport_contract_set,
     build_policy_selection_adaptive_control_config_update_transport_contract_summary,
+    build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set,
     extract_policy_selection_adaptive_control_config_update_transport_contract_summaries,
     extract_policy_selection_adaptive_control_config_patch_contract_summaries,
     extract_policy_selection_adaptive_control_runtime_config_materialization_summaries,
@@ -16803,6 +16804,114 @@ def test_build_policy_selection_adaptive_control_config_update_transport_contrac
     assert transport_contract_summary["summary_count"] == 1
     assert transport_contract_summary["deferred_adaptive_control_config_update_transport_contract_count"] == 1
     assert transport_contract_summary["adaptive_control_config_update_transport_contract_summary_version"] == 1
+
+
+
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set_wraps_config_update_transport_contract_summaries_cleanly():
+    config_update_transport_contract_summary = {
+        "summary_count": 1,
+        "shadow_adaptive_control_config_update_transport_contract_count": 0,
+        "primary_cutover_adaptive_control_config_update_transport_contract_count": 1,
+        "manual_hold_adaptive_control_config_update_transport_contract_count": 0,
+        "deferred_adaptive_control_config_update_transport_contract_count": 0,
+        "adaptive_control_config_update_transport_contract_summary_version": 1,
+    }
+
+    result = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set(
+        [config_update_transport_contract_summary]
+    )
+
+    assert result == {
+        "adaptive_control_config_update_transport_contract_summaries": [config_update_transport_contract_summary],
+        "adaptive_control_agent_lifecycle_control_contract_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set_filters_non_mapping_entries():
+    config_update_transport_contract_summary = {
+        "summary_count": 1,
+        "shadow_adaptive_control_config_update_transport_contract_count": 1,
+        "primary_cutover_adaptive_control_config_update_transport_contract_count": 0,
+        "manual_hold_adaptive_control_config_update_transport_contract_count": 0,
+        "deferred_adaptive_control_config_update_transport_contract_count": 0,
+        "adaptive_control_config_update_transport_contract_summary_version": 1,
+    }
+
+    result = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set(
+        [config_update_transport_contract_summary, None, "skip", 7]
+    )
+
+    assert result == {
+        "adaptive_control_config_update_transport_contract_summaries": [config_update_transport_contract_summary],
+        "adaptive_control_agent_lifecycle_control_contract_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set_defaults_to_empty_summary_list():
+    result = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set(None)
+
+    assert result == {
+        "adaptive_control_config_update_transport_contract_summaries": [],
+        "adaptive_control_agent_lifecycle_control_contract_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set_copies_summary_entries():
+    source_summary = {
+        "summary_count": 1,
+        "shadow_adaptive_control_config_update_transport_contract_count": 0,
+        "primary_cutover_adaptive_control_config_update_transport_contract_count": 0,
+        "manual_hold_adaptive_control_config_update_transport_contract_count": 1,
+        "deferred_adaptive_control_config_update_transport_contract_count": 0,
+        "adaptive_control_config_update_transport_contract_summary_version": 1,
+    }
+
+    result = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set([source_summary])
+    source_summary["manual_hold_adaptive_control_config_update_transport_contract_count"] = 99
+
+    assert result == {
+        "adaptive_control_config_update_transport_contract_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_adaptive_control_config_update_transport_contract_count": 0,
+                "primary_cutover_adaptive_control_config_update_transport_contract_count": 0,
+                "manual_hold_adaptive_control_config_update_transport_contract_count": 1,
+                "deferred_adaptive_control_config_update_transport_contract_count": 0,
+                "adaptive_control_config_update_transport_contract_summary_version": 1,
+            }
+        ],
+        "adaptive_control_agent_lifecycle_control_contract_set_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set_preserves_multiple_config_update_transport_contract_summaries_in_order():
+    first = {
+        "summary_count": 1,
+        "shadow_adaptive_control_config_update_transport_contract_count": 1,
+        "primary_cutover_adaptive_control_config_update_transport_contract_count": 0,
+        "manual_hold_adaptive_control_config_update_transport_contract_count": 0,
+        "deferred_adaptive_control_config_update_transport_contract_count": 0,
+        "adaptive_control_config_update_transport_contract_summary_version": 1,
+    }
+    second = {
+        "summary_count": 1,
+        "shadow_adaptive_control_config_update_transport_contract_count": 0,
+        "primary_cutover_adaptive_control_config_update_transport_contract_count": 0,
+        "manual_hold_adaptive_control_config_update_transport_contract_count": 0,
+        "deferred_adaptive_control_config_update_transport_contract_count": 1,
+        "adaptive_control_config_update_transport_contract_summary_version": 1,
+    }
+
+    result = build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set([first, second])
+
+    assert result == {
+        "adaptive_control_config_update_transport_contract_summaries": [first, second],
+        "adaptive_control_agent_lifecycle_control_contract_set_version": 1,
+    }
 
 
 
