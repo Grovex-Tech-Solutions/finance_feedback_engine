@@ -12935,3 +12935,96 @@ def test_build_policy_selection_adaptive_recommendation_summary_accumulates_mult
         "deferred_adaptive_recommendation_count": 1,
         "adaptive_recommendation_summary_version": 1,
     }
+
+
+
+def test_adaptive_recommendation_chain_preserves_shadow_path_from_learning_analytics_summary():
+    learning_analytics_summary = {
+        "summary_count": 1,
+        "shadow_learning_analytics_count": 1,
+        "primary_cutover_learning_analytics_count": 0,
+        "manual_hold_learning_analytics_count": 0,
+        "deferred_learning_analytics_count": 0,
+        "learning_analytics_summary_version": 1,
+    }
+
+    adaptive_recommendation_set = build_policy_selection_adaptive_recommendation_set([learning_analytics_summary])
+    adaptive_recommendation_summary = build_policy_selection_adaptive_recommendation_summary(adaptive_recommendation_set)
+
+    assert adaptive_recommendation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_recommendation_count": 1,
+        "primary_cutover_adaptive_recommendation_count": 0,
+        "manual_hold_adaptive_recommendation_count": 0,
+        "deferred_adaptive_recommendation_count": 0,
+        "adaptive_recommendation_summary_version": 1,
+    }
+
+
+
+def test_adaptive_recommendation_chain_preserves_manual_hold_and_deferred_mix_from_learning_analytics_summaries():
+    learning_analytics_summaries = [
+        {
+            "summary_count": 1,
+            "shadow_learning_analytics_count": 0,
+            "primary_cutover_learning_analytics_count": 0,
+            "manual_hold_learning_analytics_count": 1,
+            "deferred_learning_analytics_count": 0,
+            "learning_analytics_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_learning_analytics_count": 0,
+            "primary_cutover_learning_analytics_count": 0,
+            "manual_hold_learning_analytics_count": 0,
+            "deferred_learning_analytics_count": 1,
+            "learning_analytics_summary_version": 1,
+        },
+    ]
+
+    adaptive_recommendation_set = build_policy_selection_adaptive_recommendation_set(learning_analytics_summaries)
+    adaptive_recommendation_summary = build_policy_selection_adaptive_recommendation_summary(adaptive_recommendation_set)
+
+    assert adaptive_recommendation_set["summary_count"] == 2
+    assert adaptive_recommendation_summary == {
+        "summary_count": 2,
+        "shadow_adaptive_recommendation_count": 0,
+        "primary_cutover_adaptive_recommendation_count": 0,
+        "manual_hold_adaptive_recommendation_count": 1,
+        "deferred_adaptive_recommendation_count": 1,
+        "adaptive_recommendation_summary_version": 1,
+    }
+
+
+
+def test_adaptive_recommendation_chain_skips_non_comparable_upstream_summaries_without_mutating_versions():
+    adaptive_recommendation_set = build_policy_selection_adaptive_recommendation_set([
+        {
+            "summary_count": 0,
+            "shadow_learning_analytics_count": 1,
+            "primary_cutover_learning_analytics_count": 0,
+            "manual_hold_learning_analytics_count": 0,
+            "deferred_learning_analytics_count": 0,
+            "learning_analytics_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_learning_analytics_count": 0,
+            "primary_cutover_learning_analytics_count": 1,
+            "manual_hold_learning_analytics_count": 0,
+            "deferred_learning_analytics_count": 0,
+            "learning_analytics_summary_version": 1,
+        },
+    ])
+
+    adaptive_recommendation_summary = build_policy_selection_adaptive_recommendation_summary(adaptive_recommendation_set)
+
+    assert adaptive_recommendation_set["adaptive_recommendation_set_version"] == 1
+    assert adaptive_recommendation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_recommendation_count": 0,
+        "primary_cutover_adaptive_recommendation_count": 1,
+        "manual_hold_adaptive_recommendation_count": 0,
+        "deferred_adaptive_recommendation_count": 0,
+        "adaptive_recommendation_summary_version": 1,
+    }
