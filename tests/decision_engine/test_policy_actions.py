@@ -77,6 +77,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_adaptive_recommendation_set,
     build_policy_selection_adaptive_recommendation_summary,
     build_policy_selection_adaptive_activation_set,
+    build_policy_selection_adaptive_activation_summary,
     extract_policy_selection_adaptive_recommendation_summaries,
     extract_policy_selection_learning_analytics_summaries,
     extract_policy_selection_learning_feedback_summaries,
@@ -13155,3 +13156,260 @@ def test_build_policy_selection_adaptive_activation_set_defensively_copies_adapt
     summary["shadow_adaptive_recommendation_count"] = 99
 
     assert adaptive_activation_set["adaptive_recommendation_summaries"][0]["shadow_adaptive_recommendation_count"] == 1
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_counts_shadow_paths_from_adaptive_recommendation_summaries():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 1,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        }
+    ])
+
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_activation_count": 1,
+        "primary_cutover_adaptive_activation_count": 0,
+        "manual_hold_adaptive_activation_count": 0,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_counts_primary_cutover_paths_from_adaptive_recommendation_summaries():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 1,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        }
+    ])
+
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_activation_count": 0,
+        "primary_cutover_adaptive_activation_count": 1,
+        "manual_hold_adaptive_activation_count": 0,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_counts_manual_hold_paths_from_adaptive_recommendation_summaries():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 1,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        }
+    ])
+
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_activation_count": 0,
+        "primary_cutover_adaptive_activation_count": 0,
+        "manual_hold_adaptive_activation_count": 1,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_defaults_to_deferred_paths_from_adaptive_recommendation_summaries():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 1,
+            "adaptive_recommendation_summary_version": 1,
+        }
+    ])
+
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_activation_count": 0,
+        "primary_cutover_adaptive_activation_count": 0,
+        "manual_hold_adaptive_activation_count": 0,
+        "deferred_adaptive_activation_count": 1,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_handles_empty_inputs():
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary({})
+
+    assert adaptive_activation_summary == {
+        "summary_count": 0,
+        "shadow_adaptive_activation_count": 0,
+        "primary_cutover_adaptive_activation_count": 0,
+        "manual_hold_adaptive_activation_count": 0,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_skips_non_comparable_entries():
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary({
+        "adaptive_recommendation_summaries": [
+            None,
+            "skip",
+            {
+                "summary_count": 0,
+                "shadow_adaptive_recommendation_count": 1,
+                "primary_cutover_adaptive_recommendation_count": 0,
+                "manual_hold_adaptive_recommendation_count": 0,
+                "deferred_adaptive_recommendation_count": 0,
+            },
+            {
+                "summary_count": "bad",
+                "shadow_adaptive_recommendation_count": 0,
+                "primary_cutover_adaptive_recommendation_count": 1,
+                "manual_hold_adaptive_recommendation_count": 0,
+                "deferred_adaptive_recommendation_count": 0,
+            },
+            {
+                "summary_count": 1,
+                "shadow_adaptive_recommendation_count": 0,
+                "primary_cutover_adaptive_recommendation_count": 1,
+                "manual_hold_adaptive_recommendation_count": 0,
+                "deferred_adaptive_recommendation_count": 0,
+            },
+        ]
+    })
+
+    assert adaptive_activation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_activation_count": 0,
+        "primary_cutover_adaptive_activation_count": 1,
+        "manual_hold_adaptive_activation_count": 0,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_round_trips_with_set_builder_and_preserves_versions():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 1,
+            "adaptive_recommendation_summary_version": 1,
+        }
+    ])
+
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_set["adaptive_activation_set_version"] == 1
+    assert adaptive_activation_summary["summary_count"] == 1
+    assert adaptive_activation_summary["deferred_adaptive_activation_count"] == 1
+    assert adaptive_activation_summary["adaptive_activation_summary_version"] == 1
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_matches_direct_and_export_ready_counts():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 1,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 1,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+    ])
+
+    direct = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert direct == {
+        "summary_count": 2,
+        "shadow_adaptive_activation_count": 1,
+        "primary_cutover_adaptive_activation_count": 0,
+        "manual_hold_adaptive_activation_count": 1,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_activation_summary_accumulates_multiple_comparable_entries():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 1,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 1,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 1,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 1,
+            "adaptive_recommendation_summary_version": 1,
+        },
+    ])
+
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_summary == {
+        "summary_count": 4,
+        "shadow_adaptive_activation_count": 1,
+        "primary_cutover_adaptive_activation_count": 1,
+        "manual_hold_adaptive_activation_count": 1,
+        "deferred_adaptive_activation_count": 1,
+        "adaptive_activation_summary_version": 1,
+    }

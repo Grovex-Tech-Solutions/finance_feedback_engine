@@ -2069,6 +2069,67 @@ def build_policy_selection_adaptive_activation_set(
 
 
 
+def build_policy_selection_adaptive_activation_summary(
+    adaptive_activation_set: Optional[dict],
+) -> dict:
+    payload = (
+        dict(adaptive_activation_set or {})
+        if isinstance(adaptive_activation_set, dict)
+        else {}
+    )
+    summaries = payload.get("adaptive_recommendation_summaries") or []
+    valid_summaries = [summary for summary in summaries if isinstance(summary, dict)]
+    if not valid_summaries:
+        return {
+            "summary_count": 0,
+            "shadow_adaptive_activation_count": 0,
+            "primary_cutover_adaptive_activation_count": 0,
+            "manual_hold_adaptive_activation_count": 0,
+            "deferred_adaptive_activation_count": 0,
+            "adaptive_activation_summary_version": 1,
+        }
+
+    shadow_adaptive_activation_count = 0
+    primary_cutover_adaptive_activation_count = 0
+    manual_hold_adaptive_activation_count = 0
+    deferred_adaptive_activation_count = 0
+    comparable_summary_count = 0
+
+    for summary in valid_summaries:
+        try:
+            shadow_adaptive_recommendation_count = int(summary.get("shadow_adaptive_recommendation_count"))
+            primary_cutover_adaptive_recommendation_count = int(summary.get("primary_cutover_adaptive_recommendation_count"))
+            manual_hold_adaptive_recommendation_count = int(summary.get("manual_hold_adaptive_recommendation_count"))
+            deferred_adaptive_recommendation_count = int(summary.get("deferred_adaptive_recommendation_count"))
+            summary_count = int(summary.get("summary_count"))
+        except (TypeError, ValueError):
+            continue
+
+        if summary_count <= 0:
+            continue
+
+        comparable_summary_count += 1
+        if primary_cutover_adaptive_recommendation_count > 0:
+            primary_cutover_adaptive_activation_count += 1
+        elif shadow_adaptive_recommendation_count > 0:
+            shadow_adaptive_activation_count += 1
+        elif manual_hold_adaptive_recommendation_count > 0:
+            manual_hold_adaptive_activation_count += 1
+        else:
+            deferred_adaptive_activation_count += 1
+
+    return {
+        "summary_count": comparable_summary_count,
+        "shadow_adaptive_activation_count": shadow_adaptive_activation_count,
+        "primary_cutover_adaptive_activation_count": primary_cutover_adaptive_activation_count,
+        "manual_hold_adaptive_activation_count": manual_hold_adaptive_activation_count,
+        "deferred_adaptive_activation_count": deferred_adaptive_activation_count,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_recommendation_summary(
     adaptive_recommendation_set: Optional[dict],
 ) -> dict:
