@@ -13413,3 +13413,96 @@ def test_build_policy_selection_adaptive_activation_summary_accumulates_multiple
         "deferred_adaptive_activation_count": 1,
         "adaptive_activation_summary_version": 1,
     }
+
+
+
+def test_adaptive_activation_chain_preserves_shadow_path_from_adaptive_recommendation_summary():
+    adaptive_recommendation_summary = {
+        "summary_count": 1,
+        "shadow_adaptive_recommendation_count": 1,
+        "primary_cutover_adaptive_recommendation_count": 0,
+        "manual_hold_adaptive_recommendation_count": 0,
+        "deferred_adaptive_recommendation_count": 0,
+        "adaptive_recommendation_summary_version": 1,
+    }
+
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([adaptive_recommendation_summary])
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_activation_count": 1,
+        "primary_cutover_adaptive_activation_count": 0,
+        "manual_hold_adaptive_activation_count": 0,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_adaptive_activation_chain_preserves_manual_hold_and_deferred_mix_from_adaptive_recommendation_summaries():
+    adaptive_recommendation_summaries = [
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 1,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 1,
+            "adaptive_recommendation_summary_version": 1,
+        },
+    ]
+
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set(adaptive_recommendation_summaries)
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_set["summary_count"] == 2
+    assert adaptive_activation_summary == {
+        "summary_count": 2,
+        "shadow_adaptive_activation_count": 0,
+        "primary_cutover_adaptive_activation_count": 0,
+        "manual_hold_adaptive_activation_count": 1,
+        "deferred_adaptive_activation_count": 1,
+        "adaptive_activation_summary_version": 1,
+    }
+
+
+
+def test_adaptive_activation_chain_skips_non_comparable_upstream_summaries_without_mutating_versions():
+    adaptive_activation_set = build_policy_selection_adaptive_activation_set([
+        {
+            "summary_count": 0,
+            "shadow_adaptive_recommendation_count": 1,
+            "primary_cutover_adaptive_recommendation_count": 0,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+        {
+            "summary_count": 1,
+            "shadow_adaptive_recommendation_count": 0,
+            "primary_cutover_adaptive_recommendation_count": 1,
+            "manual_hold_adaptive_recommendation_count": 0,
+            "deferred_adaptive_recommendation_count": 0,
+            "adaptive_recommendation_summary_version": 1,
+        },
+    ])
+
+    adaptive_activation_summary = build_policy_selection_adaptive_activation_summary(adaptive_activation_set)
+
+    assert adaptive_activation_set["adaptive_activation_set_version"] == 1
+    assert adaptive_activation_summary == {
+        "summary_count": 1,
+        "shadow_adaptive_activation_count": 0,
+        "primary_cutover_adaptive_activation_count": 1,
+        "manual_hold_adaptive_activation_count": 0,
+        "deferred_adaptive_activation_count": 0,
+        "adaptive_activation_summary_version": 1,
+    }
