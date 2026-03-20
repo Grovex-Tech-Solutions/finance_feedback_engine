@@ -2616,6 +2616,22 @@ def extract_policy_selection_adaptive_control_agent_lifecycle_control_contract_s
 
 
 
+def extract_policy_selection_adaptive_control_dashboard_status_aggregation_contract_summaries(
+    adaptive_control_dashboard_status_aggregation_contract_sets: Optional[list[dict]],
+) -> list[dict]:
+    return [
+        build_policy_selection_adaptive_control_dashboard_status_aggregation_contract_summary(
+            dashboard_status_aggregation_contract_set
+        )
+        for dashboard_status_aggregation_contract_set in (
+            adaptive_control_dashboard_status_aggregation_contract_sets or []
+        )
+        if isinstance(dashboard_status_aggregation_contract_set, dict)
+    ]
+
+
+
+
 def extract_policy_selection_adaptive_control_health_readiness_observability_contract_summaries(
     adaptive_control_health_readiness_observability_contract_sets: Optional[list[dict]],
 ) -> list[dict]:
