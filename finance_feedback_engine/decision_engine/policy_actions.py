@@ -2850,6 +2850,31 @@ def build_policy_selection_provider_client_shape_summary(
 
 
 
+def extract_policy_selection_adaptive_weight_mutation_summaries(
+    adaptive_weight_mutation_sets: Optional[list[dict]],
+) -> list[dict]:
+    summaries = []
+    for adaptive_weight_mutation_set in adaptive_weight_mutation_sets or []:
+        if not isinstance(adaptive_weight_mutation_set, dict):
+            continue
+        adaptive_activation_summaries = adaptive_weight_mutation_set.get(
+            "adaptive_activation_summaries"
+        )
+        if not isinstance(adaptive_activation_summaries, list):
+            continue
+        if not any(isinstance(summary, dict) for summary in adaptive_activation_summaries):
+            continue
+        adaptive_weight_mutation_summary = build_policy_selection_adaptive_weight_mutation_summary(
+            adaptive_weight_mutation_set
+        )
+        if adaptive_weight_mutation_summary.get("summary_count", 0) <= 0:
+            continue
+        summaries.append(adaptive_weight_mutation_summary)
+    return summaries
+
+
+
+
 def extract_policy_selection_adaptive_activation_summaries(
     adaptive_activation_sets: Optional[list[dict]],
 ) -> list[dict]:

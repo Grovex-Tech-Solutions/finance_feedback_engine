@@ -80,6 +80,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_adaptive_activation_summary,
     build_policy_selection_adaptive_weight_mutation_set,
     build_policy_selection_adaptive_weight_mutation_summary,
+    extract_policy_selection_adaptive_weight_mutation_summaries,
     extract_policy_selection_adaptive_activation_summaries,
     extract_policy_selection_adaptive_recommendation_summaries,
     extract_policy_selection_learning_analytics_summaries,
@@ -13984,3 +13985,51 @@ def test_adaptive_weight_mutation_chain_skips_non_comparable_upstream_summaries_
         "deferred_adaptive_weight_mutation_count": 0,
         "adaptive_weight_mutation_summary_version": 1,
     }
+
+
+
+def test_extract_policy_selection_adaptive_weight_mutation_summaries_skips_invalid_sets_and_returns_direct_summary_shape():
+    adaptive_weight_mutation_set = {
+        "adaptive_activation_summaries": [
+            {
+                "summary_count": 1,
+                "shadow_adaptive_activation_count": 1,
+                "primary_cutover_adaptive_activation_count": 0,
+                "manual_hold_adaptive_activation_count": 0,
+                "deferred_adaptive_activation_count": 0,
+                "adaptive_activation_summary_version": 1,
+            }
+        ],
+        "summary_count": 1,
+        "adaptive_weight_mutation_set_version": 1,
+    }
+
+    direct = build_policy_selection_adaptive_weight_mutation_summary(adaptive_weight_mutation_set)
+    exported = extract_policy_selection_adaptive_weight_mutation_summaries([None, "skip", adaptive_weight_mutation_set, {"adaptive_activation_summaries": []}])
+
+    assert exported == [direct]
+
+
+
+def test_extract_policy_selection_adaptive_weight_mutation_summaries_preserves_deferred_counts_for_export():
+    adaptive_weight_mutation_set = build_policy_selection_adaptive_weight_mutation_set([
+        {
+            "summary_count": 1,
+            "shadow_adaptive_activation_count": 0,
+            "primary_cutover_adaptive_activation_count": 0,
+            "manual_hold_adaptive_activation_count": 0,
+            "deferred_adaptive_activation_count": 1,
+            "adaptive_activation_summary_version": 1,
+        }
+    ])
+
+    exported = extract_policy_selection_adaptive_weight_mutation_summaries([adaptive_weight_mutation_set])
+
+    assert exported == [{
+        "summary_count": 1,
+        "shadow_adaptive_weight_mutation_count": 0,
+        "primary_cutover_adaptive_weight_mutation_count": 0,
+        "manual_hold_adaptive_weight_mutation_count": 0,
+        "deferred_adaptive_weight_mutation_count": 1,
+        "adaptive_weight_mutation_summary_version": 1,
+    }]
