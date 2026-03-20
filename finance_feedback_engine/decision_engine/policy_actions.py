@@ -2303,6 +2303,67 @@ def build_policy_selection_adaptive_control_runtime_config_materialization_set(
 
 
 
+def build_policy_selection_adaptive_control_runtime_config_materialization_summary(
+    adaptive_control_runtime_config_materialization_set: Optional[dict],
+) -> dict:
+    payload = (
+        dict(adaptive_control_runtime_config_materialization_set or {})
+        if isinstance(adaptive_control_runtime_config_materialization_set, dict)
+        else {}
+    )
+    summaries = payload.get("adaptive_control_config_patch_contract_summaries") or []
+    valid_summaries = [summary for summary in summaries if isinstance(summary, dict)]
+    if not valid_summaries:
+        return {
+            "summary_count": 0,
+            "shadow_adaptive_control_runtime_config_materialization_count": 0,
+            "primary_cutover_adaptive_control_runtime_config_materialization_count": 0,
+            "manual_hold_adaptive_control_runtime_config_materialization_count": 0,
+            "deferred_adaptive_control_runtime_config_materialization_count": 0,
+            "adaptive_control_runtime_config_materialization_summary_version": 1,
+        }
+
+    shadow_adaptive_control_runtime_config_materialization_count = 0
+    primary_cutover_adaptive_control_runtime_config_materialization_count = 0
+    manual_hold_adaptive_control_runtime_config_materialization_count = 0
+    deferred_adaptive_control_runtime_config_materialization_count = 0
+    comparable_summary_count = 0
+
+    for summary in valid_summaries:
+        try:
+            shadow_adaptive_control_config_patch_contract_count = int(summary.get("shadow_adaptive_control_config_patch_contract_count"))
+            primary_cutover_adaptive_control_config_patch_contract_count = int(summary.get("primary_cutover_adaptive_control_config_patch_contract_count"))
+            manual_hold_adaptive_control_config_patch_contract_count = int(summary.get("manual_hold_adaptive_control_config_patch_contract_count"))
+            deferred_adaptive_control_config_patch_contract_count = int(summary.get("deferred_adaptive_control_config_patch_contract_count"))
+            summary_count = int(summary.get("summary_count"))
+        except (TypeError, ValueError):
+            continue
+
+        if summary_count <= 0:
+            continue
+
+        comparable_summary_count += 1
+        if primary_cutover_adaptive_control_config_patch_contract_count > 0:
+            primary_cutover_adaptive_control_runtime_config_materialization_count += 1
+        elif shadow_adaptive_control_config_patch_contract_count > 0:
+            shadow_adaptive_control_runtime_config_materialization_count += 1
+        elif manual_hold_adaptive_control_config_patch_contract_count > 0:
+            manual_hold_adaptive_control_runtime_config_materialization_count += 1
+        else:
+            deferred_adaptive_control_runtime_config_materialization_count += 1
+
+    return {
+        "summary_count": comparable_summary_count,
+        "shadow_adaptive_control_runtime_config_materialization_count": shadow_adaptive_control_runtime_config_materialization_count,
+        "primary_cutover_adaptive_control_runtime_config_materialization_count": primary_cutover_adaptive_control_runtime_config_materialization_count,
+        "manual_hold_adaptive_control_runtime_config_materialization_count": manual_hold_adaptive_control_runtime_config_materialization_count,
+        "deferred_adaptive_control_runtime_config_materialization_count": deferred_adaptive_control_runtime_config_materialization_count,
+        "adaptive_control_runtime_config_materialization_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_persistence_set(
     adaptive_weight_mutation_summaries: Optional[list[dict]],
 ) -> dict:
