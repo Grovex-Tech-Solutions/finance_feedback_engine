@@ -658,6 +658,12 @@ class LocalLLMProvider:
 
     def _parse_text_response(self, text: str) -> Dict[str, Any]:
         """Parse text response for trading decision."""
+        if any(fragment in text for fragment in ("({", "{)", "{", "}")):
+            return build_fallback_decision(
+                "Local LLM returned malformed structured response fragment, using fallback decision.",
+                reason_code="MALFORMED_PROVIDER_RESPONSE",
+            )
+
         text_upper = text.upper()
 
         # Extract action

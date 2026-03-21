@@ -16,6 +16,18 @@ def test_parse_text_response_does_not_reference_undefined_active_model():
     assert decision['reasoning'].strip()
 
 
+def test_parse_text_response_returns_malformed_fallback_for_truncated_json_fragment():
+    provider = LocalLLMProvider.__new__(LocalLLMProvider)
+    provider.model_name = 'mistral:latest'
+
+    decision = LocalLLMProvider._parse_text_response(provider, 'bull=mistral:latest:HOLD/2 ({')
+
+    assert decision['action'] == 'HOLD'
+    assert decision['decision_origin'] == 'fallback'
+    assert decision['hold_origin'] == 'provider_fallback'
+    assert decision['filtered_reason_code'] == 'MALFORMED_PROVIDER_RESPONSE'
+
+
 def test_load_env_config_sets_default_enabled_providers():
     saved = os.environ.pop('ENSEMBLE_ENABLED_PROVIDERS', None)
     try:
