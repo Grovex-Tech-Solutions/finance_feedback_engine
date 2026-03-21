@@ -1504,12 +1504,17 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
         )
 
         client = self._get_client()
-        action = decision.get("action")
+        raw_action = decision.get("policy_action") or decision.get("action")
+        action = (
+            get_legacy_action_compatibility(raw_action)
+            or (
+                "SELL" if get_policy_action_family(raw_action) in {"reduce_long", "close_long", "open_short", "add_short"}
+                else "BUY" if get_policy_action_family(raw_action) in {"reduce_short", "close_short", "open_long", "add_long"}
+                else None
+            )
+        ) if is_policy_action(raw_action) else (str(raw_action).upper() if raw_action is not None else None)
         asset_pair = decision.get("asset_pair")
         product_id = self._format_product_id(asset_pair)
-        provider_translation_result = self._translate_policy_sizing_intent(decision)
-        if provider_translation_result and not decision.get("provider_translation_result"):
-            decision["provider_translation_result"] = provider_translation_result
         provider_translation_result = self._translate_policy_sizing_intent(decision)
         if provider_translation_result and not decision.get("provider_translation_result"):
             decision["provider_translation_result"] = provider_translation_result

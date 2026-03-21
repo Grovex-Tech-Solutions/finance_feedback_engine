@@ -6,6 +6,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 
+from finance_feedback_engine.decision_engine.policy_actions import get_legacy_action_compatibility, get_policy_action_family, is_policy_action
+
 from .base_platform import BaseTradingPlatform
 
 logger = logging.getLogger(__name__)
@@ -178,7 +180,15 @@ class MockTradingPlatform(BaseTradingPlatform):
             raise RuntimeError("Simulated platform error")
 
         # Extract decision parameters
-        action = decision.get("action", "").upper()
+        raw_action = decision.get("policy_action") or decision.get("action", "")
+        action = (
+            get_legacy_action_compatibility(raw_action)
+            or (
+                "SELL" if get_policy_action_family(raw_action) in {"reduce_long", "close_long", "open_short", "add_short"}
+                else "BUY" if get_policy_action_family(raw_action) in {"reduce_short", "close_short", "open_long", "add_long"}
+                else None
+            )
+        ) if is_policy_action(raw_action) else str(raw_action).upper()
         asset_pair = decision.get("asset_pair", "")
         suggested_amount = float(decision.get("suggested_amount", 0))
         entry_price = float(decision.get("entry_price", 50000.0))  # Default BTC price

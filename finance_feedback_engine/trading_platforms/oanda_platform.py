@@ -963,7 +963,16 @@ class OandaPlatform(BaseTradingPlatform):
             Execution result with order details and clientRequestID
         """
         decision_id = decision.get("id", str(uuid.uuid4()))
-        action = decision.get("action", "HOLD")
+        raw_action = decision.get("policy_action") or decision.get("action", "HOLD")
+        action = (
+            get_legacy_action_compatibility(raw_action)
+            or (
+                "SELL" if get_policy_action_family(raw_action) in {"reduce_long", "close_long", "open_short", "add_short"}
+                else "BUY" if get_policy_action_family(raw_action) in {"reduce_short", "close_short", "open_long", "add_long"}
+                else None
+            )
+        ) if is_policy_action(raw_action) else str(raw_action).upper()
+        action = action or "HOLD"
 
         logger.info(
             "Executing trade on Oanda: decision_id=%s, action=%s, asset=%s",

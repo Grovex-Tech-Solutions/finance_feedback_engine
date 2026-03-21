@@ -767,3 +767,12 @@ async def test_reasoning_state_blocks_duplicate_same_direction_policy_entry(trad
     assert saved_decision["asset_pair"] == "BTCUSD"
     assert saved_decision["execution_result"]["reason_code"] == "DUPLICATE_ENTRY_GUARD"
     assert trading_agent.state == AgentState.IDLE
+
+
+
+def test_counts_toward_daily_trade_limit_accepts_policy_open_action():
+    from finance_feedback_engine.agent.trading_loop_agent import TradingLoopAgent
+    agent = TradingLoopAgent.__new__(TradingLoopAgent)
+    decision = {"policy_action": "OPEN_SMALL_LONG"}
+    execution_result = {"success": True, "order_id": "abc123", "order_status": "FILLED", "response": {}}
+    assert agent._counts_toward_daily_trade_limit(decision, execution_result) is True

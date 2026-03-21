@@ -444,3 +444,34 @@ class TestMockTradingPlatform:
         final_balance = platform.get_balance()["FUTURES_USD"]
         balance_reduction = initial_balance - final_balance
         assert balance_reduction > 1000.0  # More than suggested_amount due to fees
+
+
+
+def test_execute_trade_accepts_policy_action_open_long():
+    decision = {
+        "policy_action": "OPEN_SMALL_LONG",
+        "asset_pair": "BTCUSD",
+        "suggested_amount": 100.0,
+        "entry_price": 50000.0,
+    }
+    platform = MockTradingPlatform(initial_balance={"FUTURES_USD": 10000.0, "SPOT_USD": 5000.0, "SPOT_USDC": 3000.0}, slippage_config={"type": "percentage", "rate": 0.001, "spread": 0.0005})
+    result = platform.execute_trade(decision)
+    assert result["success"] is True
+
+
+def test_execute_trade_accepts_policy_action_close_long_as_sell():
+    platform = MockTradingPlatform(initial_balance={"FUTURES_USD": 10000.0, "SPOT_USD": 5000.0, "SPOT_USDC": 3000.0}, slippage_config={"type": "percentage", "rate": 0.001, "spread": 0.0005})
+    open_result = platform.execute_trade({
+        "action": "BUY",
+        "asset_pair": "BTCUSD",
+        "suggested_amount": 100.0,
+        "entry_price": 50000.0,
+    })
+    assert open_result["success"] is True
+    result = platform.execute_trade({
+        "policy_action": "CLOSE_LONG",
+        "asset_pair": "BTCUSD",
+        "suggested_amount": 50.0,
+        "entry_price": 50500.0,
+    })
+    assert result["success"] is True
