@@ -591,6 +591,55 @@ class FinanceFeedbackEngine:
 
         return result
 
+    async def execute_decision_async(
+        self, decision_id: str, modified_decision: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Async execution entrypoint used by autonomous agent execution paths."""
+        source = "modified"
+        if modified_decision is not None:
+            decision = dict(modified_decision)
+        else:
+            decision, source = self._load_decision_for_execution(decision_id)
+            if decision is None:
+                raise ValueError(f"Decision {decision_id} not found")
+
+        decision = self._prepare_execution_decision(decision_id, decision)
+        errors = self._validate_execution_decision(decision)
+        if errors:
+            message = "; ".join(errors)
+            if source == "store":
+                logger.warning("Decision %s failed async execution validation: %s", decision_id, message)
+                return {"success": False, "decision_id": decision_id, "message": message, "error": message}
+            raise ValueError(message)
+
+        if self.trading_platform is None:
+            raise RuntimeError("Trading platform is not initialized")
+
+        async_execute = getattr(self.trading_platform, "aexecute_trade", None)
+        if async_execute is None:
+            async_execute = getattr(self.trading_platform, "aexecute", None)
+        if async_execute is None:
+            logger.info("Trading platform has no async execution hook; falling back to sync execute_trade for %s", decision_id)
+            return await asyncio.to_thread(
+                self.execute_decision, decision_id, modified_decision
+            )
+
+        result = await self._execution_breaker.call(async_execute, decision)
+        decision["execution_result"] = result
+        decision["executed_at"] = datetime.now(UTC).isoformat()
+        if decision.get("policy_action") and not decision.get("action"):
+            decision["action"] = self._normalize_execution_action(decision)
+        if result.get("execution_price") and not decision.get("entry_price"):
+            decision["entry_price"] = result.get("execution_price")
+
+        if source in {"store", "modified"}:
+            try:
+                self.decision_store.update_decision(decision)
+            except Exception:
+                logger.exception("Failed to persist async execution result for decision %s", decision_id)
+
+        return result
+
     def record_trade_outcome(
         self,
         decision_or_id: Any,

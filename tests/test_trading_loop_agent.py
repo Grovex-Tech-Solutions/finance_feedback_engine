@@ -505,6 +505,32 @@ async def test_risk_check_updates_canonical_control_outcome_for_executable_decis
 
 
 @pytest.mark.asyncio
+async def test_execution_state_requires_engine_async_entrypoint(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-missing-async-entrypoint",
+        "action": "OPEN_SMALL_LONG",
+        "asset_pair": "BTCUSD",
+        "control_outcome": {"status": "proposed", "version": 1},
+        "policy_package": {"control_outcome": {"status": "proposed", "version": 1}, "version": 1},
+    }
+    async with trading_agent._current_decisions_lock:
+        trading_agent._current_decisions = [decision]
+    trading_agent.state = AgentState.EXECUTION
+
+    assert hasattr(trading_agent.engine, "execute_decision_async")
+    trading_agent.engine.execute_decision_async = AsyncMock(return_value={
+        "success": True,
+        "message": "order placed",
+        "order_id": "abc123",
+    })
+
+    await trading_agent.handle_execution_state()
+
+    trading_agent.engine.execute_decision_async.assert_awaited_once_with("decision-missing-async-entrypoint")
+    assert decision["execution_status"] == "executed"
+
+
+@pytest.mark.asyncio
 async def test_execution_state_updates_canonical_control_outcome_on_success(trading_agent, mock_dependencies):
     decision = {
         "id": "decision-exec-success",
