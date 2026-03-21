@@ -633,9 +633,14 @@ class LocalLLMProvider:
 
                 logger.warning(
                     f"LLM response missing required fields or not JSON on attempt {attempt + 1}, "
-                    f"attempting text parsing: {response_text[:100]}"
+                    f"raw prefix: {response_text[:100]}"
                 )
                 self._unload_model()
+                is_structured_fragment = any(fragment in response_text for fragment in ("{", "}"))
+                if is_structured_fragment and attempt < max_retries - 1:
+                    import time
+                    time.sleep(2 * (attempt + 1))
+                    continue
                 return self._parse_text_response(response_text)
 
             except Exception as e:
