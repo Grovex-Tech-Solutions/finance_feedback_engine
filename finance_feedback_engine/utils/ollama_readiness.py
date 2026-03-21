@@ -249,7 +249,7 @@ def resolve_debate_providers(
     if not candidates:
         candidates = [
             "mistral:7b-instruct",
-            "llama3.1:8b-instruct-fp16",
+            "llama3.1:8b",
             "deepseek-r1:8b",
         ]
 
