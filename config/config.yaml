@@ -382,3 +382,10 @@ paper_trading:
   enabled: true
   simulate_execution: true
   verify_outcomes: true
+trading:
+  enabled: true
+  interval_minutes: 30
+  assets:
+    - BTCUSD
+    - ETHUSD
+  paper_mode: true
