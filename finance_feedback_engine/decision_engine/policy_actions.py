@@ -2622,6 +2622,51 @@ def build_policy_selection_adaptive_control_exchange_authentication_contract_sum
 
 
 
+def build_policy_selection_adaptive_control_exchange_credential_wiring_contract_summary(
+    adaptive_control_exchange_credential_wiring_contract_set: Optional[dict],
+) -> dict:
+    comparable_summaries = [
+        summary
+        for summary in (adaptive_control_exchange_credential_wiring_contract_set or {}).get(
+            "adaptive_control_exchange_authentication_contract_summaries", []
+        )
+        if isinstance(summary, dict)
+    ]
+
+    vault_lookup_pending_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("pending_auth_adaptive_control_exchange_authentication_contract_count", 0) > 0
+    )
+    credential_resolved_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("authenticated_adaptive_control_exchange_authentication_contract_count", 0) > 0
+    )
+    auth_flow_initiated_count = 0
+    token_acquired_count = 0
+    credential_injected_count = 0
+    vault_lookup_failed_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("auth_failed_adaptive_control_exchange_authentication_contract_count", 0) > 0
+        or summary.get("credential_expired_adaptive_control_exchange_authentication_contract_count", 0) > 0
+    )
+
+    return {
+        "summary_count": len(comparable_summaries),
+        "vault_lookup_pending_adaptive_control_exchange_credential_wiring_contract_count": vault_lookup_pending_count,
+        "credential_resolved_adaptive_control_exchange_credential_wiring_contract_count": credential_resolved_count,
+        "auth_flow_initiated_adaptive_control_exchange_credential_wiring_contract_count": auth_flow_initiated_count,
+        "token_acquired_adaptive_control_exchange_credential_wiring_contract_count": token_acquired_count,
+        "credential_injected_adaptive_control_exchange_credential_wiring_contract_count": credential_injected_count,
+        "vault_lookup_failed_adaptive_control_exchange_credential_wiring_contract_count": vault_lookup_failed_count,
+        "adaptive_control_exchange_credential_wiring_contract_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_exchange_credential_wiring_contract_set(
     adaptive_control_exchange_authentication_contract_summaries: Optional[list[dict]],
 ) -> dict:
