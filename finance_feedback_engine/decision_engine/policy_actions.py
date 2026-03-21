@@ -2743,6 +2743,50 @@ def build_policy_selection_adaptive_control_exchange_http_transport_contract_sum
 
 
 
+def build_policy_selection_adaptive_control_exchange_response_handling_contract_summary(
+    adaptive_control_exchange_response_handling_contract_set: Optional[dict],
+) -> dict:
+    comparable_summaries = [
+        summary
+        for summary in (adaptive_control_exchange_response_handling_contract_set or {}).get(
+            "adaptive_control_exchange_http_transport_contract_summaries", []
+        )
+        if isinstance(summary, dict)
+    ]
+
+    pending_parse_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("pending_transport_adaptive_control_exchange_http_transport_contract_count", 0) > 0
+    )
+    parsed_successfully_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("request_built_adaptive_control_exchange_http_transport_contract_count", 0) > 0
+    )
+    rate_limited_detected_count = 0
+    error_code_extracted_count = 0
+    payload_validated_count = 0
+    parse_failed_count = sum(
+        1
+        for summary in comparable_summaries
+        if summary.get("transport_failed_adaptive_control_exchange_http_transport_contract_count", 0) > 0
+    )
+
+    return {
+        "summary_count": len(comparable_summaries),
+        "pending_parse_adaptive_control_exchange_response_handling_contract_count": pending_parse_count,
+        "parsed_successfully_adaptive_control_exchange_response_handling_contract_count": parsed_successfully_count,
+        "rate_limited_detected_adaptive_control_exchange_response_handling_contract_count": rate_limited_detected_count,
+        "error_code_extracted_adaptive_control_exchange_response_handling_contract_count": error_code_extracted_count,
+        "payload_validated_adaptive_control_exchange_response_handling_contract_count": payload_validated_count,
+        "parse_failed_adaptive_control_exchange_response_handling_contract_count": parse_failed_count,
+        "adaptive_control_exchange_response_handling_contract_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_exchange_response_handling_contract_set(
     adaptive_control_exchange_http_transport_contract_summaries: Optional[list[dict]],
 ) -> dict:

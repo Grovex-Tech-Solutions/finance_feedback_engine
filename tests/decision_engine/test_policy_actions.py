@@ -113,6 +113,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_adaptive_control_exchange_http_transport_contract_set,
     build_policy_selection_adaptive_control_exchange_http_transport_contract_summary,
     build_policy_selection_adaptive_control_exchange_response_handling_contract_set,
+    build_policy_selection_adaptive_control_exchange_response_handling_contract_summary,
     extract_policy_selection_adaptive_control_dashboard_status_aggregation_contract_summaries,
     extract_policy_selection_adaptive_control_notification_delivery_contract_summaries,
     extract_policy_selection_adaptive_control_health_readiness_observability_contract_summaries,
@@ -20299,6 +20300,164 @@ def test_build_policy_selection_adaptive_control_exchange_response_handling_cont
         "adaptive_control_exchange_http_transport_contract_summaries": [first, second],
         "adaptive_control_exchange_response_handling_contract_set_version": 1,
     }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_response_handling_contract_summary_counts_pending_parse_paths_from_exchange_http_transport_contract_summaries():
+    response_handling_contract_set = build_policy_selection_adaptive_control_exchange_response_handling_contract_set([
+        {
+            "summary_count": 1,
+            "pending_transport_adaptive_control_exchange_http_transport_contract_count": 1,
+            "request_built_adaptive_control_exchange_http_transport_contract_count": 0,
+            "response_received_adaptive_control_exchange_http_transport_contract_count": 0,
+            "retry_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "timeout_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "transport_failed_adaptive_control_exchange_http_transport_contract_count": 0,
+            "adaptive_control_exchange_http_transport_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary(response_handling_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_parse_adaptive_control_exchange_response_handling_contract_count": 1,
+        "parsed_successfully_adaptive_control_exchange_response_handling_contract_count": 0,
+        "rate_limited_detected_adaptive_control_exchange_response_handling_contract_count": 0,
+        "error_code_extracted_adaptive_control_exchange_response_handling_contract_count": 0,
+        "payload_validated_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parse_failed_adaptive_control_exchange_response_handling_contract_count": 0,
+        "adaptive_control_exchange_response_handling_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_response_handling_contract_summary_counts_parsed_successfully_paths_from_request_built_contracts():
+    response_handling_contract_set = build_policy_selection_adaptive_control_exchange_response_handling_contract_set([
+        {
+            "summary_count": 1,
+            "pending_transport_adaptive_control_exchange_http_transport_contract_count": 0,
+            "request_built_adaptive_control_exchange_http_transport_contract_count": 1,
+            "response_received_adaptive_control_exchange_http_transport_contract_count": 0,
+            "retry_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "timeout_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "transport_failed_adaptive_control_exchange_http_transport_contract_count": 0,
+            "adaptive_control_exchange_http_transport_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary(response_handling_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_parse_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parsed_successfully_adaptive_control_exchange_response_handling_contract_count": 1,
+        "rate_limited_detected_adaptive_control_exchange_response_handling_contract_count": 0,
+        "error_code_extracted_adaptive_control_exchange_response_handling_contract_count": 0,
+        "payload_validated_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parse_failed_adaptive_control_exchange_response_handling_contract_count": 0,
+        "adaptive_control_exchange_response_handling_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_response_handling_contract_summary_counts_transport_failed_as_parse_failed():
+    response_handling_contract_set = build_policy_selection_adaptive_control_exchange_response_handling_contract_set([
+        {
+            "summary_count": 1,
+            "pending_transport_adaptive_control_exchange_http_transport_contract_count": 0,
+            "request_built_adaptive_control_exchange_http_transport_contract_count": 0,
+            "response_received_adaptive_control_exchange_http_transport_contract_count": 0,
+            "retry_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "timeout_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "transport_failed_adaptive_control_exchange_http_transport_contract_count": 1,
+            "adaptive_control_exchange_http_transport_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary(response_handling_contract_set)
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_parse_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parsed_successfully_adaptive_control_exchange_response_handling_contract_count": 0,
+        "rate_limited_detected_adaptive_control_exchange_response_handling_contract_count": 0,
+        "error_code_extracted_adaptive_control_exchange_response_handling_contract_count": 0,
+        "payload_validated_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parse_failed_adaptive_control_exchange_response_handling_contract_count": 1,
+        "adaptive_control_exchange_response_handling_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_response_handling_contract_summary_handles_empty_inputs():
+    summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({})
+
+    assert summary == {
+        "summary_count": 0,
+        "pending_parse_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parsed_successfully_adaptive_control_exchange_response_handling_contract_count": 0,
+        "rate_limited_detected_adaptive_control_exchange_response_handling_contract_count": 0,
+        "error_code_extracted_adaptive_control_exchange_response_handling_contract_count": 0,
+        "payload_validated_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parse_failed_adaptive_control_exchange_response_handling_contract_count": 0,
+        "adaptive_control_exchange_response_handling_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_response_handling_contract_summary_skips_non_comparable_entries():
+    summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
+        "adaptive_control_exchange_http_transport_contract_summaries": [
+            None,
+            "skip",
+            {
+                "summary_count": 1,
+                "pending_transport_adaptive_control_exchange_http_transport_contract_count": 0,
+                "request_built_adaptive_control_exchange_http_transport_contract_count": 1,
+                "response_received_adaptive_control_exchange_http_transport_contract_count": 0,
+                "retry_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+                "timeout_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+                "transport_failed_adaptive_control_exchange_http_transport_contract_count": 0,
+                "adaptive_control_exchange_http_transport_contract_summary_version": 1,
+            },
+        ],
+        "adaptive_control_exchange_response_handling_contract_set_version": 1,
+    })
+
+    assert summary == {
+        "summary_count": 1,
+        "pending_parse_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parsed_successfully_adaptive_control_exchange_response_handling_contract_count": 1,
+        "rate_limited_detected_adaptive_control_exchange_response_handling_contract_count": 0,
+        "error_code_extracted_adaptive_control_exchange_response_handling_contract_count": 0,
+        "payload_validated_adaptive_control_exchange_response_handling_contract_count": 0,
+        "parse_failed_adaptive_control_exchange_response_handling_contract_count": 0,
+        "adaptive_control_exchange_response_handling_contract_summary_version": 1,
+    }
+
+
+
+def test_build_policy_selection_adaptive_control_exchange_response_handling_contract_summary_round_trips_with_set_builder_and_preserves_versions():
+    response_handling_contract_set = build_policy_selection_adaptive_control_exchange_response_handling_contract_set([
+        {
+            "summary_count": 1,
+            "pending_transport_adaptive_control_exchange_http_transport_contract_count": 0,
+            "request_built_adaptive_control_exchange_http_transport_contract_count": 1,
+            "response_received_adaptive_control_exchange_http_transport_contract_count": 0,
+            "retry_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "timeout_pending_adaptive_control_exchange_http_transport_contract_count": 0,
+            "transport_failed_adaptive_control_exchange_http_transport_contract_count": 0,
+            "adaptive_control_exchange_http_transport_contract_summary_version": 1,
+        }
+    ])
+
+    summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary(response_handling_contract_set)
+
+    assert response_handling_contract_set["adaptive_control_exchange_response_handling_contract_set_version"] == 1
+    assert summary["summary_count"] == 1
+    assert summary["parsed_successfully_adaptive_control_exchange_response_handling_contract_count"] == 1
+    assert summary["adaptive_control_exchange_response_handling_contract_summary_version"] == 1
 
 
 
