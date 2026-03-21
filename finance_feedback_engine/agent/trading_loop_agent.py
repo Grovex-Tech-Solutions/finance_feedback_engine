@@ -1339,6 +1339,17 @@ class TradingLoopAgent:
             market_status=market_status,
         )
         if not is_fresh:
+            expected_closed_market_stale = (
+                asset_type == "forex"
+                and isinstance(market_status, dict)
+                and not market_status.get("is_open", True)
+                and "closed-market stale" in str(warning_msg).lower()
+            )
+            if expected_closed_market_stale:
+                logger.info(
+                    "DATA FRESHNESS CHECK DEFERRED: %s (age: %s)", warning_msg, age_str
+                )
+                return
             logger.error("DATA FRESHNESS CHECK FAILED: %s (age: %s)", warning_msg, age_str)
             self._emit_dashboard_event({
                 "type": "data_freshness_failed",

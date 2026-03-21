@@ -345,10 +345,10 @@ def validate_data_freshness(
                 if age_minutes > 24 * 60:
                     is_fresh = False
                     warning_msg = (
-                        f"CRITICAL: Forex {timeframe_kind} data is {age_str} old "
-                        f"(weekend threshold: 24 hours). Data too stale."
+                        f"Expected closed-market stale data: Forex {timeframe_kind} data is {age_str} old "
+                        f"(weekend threshold: 24 hours). Market is closed, so older data is expected."
                     )
-                    logger.error(warning_msg)
+                    logger.info(warning_msg)
                 elif age_minutes > 2 * 60:  # 2 hours warning
                     is_fresh = True
                     warning_msg = (

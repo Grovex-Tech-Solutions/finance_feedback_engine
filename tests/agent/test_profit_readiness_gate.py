@@ -159,3 +159,29 @@ async def test_execution_failure_rolls_back_exposure(agent, mock_trade_monitor):
     assert agent.state == AgentState.LEARNING
     assert agent.daily_trade_count == 0
     mock_trade_monitor.associate_decision_to_trade.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_perception_does_not_emit_failure_for_expected_closed_market_staleness(agent):
+    """Closed-market forex weekend staleness should pause quietly instead of emitting a hard freshness failure."""
+    agent.state = AgentState.PERCEPTION
+    monitor_context = agent.trade_monitor.monitoring_context_provider.get_monitoring_context.return_value
+    monitor_context.update({
+        "asset_type": "forex",
+        "timeframe": "intraday",
+        "market_status": {"is_open": False, "session": "Weekend"},
+    })
+
+    with patch(
+        "finance_feedback_engine.agent.trading_loop_agent.validate_data_freshness",
+        return_value=(False, "46.4 hours", "Expected closed-market stale data for forex weekend session"),
+    ):
+        await agent.handle_perception_state()
+
+    assert agent.state == AgentState.PERCEPTION
+
+    events = []
+    while not agent._dashboard_event_queue.empty():
+        events.append(agent._dashboard_event_queue.get_nowait())
+
+    assert not any(e.get("type") == "data_freshness_failed" for e in events)

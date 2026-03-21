@@ -271,3 +271,17 @@ class TestValidateDataFreshness:
         is_fresh, age_str, warning = validate_data_freshness(ts, "crypto")
         assert "2.5" in age_str or "2.4" in age_str  # ~2.5 minutes
         assert "minutes" in age_str
+
+
+    @freeze_time("2024-01-21 12:00:00")
+    def test_forex_weekend_intraday_stale_is_expected_closed_market_condition(self):
+        """Weekend forex intraday staleness should be classed as expected closed-market, not generic stale-data panic."""
+        ts = "2024-01-19T13:00:00Z"  # ~47 hours ago on Sunday noon UTC-ish frozen time
+        is_fresh, age_str, warning = validate_data_freshness(
+            ts,
+            "forex",
+            timeframe="intraday",
+            market_status={"is_open": False, "session": "Weekend"},
+        )
+        assert is_fresh is False
+        assert "closed-market" in warning.lower()
