@@ -245,6 +245,29 @@ async def test_filtered_decision_without_id_gets_persisted_with_generated_id(tra
 
 
 @pytest.mark.asyncio
+async def test_filtered_decision_persists_compact_decision_artifact(trading_agent, mock_dependencies):
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(
+        return_value={
+            "action": "BUY",
+            "confidence": 10,
+            "asset_pair": "BTCUSD",
+            "reasoning": "Weak signal.",
+        }
+    )
+    trading_agent.is_running = True
+
+    await trading_agent.process_cycle()
+
+    saved_decision = mock_dependencies["engine"].decision_store.save_decision.call_args[0][0]
+    artifact = saved_decision["decision_artifact"]
+    assert artifact["asset_pair"] == "BTCUSD"
+    assert artifact["final_action"] == "BUY"
+    assert artifact["actionable"] is False
+    assert artifact["filtered_reason_code"] == "LOW_CONFIDENCE"
+    assert artifact["execution_attempted"] is False
+
+
+@pytest.mark.asyncio
 async def test_filtered_low_confidence_decision_sets_observability_fields(trading_agent, mock_dependencies):
     mock_dependencies["engine"].analyze_asset_async = AsyncMock(
         return_value={
@@ -261,6 +284,22 @@ async def test_filtered_low_confidence_decision_sets_observability_fields(tradin
     assert saved_decision["actionable"] is False
     assert saved_decision["filtered_reason_code"] == "LOW_CONFIDENCE"
     assert "Low confidence" in saved_decision["filtered_reason_text"]
+
+
+@pytest.mark.asyncio
+async def test_no_action_decision_persists_compact_decision_artifact(trading_agent, mock_dependencies):
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(return_value={})
+    trading_agent.is_running = True
+
+    await trading_agent.process_cycle()
+
+    saved_decision = mock_dependencies["engine"].decision_store.save_decision.call_args[0][0]
+    artifact = saved_decision["decision_artifact"]
+    assert artifact["asset_pair"] == "BTCUSD"
+    assert artifact["final_action"] == "HOLD"
+    assert artifact["actionable"] is False
+    assert artifact["filtered_reason_code"] == "NO_DECISION_PAYLOAD"
+    assert artifact["execution_attempted"] is False
 
 
 @pytest.mark.asyncio
@@ -791,6 +830,35 @@ def test_mark_decision_not_executed_updates_policy_trace_control_outcome(trading
 
 
 
+
+
+@pytest.mark.asyncio
+async def test_actionable_decision_carries_compact_decision_artifact_into_queue(trading_agent, mock_dependencies):
+    trading_agent.config.asset_pairs = ["BTCUSD"]
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(
+        return_value={
+            "id": "decision-actionable-artifact",
+            "action": "OPEN_SMALL_LONG",
+            "policy_action": "OPEN_SMALL_LONG",
+            "confidence": 82,
+            "asset_pair": "BTCUSD",
+            "reasoning": "Momentum breakout.",
+        }
+    )
+    mock_dependencies["engine"].get_portfolio_breakdown_async = AsyncMock(return_value={"platform_breakdowns": {}})
+    trading_agent._should_execute_with_reason = AsyncMock(return_value=(True, "OK", "Autonomous execution enabled"))
+    trading_agent.state = AgentState.REASONING
+
+    await trading_agent.handle_reasoning_state()
+
+    async with trading_agent._current_decisions_lock:
+        queued = trading_agent._current_decisions[0]
+    artifact = queued["decision_artifact"]
+    assert artifact["asset_pair"] == "BTCUSD"
+    assert artifact["final_action"] == "OPEN_SMALL_LONG"
+    assert artifact["actionable"] is True
+    assert artifact["filtered_reason_code"] is None
+    assert artifact["execution_attempted"] is False
 
 
 @pytest.mark.asyncio

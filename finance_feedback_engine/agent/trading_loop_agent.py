@@ -1889,6 +1889,8 @@ class TradingLoopAgent:
 
                 should_execute, reason_code, reason_msg = await self._should_execute_with_reason(decision)
                 if should_execute:
+                    decision["actionable"] = True
+                    self._attach_decision_artifact(decision, execution_attempted=False)
                     ordered_actionable_decisions.append(decision)
                     logger.info(
                         "Actionable decision collected for %s: %s",
@@ -2978,6 +2980,26 @@ class TradingLoopAgent:
             decision["timestamp"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         return decision
 
+
+    def _attach_decision_artifact(self, decision: Dict[str, Any], *, execution_attempted: bool) -> Dict[str, Any]:
+        """Attach a compact per-decision artifact for later sweep/debug inspection."""
+        self._ensure_decision_identity(decision)
+        decision["decision_artifact"] = {
+            "decision_id": decision.get("id"),
+            "cycle_timestamp": decision.get("timestamp"),
+            "asset_pair": decision.get("asset_pair"),
+            "final_action": decision.get("policy_action") or decision.get("action"),
+            "confidence": decision.get("confidence"),
+            "actionable": decision.get("actionable", False),
+            "filtered_reason_code": decision.get("filtered_reason_code"),
+            "filtered_reason_text": decision.get("filtered_reason_text"),
+            "hold_origin": decision.get("hold_origin"),
+            "hold_is_genuine": decision.get("hold_is_genuine"),
+            "execution_attempted": execution_attempted,
+            "provider_decisions": ((decision.get("ensemble_metadata") or {}).get("provider_decisions")),
+        }
+        return decision
+
     def _log_council_summary(self, decision: Dict[str, Any], asset_pair: Optional[str] = None) -> None:
         """Log concise bull/bear/judge council summaries with canonical policy-action labels."""
         try:
@@ -3061,6 +3083,7 @@ class TradingLoopAgent:
                 "reason_code": reason_code,
                 "message": reason,
             }
+            self._attach_decision_artifact(normalized, execution_attempted=False)
             if getattr(self.engine, "decision_store", None):
                 self.engine.decision_store.save_decision(normalized)
         except Exception as e:
@@ -3081,6 +3104,7 @@ class TradingLoopAgent:
                 "reason_code": reason_code,
                 "error": reason,
             }
+            self._attach_decision_artifact(decision, execution_attempted=False)
             decision["control_outcome"] = build_control_outcome(
                 action=decision.get("action"),
                 structural_action_validity=decision.get("structural_action_validity"),
