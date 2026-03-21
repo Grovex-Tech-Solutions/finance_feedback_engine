@@ -81,6 +81,34 @@ async def test_agent_initial_state(trading_agent):
 
 
 @pytest.mark.asyncio
+async def test_perception_uses_fresh_default_crypto_context_even_with_stale_pulse(trading_agent, mock_dependencies):
+    stale_context = {
+        "latest_market_data_timestamp": "2024-01-01T00:00:00Z",
+        "asset_type": "crypto",
+        "timeframe": "intraday",
+        "market_status": {"is_open": True, "session": "Regular"},
+    }
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = stale_context
+    trading_agent.trade_monitor.monitoring_context_provider.get_monitoring_context.return_value = stale_context
+
+    # mimic provider-level fresh monitoring context contract after phase A1 merge logic
+    mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context.return_value = {
+        **stale_context,
+        "latest_market_data_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    trading_agent.trade_monitor.monitoring_context_provider.get_monitoring_context.return_value = {
+        **stale_context,
+        "latest_market_data_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+
+    trading_agent.state = AgentState.PERCEPTION
+
+    await trading_agent.handle_perception_state()
+
+    assert trading_agent.state == AgentState.REASONING
+
+
+@pytest.mark.asyncio
 async def test_agent_process_cycle_no_action(trading_agent, mock_dependencies):
     """Test a full agent cycle where the AI decides to HOLD."""
     # Arrange

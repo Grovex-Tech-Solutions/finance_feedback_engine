@@ -2236,6 +2236,7 @@ class TradingLoopAgent:
                     execution_result = await self.engine.execute_decision_async(
                         decision_id
                     )
+                    action = decision.get("policy_action") or decision.get("action") or "UNKNOWN"
                     if execution_result.get("success"):
                         decision["execution_status"] = "executed"
                         decision["execution_result"] = execution_result

@@ -762,6 +762,32 @@ class TestOandaExecuteTrade:
             assert result["order_id"] == existing_order_id
             assert "idempotency" in result["message"].lower()
 
+    def test_execute_trade_policy_action_does_not_raise_name_error(self, platform_with_mock_client, mock_client):
+        """Regression: canonical policy actions should normalize cleanly in Oanda execution."""
+        mock_client.request.side_effect = [
+            {"orders": []},
+            {
+                "orderFillTransaction": {
+                    "id": "order-policy-1",
+                    "price": "1.0850",
+                    "pl": "0",
+                }
+            },
+        ]
+
+        decision = {
+            "id": "test-policy-oanda-1",
+            "policy_action": "OPEN_SMALL_SHORT",
+            "asset_pair": "EURUSD",
+            "recommended_position_size": 1000,
+            "entry_price": 1.0850,
+        }
+
+        result = platform_with_mock_client.execute_trade(decision)
+
+        assert result["success"] is True
+        assert result["units"] == -1000
+
     def test_execute_trade_unknown_action(self, platform_with_mock_client, mock_client):
         """Should return error for unknown action."""
         mock_client.request.return_value = {"orders": []}

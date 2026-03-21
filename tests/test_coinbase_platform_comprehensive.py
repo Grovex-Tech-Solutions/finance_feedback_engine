@@ -1025,6 +1025,32 @@ class TestExecuteTrade:
         assert result["latency_seconds"] == 0
         mock_client.market_order_buy.assert_not_called()
 
+    def test_execute_trade_policy_action_does_not_raise_name_error(self, platform, mock_client):
+        """Regression: canonical policy actions should normalize without NameError in execution path."""
+        platform._client = mock_client
+        mock_client.list_orders.return_value = []
+        mock_client.market_order_buy.return_value = MagicMock(success=True, order_id="ord-1")
+        product = MagicMock()
+        product.price = "50000.0"
+        product.quote_increment = "0.01"
+        product.quote_min_size = "10"
+        platform._resolve_futures_product = MagicMock(return_value=("BTC-PERP-INTX", product))
+        platform._must_use_futures_path = MagicMock(return_value=True)
+        platform._is_futures_product = MagicMock(return_value=True)
+        platform._build_futures_base_size = MagicMock(return_value="1")
+
+        decision = {
+            "id": "dec-policy-buy",
+            "policy_action": "OPEN_SMALL_LONG",
+            "asset_pair": "BTC-USD",
+            "suggested_amount": 1000.0,
+            "timestamp": "2024-01-01T00:00:00Z",
+        }
+
+        result = platform.execute_trade(decision)
+
+        assert result["success"] is True
+
     def test_execute_trade_invalid_action(self, platform, mock_client):
         """Test trade execution with invalid action."""
         platform._client = mock_client
