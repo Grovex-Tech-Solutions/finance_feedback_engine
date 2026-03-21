@@ -376,3 +376,9 @@ service:
   environment: development
 advanced_backtesting:
   take_profit_percentage: 0.0358921111551528
+
+# Paper trading mode for RL/policy training
+paper_trading:
+  enabled: true
+  simulate_execution: true
+  verify_outcomes: true
