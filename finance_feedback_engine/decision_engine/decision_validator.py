@@ -17,6 +17,115 @@ from .policy_actions import (
     get_legacy_action_compatibility,
     get_policy_action_family,
     is_policy_action,
+    # Stage 49-62: Policy trace contract builders
+    build_policy_dataset_row_from_decision,
+    build_policy_evaluation_batch,
+    build_policy_evaluation_run,
+    build_policy_evaluation_summary,
+    build_policy_evaluation_scorecard,
+    build_policy_evaluation_result,
+    build_policy_evaluation_aggregate,
+    build_policy_evaluation_comparison,
+    build_policy_candidate_comparison_set,
+    build_policy_candidate_benchmark_summary,
+    build_policy_baseline_evaluation_set,
+    build_policy_baseline_evaluation_report,
+    build_policy_baseline_evaluation_session,
+    build_policy_baseline_workflow_summary,
+    build_policy_baseline_candidate_comparison_group,
+    build_policy_baseline_candidate_comparison_summary,
+    build_policy_selection_recommendation_set,
+    build_policy_selection_recommendation_summary,
+    build_policy_selection_promotion_decision_set,
+    build_policy_selection_promotion_decision_summary,
+    build_policy_selection_rollout_decision_set,
+    build_policy_selection_rollout_decision_summary,
+    build_policy_selection_runtime_switch_set,
+    build_policy_selection_runtime_switch_summary,
+    build_policy_selection_deployment_execution_set,
+    build_policy_selection_deployment_execution_summary,
+    build_policy_selection_orchestration_set,
+    build_policy_selection_orchestration_summary,
+    build_policy_selection_scheduler_request_set,
+    build_policy_selection_scheduler_request_summary,
+    build_policy_selection_job_spec_set,
+    build_policy_selection_job_spec_summary,
+    build_policy_selection_submission_envelope_set,
+    build_policy_selection_submission_envelope_summary,
+    build_policy_selection_adapter_payload_set,
+    build_policy_selection_adapter_payload_summary,
+    build_policy_selection_provider_binding_contract_set,
+    build_policy_selection_provider_binding_contract_summary,
+    build_policy_selection_provider_client_shape_set,
+    build_policy_selection_provider_client_shape_summary,
+    build_policy_selection_provider_implementation_contract_set,
+    build_policy_selection_provider_implementation_contract_summary,
+    build_policy_selection_execution_interface_contract_set,
+    build_policy_selection_execution_interface_contract_summary,
+    build_policy_selection_execution_request_set,
+    build_policy_selection_execution_request_summary,
+    build_policy_selection_submission_transport_envelope_set,
+    build_policy_selection_submission_transport_envelope_summary,
+    build_policy_selection_provider_dispatch_contract_set,
+    build_policy_selection_provider_dispatch_contract_summary,
+    build_policy_selection_dispatch_attempt_contract_set,
+    build_policy_selection_dispatch_attempt_contract_summary,
+    build_policy_selection_execution_result_set,
+    build_policy_selection_execution_result_summary,
+    build_policy_selection_execution_receipt_set,
+    build_policy_selection_execution_receipt_summary,
+    build_policy_selection_execution_tracking_set,
+    build_policy_selection_execution_tracking_summary,
+    build_policy_selection_execution_fill_set,
+    build_policy_selection_execution_fill_summary,
+    build_policy_selection_trade_outcome_set,
+    build_policy_selection_trade_outcome_summary,
+    build_policy_selection_learning_feedback_set,
+    build_policy_selection_learning_feedback_summary,
+    build_policy_selection_learning_analytics_set,
+    build_policy_selection_learning_analytics_summary,
+    build_policy_selection_adaptive_recommendation_set,
+    build_policy_selection_adaptive_recommendation_summary,
+    build_policy_selection_adaptive_activation_set,
+    build_policy_selection_adaptive_activation_summary,
+    build_policy_selection_adaptive_weight_mutation_set,
+    build_policy_selection_adaptive_weight_mutation_summary,
+    build_policy_selection_adaptive_control_persistence_set,
+    build_policy_selection_adaptive_control_persistence_summary,
+    build_policy_selection_adaptive_control_snapshot_set,
+    build_policy_selection_adaptive_control_snapshot_summary,
+    build_policy_selection_adaptive_control_runtime_apply_set,
+    build_policy_selection_adaptive_control_runtime_apply_summary,
+    build_policy_selection_adaptive_control_config_patch_contract_set,
+    build_policy_selection_adaptive_control_config_patch_contract_summary,
+    build_policy_selection_adaptive_control_runtime_config_materialization_set,
+    build_policy_selection_adaptive_control_runtime_config_materialization_summary,
+    build_policy_selection_adaptive_control_config_update_transport_contract_set,
+    build_policy_selection_adaptive_control_config_update_transport_contract_summary,
+    build_policy_selection_adaptive_control_agent_lifecycle_control_contract_set,
+    build_policy_selection_adaptive_control_agent_lifecycle_control_contract_summary,
+    build_policy_selection_adaptive_control_health_readiness_observability_contract_set,
+    build_policy_selection_adaptive_control_health_readiness_observability_contract_summary,
+    build_policy_selection_adaptive_control_dashboard_status_aggregation_contract_set,
+    build_policy_selection_adaptive_control_dashboard_status_aggregation_contract_summary,
+    build_policy_selection_adaptive_control_notification_delivery_contract_set,
+    build_policy_selection_adaptive_control_notification_delivery_contract_summary,
+    build_policy_selection_adaptive_control_alert_dispatch_contract_set,
+    build_policy_selection_adaptive_control_alert_dispatch_contract_summary,
+    build_policy_selection_adaptive_control_trade_execution_contract_set,
+    build_policy_selection_adaptive_control_trade_execution_contract_summary,
+    build_policy_selection_adaptive_control_exchange_order_placement_contract_set,
+    build_policy_selection_adaptive_control_exchange_order_placement_contract_summary,
+    build_policy_selection_adaptive_control_exchange_authentication_contract_set,
+    build_policy_selection_adaptive_control_exchange_authentication_contract_summary,
+    build_policy_selection_adaptive_control_exchange_credential_wiring_contract_set,
+    build_policy_selection_adaptive_control_exchange_credential_wiring_contract_summary,
+    build_policy_selection_adaptive_control_exchange_http_transport_contract_set,
+    build_policy_selection_adaptive_control_exchange_http_transport_contract_summary,
+    build_policy_selection_adaptive_control_exchange_response_handling_contract_set,
+    build_policy_selection_adaptive_control_exchange_response_handling_contract_summary,
+    build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set,
+    build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary,
 )
 
 logger = logging.getLogger(__name__)
@@ -392,6 +501,11 @@ class DecisionValidator:
             decision["confidence"],
         )
 
+        # Build Stage 49-62 contract chain for observability
+        contract_chain = self._build_stage_49_62_contract_chain(decision)
+        if contract_chain:
+            decision["policy_trace"]["stage_49_62_contract_chain"] = contract_chain
+
         return decision
 
     @staticmethod
@@ -410,3 +524,63 @@ class DecisionValidator:
         elif action == "SELL":
             return "SHORT"
         return None
+
+
+    def _build_stage_49_62_contract_chain(self, decision: dict) -> dict:
+        """Build Stage 49-62 policy trace contract chain for observability."""
+        try:
+            dataset_row = build_policy_dataset_row_from_decision(decision)
+            if not dataset_row:
+                return {}
+            
+            evaluation_batch = build_policy_evaluation_batch([dataset_row])
+            evaluation_run = build_policy_evaluation_run(evaluation_batch.get("rows", []))
+            evaluation_summary = build_policy_evaluation_summary(evaluation_run)
+            evaluation_scorecard = build_policy_evaluation_scorecard(evaluation_summary)
+            evaluation_result = build_policy_evaluation_result(evaluation_summary, evaluation_scorecard)
+            evaluation_aggregate = build_policy_evaluation_aggregate([evaluation_result])
+            evaluation_comparison = build_policy_evaluation_comparison(evaluation_aggregate, evaluation_aggregate)
+            
+            comparison_set = build_policy_candidate_comparison_set([evaluation_comparison])
+            benchmark_summary = build_policy_candidate_benchmark_summary(comparison_set)
+            
+            baseline_set = build_policy_baseline_evaluation_set([benchmark_summary])
+            baseline_report = build_policy_baseline_evaluation_report(baseline_set)
+            evaluation_session = build_policy_baseline_evaluation_session([baseline_report])
+            workflow_summary = build_policy_baseline_workflow_summary(evaluation_session)
+            
+            comparison_group = build_policy_baseline_candidate_comparison_group([workflow_summary], [workflow_summary])
+            comparison_summary = build_policy_baseline_candidate_comparison_summary(comparison_group)
+            
+            recommendation_set = build_policy_selection_recommendation_set([comparison_summary])
+            recommendation_summary = build_policy_selection_recommendation_summary(recommendation_set)
+            
+            promotion_decision_set = build_policy_selection_promotion_decision_set([recommendation_summary])
+            promotion_decision_summary = build_policy_selection_promotion_decision_summary(promotion_decision_set)
+            
+            rollout_decision_set = build_policy_selection_rollout_decision_set([promotion_decision_summary])
+            rollout_decision_summary = build_policy_selection_rollout_decision_summary(rollout_decision_set)
+            
+            runtime_switch_set = build_policy_selection_runtime_switch_set([rollout_decision_summary])
+            runtime_switch_summary = build_policy_selection_runtime_switch_summary(runtime_switch_set)
+            
+            deployment_execution_set = build_policy_selection_deployment_execution_set([runtime_switch_summary])
+            deployment_execution_summary = build_policy_selection_deployment_execution_summary(deployment_execution_set)
+            
+            orchestration_set = build_policy_selection_orchestration_set([deployment_execution_summary])
+            orchestration_summary = build_policy_selection_orchestration_summary(orchestration_set)
+            
+            return {
+                "dataset_row": dataset_row,
+                "evaluation_summary": evaluation_summary,
+                "comparison_summary": comparison_summary,
+                "recommendation_summary": recommendation_summary,
+                "promotion_decision_summary": promotion_decision_summary,
+                "rollout_decision_summary": rollout_decision_summary,
+                "runtime_switch_summary": runtime_switch_summary,
+                "deployment_execution_summary": deployment_execution_summary,
+                "orchestration_summary": orchestration_summary,
+            }
+        except Exception as e:
+            logger.warning(f"Failed to build contract chain: {e}")
+            return {}
