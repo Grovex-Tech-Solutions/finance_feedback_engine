@@ -308,6 +308,28 @@ async def test_fallback_hold_decision_preserves_origin_metadata(trading_agent, m
 
 
 @pytest.mark.asyncio
+async def test_position_state_forced_hold_sets_forced_hold_metadata(trading_agent, mock_dependencies):
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(
+        return_value={
+            "action": "HOLD",
+            "policy_action": "HOLD",
+            "confidence": 0,
+            "reasoning": "[FORCED HOLD - Position State Violation] Cannot BUY when already LONG BTCUSD.",
+            "position_state_violation": True,
+            "asset_pair": "BTCUSD",
+        }
+    )
+    trading_agent.is_running = True
+
+    await trading_agent.process_cycle()
+
+    saved_decision = mock_dependencies["engine"].decision_store.save_decision.call_args[0][0]
+    assert saved_decision["execution_status"] == "hold"
+    assert saved_decision["hold_origin"] == "position_rule"
+    assert saved_decision["hold_is_genuine"] is False
+
+
+@pytest.mark.asyncio
 async def test_hold_decision_preserves_ensemble_metadata_and_logs_council_summary(trading_agent, mock_dependencies, caplog):
     """Debate/council summaries should be logged and preserved in persisted HOLD artifacts."""
     decision = {
@@ -336,6 +358,8 @@ async def test_hold_decision_preserves_ensemble_metadata_and_logs_council_summar
     saved_decision = mock_dependencies["engine"].decision_store.save_decision.call_args[0][0]
     assert saved_decision["ensemble_metadata"]["role_decisions"]["bull"]["action"] == "BUY"
     assert saved_decision["ensemble_metadata"]["role_decisions"]["judge"]["action"] == "HOLD"
+    assert saved_decision["hold_origin"] == "model"
+    assert saved_decision["hold_is_genuine"] is True
     assert "Council summary for BTCUSD" in caplog.text
     assert "bull=gemini:OPEN_SMALL_LONG/72" in caplog.text
     assert "bear=qwen:HOLD/58" in caplog.text

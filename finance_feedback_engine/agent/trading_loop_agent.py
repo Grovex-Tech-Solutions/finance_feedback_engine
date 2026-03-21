@@ -1910,6 +1910,8 @@ class TradingLoopAgent:
                     decision["executed"] = False
                     fallback_reason_code = decision.get("filtered_reason_code")
                     if decision.get("decision_origin") == "fallback" and fallback_reason_code:
+                        decision.setdefault("hold_origin", "provider_fallback")
+                        decision.setdefault("hold_is_genuine", False)
                         decision["execution_status"] = "filtered"
                         decision["execution_result"] = {
                             "success": False,
@@ -1917,6 +1919,12 @@ class TradingLoopAgent:
                             "error": decision.get("reasoning") or "Provider fallback decision",
                         }
                     else:
+                        if decision.get("position_state_violation"):
+                            decision["hold_origin"] = "position_rule"
+                            decision["hold_is_genuine"] = False
+                        else:
+                            decision.setdefault("hold_origin", "model")
+                            decision.setdefault("hold_is_genuine", True)
                         decision["execution_status"] = "hold"
                         decision["execution_result"] = {
                             "success": True,
