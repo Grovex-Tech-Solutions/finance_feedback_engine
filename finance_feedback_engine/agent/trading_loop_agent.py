@@ -1755,24 +1755,18 @@ class TradingLoopAgent:
                 )
                 continue
             self._log_council_summary(decision, asset_pair=asset_pair)
-            # Check for trade signals using policy_action framework (new) or legacy action
-            action = decision.get("action") if decision else None
+            # Check for trade signals using ONLY policy_action framework (BUY/SELL deprecated)
+            # Check for trade signals using ONLY policy_action framework (BUY/SELL deprecated)
             policy_action = decision.get("policy_action") if decision else None
-            legacy_compat = decision.get("legacy_action_compatibility") if decision else None
             
-            # Determine effective action from policy framework or legacy
+            # Trade signals from policy framework ONLY
             effective_action = None
-            if action in ["BUY", "SELL"]:
-                effective_action = action
-            elif legacy_compat in ["BUY", "SELL"]:
-                effective_action = legacy_compat
-            elif policy_action in ["OPEN_SMALL_LONG", "OPEN_MEDIUM_LONG", "ADD_SMALL_LONG"]:
+            if policy_action in ["OPEN_SMALL_LONG", "OPEN_MEDIUM_LONG", "ADD_SMALL_LONG"]:
                 effective_action = "BUY"
             elif policy_action in ["OPEN_SMALL_SHORT", "OPEN_MEDIUM_SHORT", "ADD_SMALL_SHORT"]:
                 effective_action = "SELL"
             
             if effective_action:
-                # Block duplicate entry when a position already exists for the same asset pair.
                 # This prevents repeated BUY/SELL stacking while positions are already open.
                 try:
                     decision_pair = standardize_asset_pair(decision.get("asset_pair", ""))
@@ -2140,7 +2134,6 @@ class TradingLoopAgent:
             logger.info("Autonomous execution enabled - executing trades directly")
             for decision in decisions_to_execute:
                 decision_id = decision.get("id")
-                action = decision.get("action")
                 asset_pair = decision.get("asset_pair")
 
                 try:
@@ -2305,7 +2298,6 @@ class TradingLoopAgent:
         for decision in self._current_decisions:
             decision_id = decision.get("id")
             asset_pair = decision.get("asset_pair")
-            action = decision.get("action")
             confidence = decision.get("confidence", 0)
             reasoning = decision.get("reasoning", "No reasoning provided")
             recommended_position_size = decision.get("recommended_position_size")
@@ -3005,7 +2997,6 @@ class TradingLoopAgent:
 
     def _classify_action_execution_outcome(self, decision: Dict[str, Any], risk_reason: str | None = None) -> tuple[bool, str | None, str | None, str | None]:
         """Classify whether a policy-aware decision is executable vs invalid/vetoed/rejected."""
-        action = decision.get("action")
         structural_validity = decision.get("structural_action_validity")
         invalid_reason = decision.get("invalid_action_reason")
         risk_vetoed = bool(decision.get("risk_vetoed", False))
