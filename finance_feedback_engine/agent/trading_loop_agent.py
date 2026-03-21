@@ -1755,7 +1755,23 @@ class TradingLoopAgent:
                 )
                 continue
             self._log_council_summary(decision, asset_pair=asset_pair)
-            if decision and decision.get("action") in ["BUY", "SELL"]:
+            # Check for trade signals using policy_action framework (new) or legacy action
+            action = decision.get("action") if decision else None
+            policy_action = decision.get("policy_action") if decision else None
+            legacy_compat = decision.get("legacy_action_compatibility") if decision else None
+            
+            # Determine effective action from policy framework or legacy
+            effective_action = None
+            if action in ["BUY", "SELL"]:
+                effective_action = action
+            elif legacy_compat in ["BUY", "SELL"]:
+                effective_action = legacy_compat
+            elif policy_action in ["OPEN_SMALL_LONG", "OPEN_MEDIUM_LONG", "ADD_SMALL_LONG"]:
+                effective_action = "BUY"
+            elif policy_action in ["OPEN_SMALL_SHORT", "OPEN_MEDIUM_SHORT", "ADD_SMALL_SHORT"]:
+                effective_action = "SELL"
+            
+            if effective_action:
                 # Block duplicate entry when a position already exists for the same asset pair.
                 # This prevents repeated BUY/SELL stacking while positions are already open.
                 try:
@@ -1765,7 +1781,7 @@ class TradingLoopAgent:
 
                 if decision_pair and decision_pair in open_asset_pairs:
                     existing_side = open_position_side.get(decision_pair)
-                    requested_side = "LONG" if decision.get("action") == "BUY" else "SHORT"
+                    requested_side = "LONG" if effective_action == "BUY" else "SHORT"
 
                     # Block only same-direction stacking; allow opposite-side signals
                     # to reduce/close/reverse existing exposure.
@@ -1774,7 +1790,7 @@ class TradingLoopAgent:
                         if decision_pair in {"BTCUSD", "ETHUSD"} and margin_usage_pct < margin_usage_limit_pct:
                             logger.info(
                                 "Allowing scale-in %s for %s: existing side=%s, margin usage %.2f%% < %.2f%% limit.",
-                                decision.get("action"),
+                                effective_action,
                                 decision_pair,
                                 existing_side,
                                 margin_usage_pct * 100,
@@ -1788,14 +1804,14 @@ class TradingLoopAgent:
                             self._mark_decision_not_executed(decision, "DUPLICATE_ENTRY_GUARD", reason)
                             logger.info(
                                 "Skipping %s for %s: %s position already exists (duplicate-entry guard).",
-                                decision.get("action"),
+                                effective_action,
                                 decision_pair,
                                 existing_side,
                             )
                             continue
                     logger.info(
                         "Allowing %s for %s: existing side=%s (opposite-side action for reversal/reduction).",
-                        decision.get("action"),
+                        effective_action,
                         decision_pair,
                         existing_side,
                     )
