@@ -356,3 +356,16 @@ class TestCreateDecisionIntegration:
         assert decision["action"] == "HOLD"
         assert decision["position_type"] is None
         assert decision["suggested_amount"] == 0
+
+
+def test_select_relevant_balance_plain_forex_pair_uses_oanda_balance(decision_engine):
+    balance = {"coinbase_FUTURES_USD": 741.15, "oanda_USD": 166.72}
+
+    relevant_balance, balance_source, is_crypto, is_forex = decision_engine._select_relevant_balance(
+        balance, "EURUSD", "unknown"
+    )
+
+    assert relevant_balance == {"oanda_USD": 166.72}
+    assert balance_source == "Oanda"
+    assert is_crypto is False
+    assert is_forex is True

@@ -813,3 +813,23 @@ class TestPositionSizingEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
+
+
+    def test_calculate_position_sizing_params_recovers_forex_balance_from_context_snapshot(self, calculator):
+        context = {
+            "asset_pair": "EURUSD",
+            "market_data": {"type": "forex"},
+            "balance_snapshot": {"oanda_USD": 166.72},
+        }
+
+        result = calculator.calculate_position_sizing_params(
+            context=context,
+            current_price=1.08,
+            action="BUY",
+            has_existing_position=False,
+            relevant_balance={},
+            balance_source="Oanda",
+        )
+
+        assert result["recommended_position_size"] is not None
+        assert result["recommended_position_size"] > 0

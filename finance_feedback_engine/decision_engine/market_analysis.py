@@ -123,8 +123,10 @@ class MarketAnalysisContext:
             Tuple of (relevant_balance, balance_source, is_crypto, is_forex)
         """
         # Determine asset classification
-        is_crypto = "BTC" in asset_pair or "ETH" in asset_pair or asset_type == "crypto"
-        is_forex = "_" in asset_pair or asset_type == "forex"
+        normalized_pair = str(asset_pair or "").upper().replace("/", "").replace("-", "")
+        forex_majors = {"EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "NZDUSD", "USDCAD", "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "AUDJPY"}
+        is_crypto = "BTC" in normalized_pair or "ETH" in normalized_pair or asset_type == "crypto"
+        is_forex = ("_" in str(asset_pair) or normalized_pair in forex_majors or asset_type == "forex")
 
         # Extract the appropriate balance based on asset type
         relevant_balance = {}
