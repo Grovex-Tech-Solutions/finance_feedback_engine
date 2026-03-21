@@ -147,7 +147,7 @@ database:
   pool_timeout: ${DB_POOL_TIMEOUT:-30}
   url: ${DATABASE_URL:-postgresql+psycopg2://ffe_user:changeme@localhost:5432/ffe}
 debate:
-  bear_model: llama3.2:3b-instruct-fp16
+  bear_model: llama3.1:8b-instruct-fp16
   bull_model: mistral:latest
   consensus_threshold: 0.6
   enabled: true
@@ -158,7 +158,7 @@ decision_engine:
   default_position_size: 0.03
   ensemble_timeout: 120
   max_retries: 3
-  model_name: llama3.2:3b-instruct-fp16
+  model_name: llama3:8b-instruct-fp16
   risk_per_trade: 0.0402289620713378
   stop_loss_percentage: 0.0418722903729898
   veto_threshold: 0.6
@@ -167,11 +167,11 @@ ensemble:
   agreement_threshold: 0.6
   debate_mode: true
   debate_providers:
-    bear: llama3.2:3b-instruct-fp16
+    bear: llama3:8b-instruct-fp16
     bull: mistral:latest
     judge: deepseek-r1:8b
   enabled_providers:
-  - llama3.2:3b-instruct-fp16
+  - llama3:8b-instruct-fp16
   - deepseek-r1:8b
   - mistral:latest
   - gemma2:9b
@@ -181,7 +181,7 @@ ensemble:
     deepseek-r1:8b: 0.2
     gemma2:9b: 0.2
     gemma3:4b: 0.2
-    llama3.2:3b-instruct-fp16: 0.2
+    llama3:8b-instruct-fp16: 0.2
     mistral:latest: 0.2
   two_phase:
     asset_routing:
