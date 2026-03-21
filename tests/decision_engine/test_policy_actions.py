@@ -115,6 +115,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     build_policy_selection_adaptive_control_exchange_response_handling_contract_set,
     build_policy_selection_adaptive_control_exchange_response_handling_contract_summary,
     build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set,
+    build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary,
     extract_policy_selection_adaptive_control_dashboard_status_aggregation_contract_summaries,
     extract_policy_selection_adaptive_control_notification_delivery_contract_summaries,
     extract_policy_selection_adaptive_control_health_readiness_observability_contract_summaries,
@@ -20324,6 +20325,89 @@ def test_build_policy_selection_adaptive_control_exchange_execution_confirmation
 
 
 def test_build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set_preserves_multiple_exchange_response_handling_contract_summaries_in_order():
+    response_handling_summary_1 = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
+        "adaptive_control_exchange_http_transport_contract_summaries": [],
+        "adaptive_control_exchange_response_handling_contract_set_version": 1,
+    })
+    response_handling_summary_2 = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
+        "adaptive_control_exchange_http_transport_contract_summaries": [],
+        "adaptive_control_exchange_response_handling_contract_set_version": 2,
+    })
+    result = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set([response_handling_summary_1, response_handling_summary_2])
+    assert result["adaptive_control_exchange_response_handling_contract_summaries"] == [response_handling_summary_1, response_handling_summary_2]
+
+
+def test_build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary_counts_confirmation_pending_from_exchange_response_handling_contract_summaries():
+    response_handling_summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
+        "adaptive_control_exchange_http_transport_contract_summaries": [],
+        "adaptive_control_exchange_response_handling_contract_set_version": 1,
+    })
+    confirmation_set = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set([response_handling_summary])
+    result = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary(confirmation_set)
+    assert result["summary_count"] == 1
+    assert result["confirmation_pending_adaptive_control_exchange_execution_confirmation_contract_count"] == 1
+    assert result["confirmation_received_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["execution_confirmed_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["confirmation_failed_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["adaptive_control_exchange_execution_confirmation_contract_summary_version"] == 1
+
+
+def test_build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary_counts_confirmation_received_from_pending_parse_contracts():
+    response_handling_summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
+        "adaptive_control_exchange_http_transport_contract_summaries": [
+            {"adaptive_control_exchange_http_transport_contract_summary_version": 1, "pending_transport_adaptive_control_exchange_http_transport_contract_count": 1},
+        ],
+        "adaptive_control_exchange_response_handling_contract_set_version": 1,
+    })
+    confirmation_set = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set([response_handling_summary])
+    result = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary(confirmation_set)
+    assert result["summary_count"] == 1
+    assert result["confirmation_pending_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["confirmation_received_adaptive_control_exchange_execution_confirmation_contract_count"] == 1
+
+
+def test_build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary_counts_parse_failed_as_confirmation_failed():
+    response_handling_summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
+        "adaptive_control_exchange_http_transport_contract_summaries": [
+            {"adaptive_control_exchange_http_transport_contract_summary_version": 1, "transport_failed_adaptive_control_exchange_http_transport_contract_count": 1},
+        ],
+        "adaptive_control_exchange_response_handling_contract_set_version": 1,
+    })
+    confirmation_set = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set([response_handling_summary])
+    result = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary(confirmation_set)
+    assert result["summary_count"] == 1
+    assert result["confirmation_pending_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["confirmation_failed_adaptive_control_exchange_execution_confirmation_contract_count"] == 1
+
+
+def test_build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary_handles_empty_inputs():
+    empty_set = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set([])
+    result = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary(empty_set)
+    assert result["summary_count"] == 0
+    assert result["confirmation_pending_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["confirmation_received_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["execution_confirmed_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["confirmation_failed_adaptive_control_exchange_execution_confirmation_contract_count"] == 0
+    assert result["adaptive_control_exchange_execution_confirmation_contract_summary_version"] == 1
+
+
+def test_build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary_skips_non_comparable_entries():
+    invalid_set = {"adaptive_control_exchange_execution_confirmation_contract_set_version": 1, "adaptive_control_exchange_response_handling_contract_summaries": [None, "string", {"not_a_summary": True}]}
+    result = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary(invalid_set)
+    assert result["summary_count"] == 0
+
+
+def test_build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary_round_trips_with_set_builder_and_preserves_versions():
+    response_handling_summary = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
+        "adaptive_control_exchange_http_transport_contract_summaries": [],
+        "adaptive_control_exchange_response_handling_contract_set_version": 1,
+    })
+    confirmation_set = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set([response_handling_summary])
+    result = build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary(confirmation_set)
+    assert result["adaptive_control_exchange_execution_confirmation_contract_set_version"] == confirmation_set["adaptive_control_exchange_execution_confirmation_contract_set_version"]
+    assert result["adaptive_control_exchange_execution_confirmation_contract_summary_version"] == 1
+
+
     response_handling_summary_1 = build_policy_selection_adaptive_control_exchange_response_handling_contract_summary({
         "adaptive_control_exchange_http_transport_contract_summaries": [],
         "adaptive_control_exchange_response_handling_contract_set_version": 1,

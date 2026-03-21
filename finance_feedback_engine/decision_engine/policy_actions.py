@@ -2804,6 +2804,52 @@ def build_policy_selection_adaptive_control_exchange_response_handling_contract_
 
 
 
+def build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_summary(
+    adaptive_control_exchange_execution_confirmation_contract_set: dict,
+) -> dict:
+    summaries = adaptive_control_exchange_execution_confirmation_contract_set.get(
+        "adaptive_control_exchange_response_handling_contract_summaries", []
+    )
+    comparable_summaries = [
+        s for s in summaries
+        if isinstance(s, dict) and "adaptive_control_exchange_response_handling_contract_summary_version" in s
+    ]
+
+    confirmation_pending = 0
+    confirmation_received = 0
+    execution_confirmed = 0
+    confirmation_failed = 0
+
+    for summary in comparable_summaries:
+        pending_parse = summary.get("pending_parse_adaptive_control_exchange_response_handling_contract_count", 0)
+        parsed_successfully = summary.get("parsed_successfully_adaptive_control_exchange_response_handling_contract_count", 0)
+        parse_failed = summary.get("parse_failed_adaptive_control_exchange_response_handling_contract_count", 0)
+
+        # Map from response handling states to execution confirmation states
+        # Default/empty case: if no specific states, count as confirmation pending
+        # parsed_successfully -> confirmation_pending (waiting for exchange to confirm)
+        # pending_parse -> confirmation_received (response not yet parsed, but confirmation in progress)
+        # parse_failed -> confirmation_failed
+        if pending_parse == 0 and parsed_successfully == 0 and parse_failed == 0:
+            confirmation_pending += 1
+        else:
+            confirmation_pending += parsed_successfully
+            confirmation_received += pending_parse
+            confirmation_failed += parse_failed
+
+    return {
+        "summary_count": len(comparable_summaries),
+        "confirmation_pending_adaptive_control_exchange_execution_confirmation_contract_count": confirmation_pending,
+        "confirmation_received_adaptive_control_exchange_execution_confirmation_contract_count": confirmation_received,
+        "execution_confirmed_adaptive_control_exchange_execution_confirmation_contract_count": execution_confirmed,
+        "confirmation_failed_adaptive_control_exchange_execution_confirmation_contract_count": confirmation_failed,
+        "adaptive_control_exchange_execution_confirmation_contract_set_version": adaptive_control_exchange_execution_confirmation_contract_set.get("adaptive_control_exchange_execution_confirmation_contract_set_version", 1),
+        "adaptive_control_exchange_execution_confirmation_contract_summary_version": 1,
+    }
+
+
+
+
 def build_policy_selection_adaptive_control_exchange_execution_confirmation_contract_set(
     adaptive_control_exchange_response_handling_contract_summaries: Optional[list[dict]],
 ) -> dict:
