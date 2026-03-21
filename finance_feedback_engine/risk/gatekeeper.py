@@ -538,9 +538,10 @@ class RiskGatekeeper:
             if asset_category is not None:
                 holdings = context.get("holdings", {})
                 category_counts = self._count_holdings_by_category(holdings)
+                fallback_action = self._extract_gate_action(decision)
                 if (
                     category_counts.get(asset_category, 0) >= self.max_correlated_assets
-                    and decision.get("action") == "BUY"
+                    and fallback_action == "BUY"
                 ):
                     logger.warning(
                         f"Category correlation limit: {category_counts.get(asset_category, 0)} "

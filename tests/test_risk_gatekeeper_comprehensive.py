@@ -622,3 +622,23 @@ class TestComprehensiveValidation:
         assert passed is False
         # Should fail on first check (market closed)
         assert "closed" in message.lower()
+
+    @patch("finance_feedback_engine.risk.gatekeeper.MarketSchedule")
+    def test_category_correlation_limit_blocks_policy_open_long(self, mock_schedule, risk_gatekeeper):
+        mock_schedule.get_market_status.return_value = {"is_open": True, "warning": None}
+        decision = {
+            "policy_action": "OPEN_SMALL_LONG",
+            "action": "OPEN_SMALL_LONG",
+            "asset_pair": "BTCUSD",
+            "asset_category": "crypto",
+            "volatility": 0.02,
+            "confidence": 80,
+        }
+        context = {
+            "asset_type": "crypto",
+            "recent_performance": {"total_pnl": 0.0},
+            "holdings": {"BTCUSD": "crypto", "ETHUSD": "crypto"},
+        }
+        allowed, message = risk_gatekeeper.validate_trade(decision, context)
+        assert allowed is False
+        assert "Correlation limit exceeded" in message

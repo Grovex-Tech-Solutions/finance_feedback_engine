@@ -2877,7 +2877,7 @@ class TradingLoopAgent:
         Determine whether an attempted execution should consume one daily trade slot.
 
         Rules:
-        - Must be a successful BUY/SELL execution
+        - Must be a successful actionable execution (normalized to BUY/SELL at the adapter edge)
         - Must have an order identifier
         - Must NOT be rejected/cancelled/failed due to logistics (insufficient funds,
           connectivity, stale data, platform rejection)
