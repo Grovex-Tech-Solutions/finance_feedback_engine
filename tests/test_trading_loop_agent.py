@@ -273,7 +273,7 @@ async def test_hold_decision_preserves_ensemble_metadata_and_logs_council_summar
         "ensemble_metadata": {
             "debate_mode": True,
             "role_decisions": {
-                "bull": {"action": "BUY", "confidence": 72, "reasoning": "Momentum continuation.", "provider": "gemini"},
+                "bull": {"action": "BUY", "policy_action": "OPEN_SMALL_LONG", "confidence": 72, "reasoning": "Momentum continuation.", "provider": "gemini"},
                 "bear": {"action": "HOLD", "confidence": 58, "reasoning": "Overextended intraday.", "provider": "qwen"},
                 "judge": {"action": "HOLD", "confidence": 64, "reasoning": "Conflicting signals.", "provider": "mistral"},
             },
@@ -292,7 +292,7 @@ async def test_hold_decision_preserves_ensemble_metadata_and_logs_council_summar
     assert saved_decision["ensemble_metadata"]["role_decisions"]["bull"]["action"] == "BUY"
     assert saved_decision["ensemble_metadata"]["role_decisions"]["judge"]["action"] == "HOLD"
     assert "Council summary for BTCUSD" in caplog.text
-    assert "bull=gemini:BUY/72" in caplog.text
+    assert "bull=gemini:OPEN_SMALL_LONG/72" in caplog.text
     assert "bear=qwen:HOLD/58" in caplog.text
     assert "judge=mistral:HOLD/64" in caplog.text
 

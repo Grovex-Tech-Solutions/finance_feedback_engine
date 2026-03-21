@@ -36,6 +36,7 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     get_legacy_action_compatibility,
     get_policy_action_family,
     is_policy_action,
+    normalize_policy_action,
 )
 from finance_feedback_engine.monitoring.trade_monitor import TradeMonitor
 from finance_feedback_engine.risk.exposure_reservation import get_exposure_manager
@@ -2961,7 +2962,7 @@ class TradingLoopAgent:
         return decision
 
     def _log_council_summary(self, decision: Dict[str, Any], asset_pair: Optional[str] = None) -> None:
-        """Log concise bull/bear/judge council summaries when ensemble debate metadata exists."""
+        """Log concise bull/bear/judge council summaries with canonical policy-action labels."""
         try:
             ensemble_metadata = decision.get("ensemble_metadata") or {}
             role_decisions = ensemble_metadata.get("role_decisions") or {}
@@ -2974,7 +2975,11 @@ class TradingLoopAgent:
                 if not role_decision:
                     continue
                 provider = role_decision.get("provider") or (ensemble_metadata.get("debate_seats") or {}).get(role) or "unknown"
-                action = role_decision.get("action") or "UNKNOWN"
+                raw_action = role_decision.get("policy_action") or role_decision.get("action") or "UNKNOWN"
+                try:
+                    action = normalize_policy_action(raw_action).value if is_policy_action(raw_action) else str(raw_action).upper()
+                except Exception:
+                    action = str(raw_action)
                 confidence = role_decision.get("confidence")
                 confidence_text = str(confidence) if confidence is not None else "?"
                 reasoning = str(role_decision.get("reasoning") or "")
