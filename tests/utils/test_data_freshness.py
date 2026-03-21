@@ -285,3 +285,17 @@ class TestValidateDataFreshness:
         )
         assert is_fresh is False
         assert "closed-market" in warning.lower()
+
+
+    @freeze_time("2024-01-21 12:00:00")
+    def test_forex_closed_daily_stale_is_expected_closed_market_condition(self):
+        """Closed forex daily staleness should be marked expected closed-market when market is closed."""
+        ts = "2024-01-18T23:59:00Z"
+        is_fresh, age_str, warning = validate_data_freshness(
+            ts,
+            "forex",
+            timeframe="daily",
+            market_status={"is_open": False, "session": "Closed"},
+        )
+        assert is_fresh is False
+        assert "closed-market" in warning.lower()

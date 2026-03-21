@@ -322,15 +322,24 @@ def validate_data_freshness(
     elif asset_kind == "forex":
         # Forex: Market-aware thresholds
         if timeframe_kind == "daily":
-            # Daily forex: 24-hour threshold during market hours, 48h on weekends
-            threshold_hours = 48 if is_weekend else 24
+            # Daily forex: 24-hour threshold during market hours, 48h on weekends.
+            # If market is closed, stale daily forex data is expected and should be quieter.
+            threshold_hours = 48 if (is_weekend or not is_market_open) else 24
             if age_minutes > threshold_hours * 60:
                 is_fresh = False
-                warning_msg = (
-                    f"CRITICAL: Forex daily data is {age_str} old "
-                    f"(threshold: {threshold_hours} hours, weekend={is_weekend}). Data too stale."
-                )
-                logger.error(warning_msg)
+                if not is_market_open:
+                    warning_msg = (
+                        f"Expected closed-market stale data: Forex daily data is {age_str} old "
+                        f"(closed-market threshold: {threshold_hours} hours, weekend={is_weekend}). "
+                        f"Market is closed, so older data is expected."
+                    )
+                    logger.info(warning_msg)
+                else:
+                    warning_msg = (
+                        f"CRITICAL: Forex daily data is {age_str} old "
+                        f"(threshold: {threshold_hours} hours, weekend={is_weekend}). Data too stale."
+                    )
+                    logger.error(warning_msg)
             elif age_minutes > 4 * 60:  # 4 hours warning
                 is_fresh = True
                 warning_msg = (

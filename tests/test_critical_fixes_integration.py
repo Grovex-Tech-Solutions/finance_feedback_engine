@@ -596,3 +596,34 @@ class TestCriticalFixesIntegration:
         assert mock_data["mock"] is True
 
         await provider.close()
+
+
+    @pytest.mark.asyncio
+    async def test_weekend_stale_forex_data_is_flagged_without_hard_error_logging(self, caplog):
+        """Weekend closed-market forex staleness should be stale-but-expected, not a provider error blast."""
+        provider = AlphaVantageProvider(api_key="test_key", is_backtest=False)
+
+        stale_date = (datetime.now(UTC) - timedelta(days=3)).date().isoformat()
+        stale_response = {
+            "Time Series FX (Daily)": {
+                stale_date: {
+                    "1. open": "1.1000",
+                    "2. high": "1.1050",
+                    "3. low": "1.0950",
+                    "4. close": "1.1025",
+                }
+            }
+        }
+
+        with patch.object(provider, "_async_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = stale_response
+            result = await provider._get_forex_data("EURUSD", force_refresh=False)
+
+        assert result is not None
+        assert result.get("stale_data") is True
+        assert not any(
+            record.levelname == "ERROR" and "Stale forex data for EURUSD" in record.message
+            for record in caplog.records
+        )
+
+        await provider.close()

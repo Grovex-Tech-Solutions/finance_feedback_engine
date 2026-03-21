@@ -2131,17 +2131,32 @@ class AlphaVantageProvider:
                     )
 
                     if not is_fresh:
-                        # CRITICAL CHANGE: Don't raise exception, return data with stale flag
-                        logger.error(
-                            "Stale forex data for %s: %s. "
-                            "API returned data from %s (%s old). "
-                            "Market status: %s. Returning data with stale_data flag.",
-                            asset_pair,
-                            freshness_msg,
-                            latest_date,
-                            age_str,
-                            market_status.get("session", "Unknown"),
+                        expected_closed_market_stale = (
+                            not market_status.get("is_open", True)
+                            and "closed-market stale" in str(freshness_msg).lower()
                         )
+                        if expected_closed_market_stale:
+                            logger.info(
+                                "Expected closed-market stale forex data for %s: %s. "
+                                "API returned data from %s (%s old). "
+                                "Market status: %s. Returning data with stale_data flag.",
+                                asset_pair,
+                                freshness_msg,
+                                latest_date,
+                                age_str,
+                                market_status.get("session", "Unknown"),
+                            )
+                        else:
+                            logger.error(
+                                "Stale forex data for %s: %s. "
+                                "API returned data from %s (%s old). "
+                                "Market status: %s. Returning data with stale_data flag.",
+                                asset_pair,
+                                freshness_msg,
+                                latest_date,
+                                age_str,
+                                market_status.get("session", "Unknown"),
+                            )
                         # Don't raise - let decision engine handle stale data
                         stale_data_warning = {
                             "stale_data": True,
