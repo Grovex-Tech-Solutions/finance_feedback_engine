@@ -3,6 +3,7 @@
 import logging
 from typing import Any, Dict, List
 
+
 from finance_feedback_engine.utils.asset_classifier import classify_asset_pair
 from finance_feedback_engine.utils.circuit_breaker import CircuitBreaker
 from finance_feedback_engine.utils.validation import standardize_asset_pair
@@ -46,9 +47,21 @@ class UnifiedTradingPlatform(BaseTradingPlatform):
             logger.info("Initializing Coinbase Advanced platform for unified access.")
             self.platforms["coinbase"] = CoinbaseAdvancedPlatform(coinbase_creds)
 
-        if "oanda" in credentials and credentials["oanda"]:
-            logger.info("Initializing Oanda platform for unified access.")
-            self.platforms["oanda"] = OandaPlatform(credentials["oanda"])
+        oanda_creds = credentials.get("oanda")
+        if oanda_creds:
+            oanda_api_key = str(oanda_creds.get("api_key", "") or "")
+            oanda_account_id = str(oanda_creds.get("account_id", "") or "")
+            has_real_oanda_creds = (
+                bool(oanda_api_key)
+                and bool(oanda_account_id)
+                and not oanda_api_key.startswith("YOUR_")
+                and not oanda_account_id.startswith("YOUR_")
+            )
+            if has_real_oanda_creds:
+                logger.info("Initializing Oanda platform for unified access.")
+                self.platforms["oanda"] = OandaPlatform(oanda_creds)
+            else:
+                logger.info("Skipping Oanda platform initialization due to missing or placeholder credentials.")
 
         paper_creds = credentials.get("paper") or credentials.get("mock") or credentials.get("sandbox")
         if paper_creds is not None:
