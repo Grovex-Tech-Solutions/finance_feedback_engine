@@ -189,19 +189,48 @@ class AIDecisionManager:
 
 DEBATE ROLE: BULLISH ADVOCATE
 ==============================
-Your role is to present the STRONGEST BULLISH CASE for this asset.
+You are the bullish advocate on a trading decision council.
+Your role is to present the STRONGEST PLAUSIBLE BULLISH CASE for this asset.
 
-Focus on:
-- Positive momentum signals (RSI recovery, MACD crossovers)
-- Support levels and bounce patterns
-- Bullish news sentiment
-- Oversold conditions (potential reversal)
+Allowed policy actions:
+- HOLD
+- OPEN_SMALL_LONG
+- OPEN_MEDIUM_LONG
+- ADD_SMALL_LONG
+- REDUCE_LONG
+- CLOSE_LONG
+
+Primary priorities:
+1. Multi-timeframe trend alignment
+2. Momentum improvement or reversal evidence
+3. Support structure and bounce quality
+4. Regime suitability (trend vs ranging)
+5. Risk/reward and execution quality
 
 ⚠️ CRITICAL CONSTRAINT:
-If multi-timeframe trend consensus is BEARISH or STRONG_BEARISH, you must acknowledge this major headwind.
-Do NOT recommend strong bullish positions against a bearish multi-timeframe trend unless there is exceptional evidence of reversal.
+If multi-timeframe trend consensus is BEARISH or STRONG_BEARISH, explicitly acknowledge this major headwind.
+Do NOT recommend strong bullish positioning against bearish higher-timeframe trend unless there is exceptional reversal evidence.
+If the bullish case is weak, noisy, stale, or non-actionable, prefer HOLD.
 
 Be optimistic but not reckless. Respect longer-timeframe trends.
+
+Return ONLY valid JSON with these exact keys:
+- action
+- confidence
+- reasoning
+- amount
+
+In reasoning, use this exact mini-structure:
+Thesis: <one-sentence bullish thesis>
+Actionability: <actionable_now|monitor|no_trade>
+Trend Alignment: <aligned|countertrend|mixed>
+Top Evidence:
+1. <best bullish evidence>
+2. <second bullish evidence>
+3. <third bullish evidence>
+Major Risk: <biggest reason the bullish case could fail>
+Thesis Breaker: <specific condition that invalidates the bullish case>
+Data Quality: <good|degraded|stale>
 """
             
             bull_case = await self._query_single_provider(bull_provider, bull_prompt)
@@ -253,19 +282,48 @@ Be optimistic but not reckless. Respect longer-timeframe trends.
 
 DEBATE ROLE: BEARISH ADVOCATE
 ==============================
-Your role is to present the STRONGEST BEARISH CASE for this asset.
+You are the bearish advocate on a trading decision council.
+Your role is to present the STRONGEST PLAUSIBLE BEARISH CASE for this asset.
 
-Focus on:
-- Negative momentum signals (declining RSI, bearish MACD)
-- Resistance levels and rejection patterns
-- Bearish news sentiment
-- Overbought conditions (potential reversal)
+Allowed policy actions:
+- HOLD
+- OPEN_SMALL_SHORT
+- OPEN_MEDIUM_SHORT
+- ADD_SMALL_SHORT
+- REDUCE_SHORT
+- CLOSE_SHORT
+
+Primary priorities:
+1. Multi-timeframe trend alignment
+2. Momentum deterioration or reversal evidence
+3. Resistance, rejection, and breakdown quality
+4. Regime suitability (trend vs ranging)
+5. Risk/reward and execution quality
 
 ⚠️ CRITICAL CONSTRAINT:
-If multi-timeframe trend consensus is BULLISH or STRONG_BULLISH, you must acknowledge this major tailwind.
-Do NOT recommend strong bearish positions against a bullish multi-timeframe trend unless there is exceptional evidence of reversal.
+If multi-timeframe trend consensus is BULLISH or STRONG_BULLISH, explicitly acknowledge this major tailwind.
+Do NOT recommend strong bearish positioning against bullish higher-timeframe trend unless there is exceptional reversal evidence.
+If the bearish case is weak, noisy, stale, or non-actionable, prefer HOLD.
 
-Be cautious but not paralyzed. Respect longer-timeframe trends.
+Be skeptical but not reflexively bearish. Respect longer-timeframe trends.
+
+Return ONLY valid JSON with these exact keys:
+- action
+- confidence
+- reasoning
+- amount
+
+In reasoning, use this exact mini-structure:
+Thesis: <one-sentence bearish thesis>
+Actionability: <actionable_now|monitor|no_trade>
+Trend Alignment: <aligned|countertrend|mixed>
+Top Evidence:
+1. <best bearish evidence>
+2. <second bearish evidence>
+3. <third bearish evidence>
+Major Risk: <biggest reason the bearish case could fail>
+Thesis Breaker: <specific condition that invalidates the bearish case>
+Data Quality: <good|degraded|stale>
 """
             
             bear_case = await self._query_single_provider(bear_provider, bear_prompt)
@@ -317,32 +375,55 @@ Be cautious but not paralyzed. Respect longer-timeframe trends.
 
 DEBATE ROLE: IMPARTIAL JUDGE
 =============================
-You have heard arguments from both bullish and bearish advocates.
+You are the final arbiter on a trading decision council.
+You must evaluate both the bullish and bearish cases and decide whether one side has a real actionable edge or whether the correct decision is HOLD.
 
 Bull case summary:
-{bull_case.get('reasoning', 'N/A') if bull_case else 'Bull provider failed'}
+{bull_case.get('reasoning', 'Bull provider failed') if bull_case else 'Bull provider failed'}
 
 Bear case summary:
-{bear_case.get('reasoning', 'N/A') if bear_case else 'Bear provider failed'}
+{bear_case.get('reasoning', 'Bear provider failed') if bear_case else 'Bear provider failed'}
 
 Your role is to make the FINAL DECISION weighing both perspectives.
+Do NOT reward persuasive writing. Judge evidence quality, trend alignment, actionability, and execution suitability.
+Prefer no trade over a weak trade.
 
 Decision Framework:
 1. ⚠️ HIGHEST PRIORITY: Multi-timeframe trend consensus
-   - If strong_bearish/bearish consensus → favor HOLD or SHORT, be very cautious on LONG
-   - If strong_bullish/bullish consensus → favor LONG, be cautious on SHORT
+   - If strong_bearish/bearish consensus → favor HOLD or SHORT; be very cautious on LONG
+   - If strong_bullish/bullish consensus → favor LONG; be cautious on SHORT
    - If neutral → evaluate other factors more heavily
+2. Evidence quality and structural alignment
+3. Actionability right now
+4. Data quality, freshness, and execution reliability
+5. Lower priority: short-term noise and isolated candle signals
 
-2. Medium priority: Technical indicators (RSI, MACD, support/resistance)
+MANDATORY HOLD CONDITIONS:
+- Bull and bear evidence are closely matched
+- Both cases are weak or low-conviction
+- Data is stale, degraded, or market is closed
+- Execution or sizing context is incomplete or unreliable
+- Proposed trade is counter-trend without exceptional reversal evidence
 
-3. Lower priority: Single-candle patterns, short-term noise
-
-Counter-trend trades (against multi-timeframe consensus) should only be recommended with:
-- Exceptional reversal signals (RSI divergence + volume spike + news catalyst)
+Counter-trend trades should only be recommended with:
+- Exceptional reversal signals
 - Tight stop-losses (max 2%)
-- Reduced position size (50% of normal)
+- Reduced size
+- Confidence materially reduced
 
-Make your decision based on evidence, not emotion. Acknowledge when data is conflicting.
+Return ONLY valid JSON with these exact keys:
+- action
+- confidence
+- reasoning
+- amount
+
+In reasoning, use this exact mini-structure:
+Winning Thesis: <bull|bear|neither>
+Decision Basis: <main factor that decided the outcome>
+Why Not Other Side: <brief reason the losing case did not win>
+Actionability: <actionable_now|monitor|no_trade>
+Data Quality: <good|degraded|stale>
+Final Rationale: <clear final explanation>
 """
             
             judge_decision = await self._query_single_provider(judge_provider, judge_prompt)
