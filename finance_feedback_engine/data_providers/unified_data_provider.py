@@ -62,8 +62,12 @@ class UnifiedDataProvider:
 
         enabled_platforms = {str(name).lower() for name in (self.config.get("enabled_platforms") or [])}
         platform_mode = str(self.config.get("trading_platform") or "unified").lower()
-        allow_coinbase = platform_mode == "unified" or platform_mode in {"coinbase", "coinbase_advanced"} or "coinbase_advanced" in enabled_platforms or "coinbase" in enabled_platforms
-        allow_oanda = platform_mode == "unified" or platform_mode == "oanda" or "oanda" in enabled_platforms
+        if enabled_platforms:
+            allow_coinbase = "coinbase_advanced" in enabled_platforms or "coinbase" in enabled_platforms
+            allow_oanda = "oanda" in enabled_platforms
+        else:
+            allow_coinbase = platform_mode == "unified" or platform_mode in {"coinbase", "coinbase_advanced"}
+            allow_oanda = platform_mode == "unified" or platform_mode == "oanda"
 
         if alpha_vantage_api_key:
             try:
