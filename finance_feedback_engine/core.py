@@ -135,8 +135,19 @@ class FinanceFeedbackEngine:
         # UnifiedDataProvider cannot initialize Oanda and forex price lookups
         # silently fall back to stale non-exchange data.
         provider_credentials = resolve_provider_credentials(config)
+        enabled_platforms = {str(name).lower() for name in (config.get("enabled_platforms") or [])}
+        agent_cfg = config.get("agent") or {}
+        asset_pairs = [str(p).upper() for p in (agent_cfg.get("asset_pairs") or [])]
+        crypto_markers = ("BTC", "ETH", "SOL", "DOGE", "ADA", "DOT", "LINK")
+        fiat_markers = ("EUR", "GBP", "JPY", "CHF", "AUD", "NZD", "CAD")
+        crypto_only_runtime = bool(asset_pairs) and all(
+            any(sym in pair for sym in crypto_markers) and not any(code in pair for code in fiat_markers)
+            for pair in asset_pairs
+        )
         coinbase_credentials = provider_credentials.coinbase
         oanda_credentials = provider_credentials.oanda
+        if crypto_only_runtime and enabled_platforms and 'oanda' not in enabled_platforms:
+            oanda_credentials = None
 
         self.unified_provider = UnifiedDataProvider(
             alpha_vantage_api_key=api_key,
@@ -240,12 +251,14 @@ class FinanceFeedbackEngine:
                         continue
                     unified_credentials["coinbase"] = platform_creds
                 elif platform_key == "oanda":
-                    if paper_enabled and (
-                        not platform_creds
-                        or any(_is_placeholder(v) for v in platform_creds.values())
+                    if (crypto_only_runtime and enabled_platforms and 'oanda' not in enabled_platforms) or (
+                        paper_enabled and (
+                            not platform_creds
+                            or any(_is_placeholder(v) for v in platform_creds.values())
+                        )
                     ):
                         logger.info(
-                            "Skipping oanda platform in sandbox mode (missing or placeholder credentials)."
+                            "Skipping oanda platform in crypto-only or sandbox mode (missing, placeholder, or disabled credentials)."
                         )
                         continue
                     unified_credentials["oanda"] = platform_creds
