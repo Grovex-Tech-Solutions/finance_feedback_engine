@@ -361,12 +361,12 @@ class CorrelationAnalyzer:
         oanda_price_history: Dict[str, List[Dict[str, float]]],
     ) -> Dict[str, Dict[str, Any]]:
         platforms = {}
-        if coinbase_holdings or coinbase_price_history:
+        if coinbase_holdings:
             platforms["coinbase"] = {
                 "holdings": coinbase_holdings,
                 "price_history": coinbase_price_history,
             }
-        if oanda_holdings or oanda_price_history:
+        if oanda_holdings:
             platforms["oanda"] = {
                 "holdings": oanda_holdings,
                 "price_history": oanda_price_history,
