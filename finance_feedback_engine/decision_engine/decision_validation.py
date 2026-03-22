@@ -20,6 +20,33 @@ LEGACY_DIRECTIONAL_ACTIONS = {"BUY", "SELL"}
 POLICY_OR_LEGACY_HOLD = "HOLD"
 
 
+def _normalize_reasoning_payload(reasoning: Any) -> str:
+    """Normalize provider reasoning into a non-empty human-readable string."""
+    if isinstance(reasoning, str):
+        return reasoning.strip()
+
+    if isinstance(reasoning, dict):
+        parts = []
+        for key, value in reasoning.items():
+            if value is None:
+                continue
+            value_text = str(value).strip()
+            if not value_text:
+                continue
+            key_text = str(key).strip()
+            parts.append(f"{key_text}: {value_text}" if key_text else value_text)
+        return "\n".join(parts).strip()
+
+    if isinstance(reasoning, list):
+        parts = [str(item).strip() for item in reasoning if str(item).strip()]
+        return "\n".join(parts).strip()
+
+    if reasoning is None:
+        return ""
+
+    return str(reasoning).strip()
+
+
 def normalize_decision_action_payload(decision: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize decision payloads so policy actions become canonical top-level actions.
 
@@ -60,6 +87,9 @@ def normalize_decision_action_payload(decision: Dict[str, Any]) -> Dict[str, Any
             "legacy_action_compatibility", get_legacy_action_compatibility(canonical)
         )
 
+    if "reasoning" in normalized:
+        normalized["reasoning"] = _normalize_reasoning_payload(normalized.get("reasoning"))
+
     return normalized
 
 
@@ -89,6 +119,9 @@ def validate_decision_comprehensive(decision: Dict[str, Any]) -> Tuple[bool, Lis
             f"Invalid action '{action}'. Must be a policy action or legacy BUY/SELL during migration"
         )
 
+    normalized_decision["reasoning"] = _normalize_reasoning_payload(
+        normalized_decision.get("reasoning", "")
+    )
     reasoning = normalized_decision.get("reasoning", "")
     if not isinstance(reasoning, str) or not reasoning.strip():
         errors.append("Reasoning must be non-empty string")
