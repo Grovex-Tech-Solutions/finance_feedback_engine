@@ -631,7 +631,7 @@ class LocalLLMProvider:
 
                     return decision
 
-                logger.warning(
+                logger.info(
                     f"LLM response missing required fields or not JSON on attempt {attempt + 1}, "
                     f"raw prefix: {response_text[:100]}"
                 )

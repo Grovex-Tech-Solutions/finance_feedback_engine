@@ -64,6 +64,9 @@ class FinanceFeedbackEngine:
                 - decision_engine: Decision engine configuration
                 - persistence: Persistence configuration
         """
+        # TODO(non-blocking): Coinbase-only runtime is healthy, but Oanda startup/init noise still leaks through
+        # some legacy unified/dual-portfolio paths. Clean this up at the source when refactoring active platform
+        # modeling so disabled providers/platforms cannot be observed by downstream startup, risk, or portfolio code.
         # Run security validation at startup (warns on plaintext credentials)
         config_path = Path(__file__).parent.parent / "config" / "config.yaml"
         validate_at_startup(config_path, raise_on_error=False)
