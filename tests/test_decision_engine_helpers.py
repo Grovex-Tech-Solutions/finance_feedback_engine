@@ -369,3 +369,20 @@ def test_select_relevant_balance_plain_forex_pair_uses_oanda_balance(decision_en
     assert balance_source == "Oanda"
     assert is_crypto is False
     assert is_forex is True
+
+
+    def test_create_decision_forex_uses_oanda_balance_snapshot(self, decision_engine):
+        context = {
+            "market_data": {"close": 1.08, "type": "forex"},
+            "balance": {"coinbase_FUTURES_USD": 741.15, "oanda_USD": 166.72},
+            "price_change": 0.0,
+            "volatility": 0.01,
+            "portfolio": {},
+            "monitoring_context": {},
+        }
+        ai_response = {"action": "BUY", "confidence": 70, "reasoning": "fx setup"}
+
+        decision = decision_engine._create_decision("EURUSD", context, ai_response)
+
+        assert decision["balance_snapshot"] == {"oanda_USD": 166.72}
+        assert decision["balance_source"] == "Oanda"

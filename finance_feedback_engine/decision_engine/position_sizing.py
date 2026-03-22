@@ -234,6 +234,11 @@ class PositionSizingCalculator:
                         fallback_val,
                     )
 
+        # TODO(cmp6510): reconcile the balance-validity flow here. In live logs we can
+        # reach this point with has_valid_balance=True / Coinbase context present, then later
+        # still emit "No valid Coinbase balance - using minimum order size". The fallback,
+        # should_calculate gate, and downstream minimum-order branch should share one canonical
+        # notion of usable balance so logs and execution behavior stay consistent.
         # Determine if we should calculate position sizing (no signal-only mode)
         should_calculate = has_valid_balance and (
             action in ["BUY", "SELL"]

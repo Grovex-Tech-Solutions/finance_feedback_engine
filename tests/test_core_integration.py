@@ -434,3 +434,89 @@ class TestPositionSizing:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.asyncio
+async def test_generate_decision_derives_oanda_balance_from_portfolio_breakdown(core_engine):
+    core_engine.trading_platform.get_portfolio_breakdown.return_value = {
+        "total_value_usd": 900.0,
+        "num_assets": 2,
+        "futures_value_usd": 741.15,
+        "spot_value_usd": 0.0,
+        "platform_breakdowns": {
+            "coinbase": {
+                "futures_summary": {"total_balance_usd": 741.15},
+                "total_value_usd": 741.15,
+            },
+            "oanda": {
+                "summary": {"balance": 166.72},
+                "total_value_usd": 166.72,
+            },
+        },
+    }
+    core_engine.market_analyzer.create_decision_context = AsyncMock(
+        return_value={
+            "market_data": {"close": 1.08, "type": "forex"},
+            "balance": {},
+            "price_change": 0.0,
+            "volatility": 0.01,
+        }
+    )
+    core_engine.ai_decision_manager.get_decision = AsyncMock(
+        return_value={"action": "HOLD", "confidence": 50, "reasoning": "ok", "amount": 0}
+    )
+    core_engine.validator.create_decision.return_value = {"id": "x", "action": "HOLD"}
+
+    await core_engine.generate_decision("EURUSD", {"close": 1.08, "type": "forex"})
+
+    kwargs = core_engine.market_analyzer.create_decision_context.await_args.kwargs
+    assert kwargs["balance"]["FUTURES_USD"] == 741.15
+    assert kwargs["balance"]["oanda_USD"] == 166.72
+
+
+@pytest.mark.asyncio
+async def test_engine_with_mock_config_generate_decision_derives_oanda_balance_from_portfolio_breakdown(engine_with_mock_config):
+    engine = engine_with_mock_config
+    engine.trading_platform.get_portfolio_breakdown = lambda: {
+        "total_value_usd": 907.87,
+        "num_assets": 2,
+        "futures_value_usd": 741.15,
+        "spot_value_usd": 0.0,
+        "platform_breakdowns": {
+            "coinbase": {
+                "futures_summary": {"total_balance_usd": 741.15},
+                "total_value_usd": 741.15,
+            },
+            "oanda": {
+                "summary": {"balance": 166.72},
+                "total_value_usd": 166.72,
+            },
+        },
+    }
+
+    captured = {}
+
+    async def fake_create_decision_context(asset_pair, market_data, balance, portfolio=None, memory_context=None, monitoring_context=None):
+        captured['balance'] = balance
+        return {
+            "asset_pair": asset_pair,
+            "market_data": market_data,
+            "balance": balance,
+            "balance_snapshot": balance,
+            "portfolio": portfolio,
+            "memory_context": memory_context,
+            "monitoring_context": monitoring_context,
+            "price_change": 0.0,
+            "volatility": 0.01,
+        }
+
+    engine.market_analyzer.create_decision_context = fake_create_decision_context
+    engine.ai_decision_manager.get_decision = AsyncMock(
+        return_value={"action": "HOLD", "confidence": 50, "reasoning": "ok", "amount": 0}
+    )
+    engine.validator.create_decision = lambda **kwargs: {"id": "x", "action": "HOLD", **kwargs}
+
+    await engine.generate_decision("EURUSD", {"close": 1.08, "type": "forex"})
+
+    assert captured['balance']["FUTURES_USD"] == 741.15
+    assert captured['balance']["oanda_USD"] == 166.72
