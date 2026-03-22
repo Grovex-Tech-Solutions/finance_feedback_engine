@@ -972,9 +972,20 @@ class TradingLoopAgent:
                 # Extract positions from platform response
                 raw_positions = []
 
+                enabled_platforms = {str(name).lower() for name in (self.engine.config.get("enabled_platforms") or [])}
+                def _platform_enabled(name: str) -> bool:
+                    lname = str(name).lower()
+                    return (
+                        not enabled_platforms
+                        or lname in enabled_platforms
+                        or (lname == "coinbase" and "coinbase_advanced" in enabled_platforms)
+                    )
+
                 # Handle UnifiedTradingPlatform (platform_breakdowns)
                 if "platform_breakdowns" in portfolio:
                     for platform_name, platform_data in portfolio["platform_breakdowns"].items():
+                        if not _platform_enabled(platform_name):
+                            continue
                         # Coinbase futures
                         if "futures_positions" in platform_data:
                             for pos in platform_data["futures_positions"]:
