@@ -291,8 +291,10 @@ def _normalize_ensemble_config(config: Dict[str, Any]) -> None:
 
 
 def _normalize_runtime_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    _normalize_platform_config(config)
+    # Apply env/YAML asset-pair normalization first so crypto-only platform filtering
+    # sees the effective watchlist rather than stale base YAML pairs.
     _normalize_asset_pairs(config)
+    _normalize_platform_config(config)
     _normalize_ensemble_config(config)
     return config
 
