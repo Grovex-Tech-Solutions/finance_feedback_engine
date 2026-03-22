@@ -155,6 +155,11 @@ def _normalize_platform_config(config: Dict[str, Any]) -> None:
         normalized_platforms = [
             p for p in normalized_platforms if str(p.get("name", "")).lower() in {"coinbase", "coinbase_advanced"}
         ]
+        providers = config.get("providers") or {}
+        if isinstance(providers, dict) and "oanda" in providers:
+            providers = dict(providers)
+            providers.pop("oanda", None)
+            config["providers"] = providers
 
     aliases = {"coinbase": "coinbase_advanced", "coinbase_advanced": "coinbase_advanced"}
     selected_name = aliases.get(trading_platform, trading_platform)
