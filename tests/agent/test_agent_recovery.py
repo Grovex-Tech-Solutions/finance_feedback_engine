@@ -293,6 +293,43 @@ async def test_recovery_malformed_position_data(agent, mock_engine):
 
 
 @pytest.mark.asyncio
+async def test_recovery_coinbase_platform_breakdown_uses_number_of_contracts(agent, mock_engine):
+    """Recovery should treat Coinbase platform_breakdowns[number_of_contracts] as active positions."""
+    mock_engine.config = {}
+    mock_engine.get_portfolio_breakdown_async.return_value = {
+        "platform_breakdowns": {
+            "coinbase": {
+                "futures_positions": [
+                    {
+                        "product_id": "BIP-20DEC30-CDE",
+                        "side": "SHORT",
+                        "number_of_contracts": "5",
+                        "entry_price": "68983",
+                        "current_price": "69380",
+                        "unrealized_pnl": "-19.85",
+                        "opened_at": "2024-01-01T12:00:00Z",
+                    },
+                    {
+                        "product_id": "ETP-20DEC30-CDE",
+                        "side": "SHORT",
+                        "number_of_contracts": "5",
+                        "entry_price": "2052.6",
+                        "current_price": "2074.5",
+                        "unrealized_pnl": "-10.95",
+                        "opened_at": "2024-01-01T12:05:00Z",
+                    },
+                ]
+            }
+        }
+    }
+
+    await agent.handle_recovering_state()
+
+    assert agent.state == AgentState.PERCEPTION
+    assert len(agent._recovered_positions) == 2
+    assert all(position["size"] == 5.0 for position in agent._recovered_positions)
+
+@pytest.mark.asyncio
 async def test_recovery_api_timeout_retry(agent, mock_engine):
     """Test recovery with API timeout - should retry once."""
     call_count = 0

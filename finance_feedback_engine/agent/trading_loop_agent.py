@@ -972,7 +972,9 @@ class TradingLoopAgent:
                 # Extract positions from platform response
                 raw_positions = []
 
-                enabled_platforms = {str(name).lower() for name in (self.engine.config.get("enabled_platforms") or [])}
+                engine_config = getattr(self.engine, "config", None)
+                enabled_platform_names = engine_config.get("enabled_platforms") if isinstance(engine_config, dict) else []
+                enabled_platforms = {str(name).lower() for name in (enabled_platform_names or [])}
                 def _platform_enabled(name: str) -> bool:
                     lname = str(name).lower()
                     return (
@@ -993,7 +995,7 @@ class TradingLoopAgent:
                                     "platform": platform_name,
                                     "product_id": pos.get("product_id") or pos.get("instrument"),
                                     "side": pos.get("side", "LONG"),
-                                    "size": abs(float(pos.get("contracts", 0) or pos.get("units", 0))),
+                                    "size": abs(float(pos.get("contracts", 0) or pos.get("number_of_contracts", 0) or pos.get("units", 0))),
                                     "entry_price": float(pos.get("entry_price", 0)),
                                     "current_price": float(pos.get("current_price", 0)),
                                     "unrealized_pnl": float(pos.get("unrealized_pnl", 0)),
@@ -1019,7 +1021,7 @@ class TradingLoopAgent:
                             "platform": "coinbase",
                             "product_id": pos.get("product_id") or pos.get("instrument"),
                             "side": pos.get("side", "LONG"),
-                            "size": abs(float(pos.get("contracts", 0) or pos.get("units", 0))),
+                            "size": abs(float(pos.get("contracts", 0) or pos.get("number_of_contracts", 0) or pos.get("units", 0))),
                             "entry_price": float(pos.get("entry_price", 0)),
                             "current_price": float(pos.get("current_price", 0)),
                             "unrealized_pnl": float(pos.get("unrealized_pnl", 0)),
