@@ -12,6 +12,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from finance_feedback_engine.cli.commands.trading import _decision_display_action, _decision_display_label
 from finance_feedback_engine.cli.formatters.pulse_formatter import display_pulse_data
 
 
@@ -218,7 +219,7 @@ def analyze(ctx, asset_pair, provider, show_pulse):
         console.print("\n[bold green]Trading Decision Generated[/bold green]")
         console.print(f"Decision ID: {decision.get('id', 'N/A')}")
         console.print(f"Asset: {decision.get('asset_pair', asset_pair)}")
-        console.print(f"Action: [bold]{decision.get('action', 'N/A')}[/bold]")
+        console.print(f"Action: [bold]{_decision_display_label(decision)}[/bold]")
         if "confidence" in decision:
             console.print(f"Confidence: {decision.get('confidence', 0)}%")
         if "reasoning" in decision:
@@ -343,7 +344,7 @@ def analyze(ctx, asset_pair, provider, show_pulse):
                 if vote_power is not None:
                     weight_str += f", vote {vote_power:.2f}"
                 console.print(
-                    f"  [{provider.upper()}] {pdecision['action']} "
+                    f"  [{provider.upper()}] {_decision_display_label(pdecision)} "
                     f"({pdecision['confidence']}%) - {weight_str}"
                 )
 
@@ -416,7 +417,7 @@ def history(ctx, asset, limit):
                 decision.get("id", ""),
                 timestamp,
                 decision.get("asset_pair", ""),
-                decision.get("action", ""),
+                _decision_display_label(decision),
                 f"{decision.get('confidence', '')}%",
                 executed,
             )

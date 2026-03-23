@@ -295,6 +295,8 @@ def test_history_command_basic():
             "timestamp": "2025-01-01T00:00:00Z",
             "asset_pair": "BTCUSD",
             "action": "BUY",
+            "policy_action": "OPEN_SMALL_LONG",
+            "legacy_action_compatibility": "BUY",
             "confidence": 80,
             "executed": False,
         },
@@ -303,6 +305,8 @@ def test_history_command_basic():
             "timestamp": "2025-01-01T01:00:00Z",
             "asset_pair": "ETHUSD",
             "action": "SELL",
+            "policy_action": "REDUCE_LONG",
+            "legacy_action_compatibility": "SELL",
             "confidence": 70,
             "executed": True,
         },
@@ -315,6 +319,8 @@ def test_history_command_basic():
         ):
             res = runner.invoke(cli, ["history", "--limit", "2"])
             assert res.exit_code == 0, res.output
+            assert "OPEN_SMALL_LONG (BUY)" in res.output
+            assert "REDUCE_LONG (SELL)" in res.output
 
 
 def test_execute_with_id_calls_engine():
