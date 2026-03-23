@@ -200,6 +200,53 @@ class MarketAnalysisContext:
         coinbase_history = portfolio.get("coinbase_price_history", {}) if coinbase_enabled else {}
         oanda_holdings = portfolio.get("oanda_holdings", {}) if oanda_enabled else {}
         oanda_history = portfolio.get("oanda_price_history", {}) if oanda_enabled else {}
+
+        platform_breakdowns = portfolio.get("platform_breakdowns") or {}
+        coinbase_breakdown = platform_breakdowns.get("coinbase") or {}
+        if coinbase_enabled and not coinbase_holdings and coinbase_breakdown:
+            derived_coinbase_holdings: Dict[str, Dict[str, Any]] = {}
+            cfm_base_map = {"BIP": "BTC", "BIT": "BTC", "ETP": "ETH", "ET": "ETH", "SOL": "SOL", "SLP": "SOL"}
+            for pos in (coinbase_breakdown.get("futures_positions") or []):
+                raw_pair = pos.get("product_id") or pos.get("instrument")
+                if not raw_pair:
+                    continue
+                canonical = None
+                try:
+                    from finance_feedback_engine.utils.validation import standardize_asset_pair
+                    canonical = standardize_asset_pair(raw_pair)
+                except Exception:
+                    canonical = None
+                raw_upper = str(raw_pair).upper()
+                prefix = raw_upper.split("-")[0] if "-" in raw_upper else raw_upper
+                if canonical is None:
+                    mapped_base = cfm_base_map.get(prefix)
+                    if mapped_base:
+                        canonical = f"{mapped_base}USD"
+                    else:
+                        for base in ("BTC", "ETH", "SOL"):
+                            if base in raw_upper:
+                                canonical = f"{base}USD"
+                                break
+                if not canonical:
+                    continue
+                try:
+                    quantity = abs(float(pos.get("number_of_contracts", 0) or pos.get("contracts", 0) or pos.get("units", 0) or 0.0))
+                except Exception:
+                    quantity = 0.0
+                try:
+                    current_price = float(pos.get("current_price", 0.0) or 0.0)
+                except Exception:
+                    current_price = 0.0
+                if quantity <= 0 or current_price <= 0:
+                    continue
+                derived_coinbase_holdings[canonical] = {
+                    "quantity": quantity,
+                    "current_price": current_price,
+                    "source": "platform_breakdowns.futures_positions",
+                }
+            if derived_coinbase_holdings:
+                coinbase_holdings = derived_coinbase_holdings
+
         return coinbase_holdings, coinbase_history, oanda_holdings, oanda_history
 
     def _has_existing_position(
