@@ -19,6 +19,14 @@ def _decision_display_action(decision):
     return decision.get("policy_action") or decision.get("action") or "HOLD"
 
 
+def _decision_display_label(decision):
+    canonical = _decision_display_action(decision)
+    compatibility = decision.get("legacy_action_compatibility")
+    if decision.get("policy_action") and compatibility and compatibility != canonical:
+        return f"{canonical} ({compatibility})"
+    return canonical
+
+
 def _is_executable_decision(decision):
     raw_action = decision.get("policy_action") or decision.get("action") or "HOLD"
     if is_policy_action(raw_action):
@@ -139,7 +147,7 @@ def execute(ctx, decision_id):
                     str(i),
                     timestamp,
                     decision["asset_pair"],
-                    _decision_display_action(decision),
+                    _decision_display_label(decision),
                     f"{decision.get('confidence', '')}%",
                     executed,
                 )

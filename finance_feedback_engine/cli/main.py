@@ -52,6 +52,7 @@ from finance_feedback_engine.utils.retention_manager import create_default_manag
 from finance_feedback_engine.cli.commands.optimize import optimize as optimize_command
 from finance_feedback_engine.cli.commands.trading import balance as balance_command
 from finance_feedback_engine.cli.commands.trading import execute as execute_command
+from finance_feedback_engine.cli.commands.trading import _decision_display_action, _decision_display_label
 from finance_feedback_engine.cli.commands.analytics import (
     daily_pnl as daily_pnl_command,
     weekly_pnl as weekly_pnl_command,
@@ -1282,9 +1283,10 @@ def approve(ctx, decision_id):
 
         table.add_row("Decision ID", decision.get("decision_id", "N/A"))
         table.add_row("Asset Pair", decision.get("asset_pair", "N/A"))
+        display_action = _decision_display_action(decision)
         table.add_row(
             "Action",
-            f"[bold {_get_action_color(decision.get('action'))}]{decision.get('action')}[/bold {_get_action_color(decision.get('action'))}]",
+            f"[bold {_get_action_color(display_action)}]{_decision_display_label(decision)}[/bold {_get_action_color(display_action)}]",
         )
         table.add_row("Confidence", f"{decision.get('confidence', 0)}%")
         table.add_row("Position Size", str(decision.get("position_size", "N/A")))

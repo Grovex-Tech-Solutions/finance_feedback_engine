@@ -49,10 +49,12 @@ def test_analyze_command_network_failure():
 
 
 def test_cli_execute_policy_action_helpers():
-    from finance_feedback_engine.cli.commands.trading import _decision_display_action, _is_executable_decision
+    from finance_feedback_engine.cli.commands.trading import _decision_display_action, _decision_display_label, _is_executable_decision
 
     assert _is_executable_decision({"policy_action": "OPEN_SMALL_LONG"}) is True
     assert _is_executable_decision({"policy_action": "HOLD"}) is False
     assert _is_executable_decision({"action": "BUY"}) is True
     assert _is_executable_decision({"action": "HOLD"}) is False
     assert _decision_display_action({"policy_action": "REDUCE_LONG", "action": "SELL"}) == "REDUCE_LONG"
+    assert _decision_display_label({"policy_action": "OPEN_SMALL_LONG", "legacy_action_compatibility": "BUY", "action": "BUY"}) == "OPEN_SMALL_LONG (BUY)"
+    assert _decision_display_label({"action": "BUY"}) == "BUY"

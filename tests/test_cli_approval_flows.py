@@ -24,6 +24,8 @@ def sample_decision(tmp_path):
         "decision_id": "test123",
         "asset_pair": "BTCUSD",
         "action": "BUY",
+        "policy_action": "OPEN_SMALL_LONG",
+        "legacy_action_compatibility": "BUY",
         "confidence": 85,
         "position_size": 0.05,
         "entry_price": 50000.0,
@@ -80,6 +82,7 @@ class TestApproveCommandLoading:
 
         # Should succeed - file exists in tmp_path and CLI runs from that directory
         assert result.exit_code == 0
+        assert "OPEN_SMALL_LONG (BUY)" in result.output
 
     def test_approve_invalid_decision_id(self, runner):
         """Test approve with non-existent decision ID."""
