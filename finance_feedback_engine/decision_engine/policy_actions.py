@@ -80,10 +80,13 @@ def get_legacy_action_compatibility(action: PolicyAction | str) -> Optional[str]
     if normalized in {
         PolicyAction.REDUCE_LONG,
         PolicyAction.CLOSE_LONG,
+    }:
+        return "SELL"
+    if normalized in {
         PolicyAction.REDUCE_SHORT,
         PolicyAction.CLOSE_SHORT,
     }:
-        return None
+        return "BUY"
     raise ValueError(f"Unsupported policy action compatibility for: {normalized}")
 
 

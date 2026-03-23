@@ -205,8 +205,8 @@ def test_legacy_action_compatibility_mapping_is_explicit():
     assert get_legacy_action_compatibility("OPEN_SMALL_LONG") == "BUY"
     assert get_legacy_action_compatibility("OPEN_MEDIUM_SHORT") == "SELL"
     assert get_legacy_action_compatibility("HOLD") == "HOLD"
-    assert get_legacy_action_compatibility("REDUCE_LONG") is None
-    assert get_legacy_action_compatibility("CLOSE_SHORT") is None
+    assert get_legacy_action_compatibility("REDUCE_LONG") == "SELL"
+    assert get_legacy_action_compatibility("CLOSE_SHORT") == "BUY"
 
 
 

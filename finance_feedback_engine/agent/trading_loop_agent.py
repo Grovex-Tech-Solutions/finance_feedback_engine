@@ -2014,6 +2014,62 @@ class TradingLoopAgent:
             logger.info("No actionable trades found for any asset. Going back to IDLE.")
             await self._transition_to(AgentState.IDLE)
 
+    def _apply_derisking_execution_metadata(self, decision: Dict[str, Any], monitoring_context: Dict[str, Any]) -> None:
+        normalized_action = str(decision.get("policy_action") or decision.get("action") or "").upper()
+        if not normalized_action.startswith(("CLOSE_", "REDUCE_")):
+            return
+
+        active_positions = ((monitoring_context or {}).get("active_positions") or {}).get("futures") or []
+        target_asset = str(decision.get("asset_pair") or "").upper()
+        matched_position = None
+        for pos in active_positions:
+            raw_pair = pos.get("product_id") or pos.get("instrument") or pos.get("asset_pair")
+            canonical = None
+            try:
+                canonical = standardize_asset_pair(raw_pair) if raw_pair else None
+            except Exception:
+                canonical = None
+            raw_upper = str(raw_pair or "").upper()
+            if canonical == target_asset or raw_upper == target_asset:
+                matched_position = pos
+                break
+            if target_asset == "BTCUSD" and raw_upper.startswith(("BIP", "BIT", "BTC")):
+                matched_position = pos
+                break
+            if target_asset == "ETHUSD" and raw_upper.startswith(("ETP", "ET", "ETH")):
+                matched_position = pos
+                break
+
+        if not matched_position:
+            return
+
+        try:
+            current_position_size = abs(float(
+                matched_position.get("number_of_contracts", 0)
+                or matched_position.get("contracts", 0)
+                or matched_position.get("units", 0)
+                or 0.0
+            ))
+        except Exception:
+            current_position_size = 0.0
+
+        try:
+            current_price = float(matched_position.get("current_price", 0) or decision.get("entry_price", 0) or 0.0)
+        except Exception:
+            current_price = 0.0
+
+        if current_position_size <= 0:
+            return
+
+        legacy_action = decision.get("legacy_action_compatibility") or get_legacy_action_compatibility(normalized_action)
+        decision["has_existing_position"] = True
+        decision["current_position_size"] = current_position_size
+        decision["recommended_position_size"] = current_position_size
+        if legacy_action:
+            decision["legacy_action_compatibility"] = legacy_action
+        if current_price > 0:
+            decision["suggested_amount"] = current_position_size * current_price
+
     async def handle_risk_check_state(self):
         """
         RISK_CHECK: Running the RiskGatekeeper for all collected decisions.
@@ -2048,6 +2104,7 @@ class TradingLoopAgent:
                 safety_config = self.engine.config.get("safety", {})
                 monitoring_context["max_leverage"] = safety_config.get("max_leverage", 5.0)
                 monitoring_context["max_concentration"] = safety_config.get("max_position_pct", 25.0)
+                self._apply_derisking_execution_metadata(decision, monitoring_context)
             except Exception as e:
                 logger.warning("Failed to get monitoring context for risk validation: %s", e)
                 monitoring_context = {"max_leverage": 5.0, "max_concentration": 25.0}

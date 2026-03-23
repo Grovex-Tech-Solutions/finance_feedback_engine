@@ -546,6 +546,37 @@ async def test_process_cycle_logs_portfolio_risk_snapshot_for_managed_positions(
 
 
 
+def test_derisking_execution_metadata_uses_active_position_size(trading_agent):
+    decision = {
+        "asset_pair": "ETHUSD",
+        "action": "CLOSE_SHORT",
+        "policy_action": "CLOSE_SHORT",
+        "entry_price": 2127.0,
+    }
+    monitoring_context = {
+        "active_positions": {
+            "futures": [
+                {
+                    "product_id": "ETP-20DEC30-CDE",
+                    "side": "SHORT",
+                    "number_of_contracts": "5",
+                    "current_price": "2127.0",
+                }
+            ]
+        }
+    }
+
+    trading_agent._apply_derisking_execution_metadata(decision, monitoring_context)
+
+    assert decision["has_existing_position"] is True
+    assert decision["current_position_size"] == 5.0
+    assert decision["legacy_action_compatibility"] == "BUY"
+    assert decision["recommended_position_size"] == 5.0
+    assert decision["suggested_amount"] == 10635.0
+
+
+
+
 @pytest.mark.asyncio
 async def test_process_cycle_passes_monitoring_macro_flags_to_engine_analysis(trading_agent, mock_dependencies):
     mock_dependencies["engine"].config = {
