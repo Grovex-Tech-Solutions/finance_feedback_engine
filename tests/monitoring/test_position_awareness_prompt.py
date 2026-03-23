@@ -174,3 +174,46 @@ class TestHardSlotEnforcement:
         result = enforce_slot_constraints(decision, make_context(slots_available=0))
         assert result["action"] == "REDUCE_LONG"
         assert result["policy_action"] == "REDUCE_LONG"
+
+
+def test_get_monitoring_context_uses_platform_breakdown_futures_positions():
+    from finance_feedback_engine.monitoring.context_provider import MonitoringContextProvider
+
+    platform = MagicMock()
+    platform.get_portfolio_breakdown.return_value = {
+        "platform_breakdowns": {
+            "coinbase": {
+                "futures_positions": [
+                    {
+                        "product_id": "BIP-20DEC30-CDE",
+                        "side": "SHORT",
+                        "number_of_contracts": "5",
+                        "avg_entry_price": "68983",
+                        "current_price": "70370",
+                        "unrealized_pnl": "-55.85",
+                    },
+                    {
+                        "product_id": "ETP-20DEC30-CDE",
+                        "side": "SHORT",
+                        "number_of_contracts": "5",
+                        "avg_entry_price": "2052.6",
+                        "current_price": "2127",
+                        "unrealized_pnl": "-33.7",
+                    },
+                ],
+                "futures_summary": {
+                    "total_balance_usd": 749.04,
+                    "initial_margin": 437.53,
+                    "unrealized_pnl": -89.55,
+                },
+                "holdings": [],
+            }
+        }
+    }
+
+    provider = MonitoringContextProvider(platform=platform, trade_monitor=None)
+    ctx = provider.get_monitoring_context()
+
+    assert len(ctx["active_positions"]["futures"]) == 2
+    assert ctx["has_monitoring_data"] is True
+    assert ctx["risk_metrics"].get("unrealized_pnl") == -89.55

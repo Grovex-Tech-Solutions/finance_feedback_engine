@@ -151,7 +151,9 @@ async def test_agent_process_cycle_no_action(trading_agent, mock_dependencies):
     # The cycle should go through all states and end at IDLE
     assert trading_agent.state == AgentState.IDLE
     # analyze_asset_async should be called in the REASONING state
-    mock_dependencies["engine"].analyze_asset_async.assert_any_call("BTCUSD")
+    mock_dependencies["engine"].analyze_asset_async.assert_any_call(
+        "BTCUSD", include_sentiment=True, include_macro=False
+    )
     # execute_decision should NOT be called for a HOLD action
     mock_dependencies["engine"].execute_decision.assert_not_called()
     # No decisions should be left in the current_decisions list
@@ -542,6 +544,35 @@ async def test_process_cycle_logs_portfolio_risk_snapshot_for_managed_positions(
     assert "margin_usage=50.00%" in caplog.text
     assert "Skipping OPEN_SMALL_SHORT for BTCUSD: SHORT position already exists (duplicate-entry guard)." in caplog.text
 
+
+
+@pytest.mark.asyncio
+async def test_process_cycle_passes_monitoring_macro_flags_to_engine_analysis(trading_agent, mock_dependencies):
+    mock_dependencies["engine"].config = {
+        "monitoring": {
+            "include_sentiment": True,
+            "include_macro": True,
+        }
+    }
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(
+        return_value={
+            "id": "decision-1",
+            "action": "HOLD",
+            "policy_action": "HOLD",
+            "confidence": 55,
+            "asset_pair": "BTCUSD",
+        }
+    )
+    mock_dependencies["engine"].get_portfolio_breakdown_async = AsyncMock(
+        return_value={"platform_breakdowns": {}}
+    )
+    trading_agent.is_running = True
+
+    await trading_agent.process_cycle()
+
+    mock_dependencies["engine"].analyze_asset_async.assert_any_call(
+        "BTCUSD", include_sentiment=True, include_macro=True
+    )
 
 
 @pytest.mark.asyncio

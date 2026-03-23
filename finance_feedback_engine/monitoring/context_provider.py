@@ -116,8 +116,7 @@ class MonitoringContextProvider:
             if hasattr(self.platform, "aget_portfolio_breakdown"):
                 portfolio = await self.platform.aget_portfolio_breakdown()
 
-                futures_positions = portfolio.get("futures_positions", [])
-                holdings = portfolio.get("holdings", [])
+                futures_positions, holdings = self._extract_active_positions_from_portfolio(portfolio)
 
                 if asset_pair:
                     futures_positions = self._filter_positions_by_asset(
@@ -200,8 +199,7 @@ class MonitoringContextProvider:
                 portfolio = self.platform.get_portfolio_breakdown()
 
                 # Extract active positions
-                futures_positions = portfolio.get("futures_positions", [])
-                holdings = portfolio.get("holdings", [])
+                futures_positions, holdings = self._extract_active_positions_from_portfolio(portfolio)
 
                 # Filter by asset pair if specified
                 if asset_pair:
@@ -349,9 +347,26 @@ class MonitoringContextProvider:
 
         return context
 
-    @staticmethod
+    def _extract_active_positions_from_portfolio(self, portfolio: Dict[str, Any]) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Extract active futures/spot positions from either flat or platform_breakdowns shapes."""
+        if not isinstance(portfolio, dict):
+            return [], []
+
+        futures_positions = list(portfolio.get("futures_positions", []) or [])
+        holdings = list(portfolio.get("holdings", []) or [])
+
+        platform_breakdowns = portfolio.get("platform_breakdowns") or {}
+        for _, pdata in platform_breakdowns.items():
+            if not isinstance(pdata, dict):
+                continue
+            futures_positions.extend(list(pdata.get("futures_positions", []) or []))
+            futures_positions.extend(list(pdata.get("positions", []) or []))
+            holdings.extend(list(pdata.get("holdings", []) or []))
+
+        return futures_positions, holdings
+
     def _filter_positions_by_asset(
-        positions: List[Dict[str, Any]], asset_pair: str
+        self, positions: List[Dict[str, Any]], asset_pair: str
     ) -> List[Dict[str, Any]]:
         """Filter positions matching an asset pair, handling CFM/INTX product ID formats.
 
@@ -397,20 +412,44 @@ class MonitoringContextProvider:
         short_exposure = 0.0
 
         for pos in futures_positions:
-            contracts = pos.get("contracts", 0)
-            current_price = pos.get("current_price", 0)
-            side = pos.get("side", "LONG")
+            contracts = _coerce_monitoring_float(
+                pos.get("contracts", 0)
+                or pos.get("number_of_contracts", 0)
+                or pos.get("units", 0),
+                0.0,
+            )
+            current_price = _coerce_monitoring_float(pos.get("current_price", 0), 0.0)
+            side = str(pos.get("side", "LONG")).upper()
 
             notional = abs(contracts * current_price)
             total_exposure += notional
-            unrealized_pnl += pos.get("unrealized_pnl", 0)
+            unrealized_pnl += _coerce_monitoring_float(pos.get("unrealized_pnl", 0), 0.0)
 
             if side == "LONG":
                 long_exposure += notional
             else:
                 short_exposure += notional
 
-        total_value = portfolio.get("total_value_usd", 1)
+        total_value = _coerce_monitoring_float(portfolio.get("total_value_usd", 0), 0.0)
+        summary_unrealized = None
+        if total_value <= 0:
+            for name, pdata in (portfolio.get("platform_breakdowns") or {}).items():
+                if not isinstance(pdata, dict):
+                    continue
+                if str(name).lower() == "coinbase":
+                    futures_summary = pdata.get("futures_summary") or {}
+                    total_value = _coerce_monitoring_float(
+                        futures_summary.get("total_balance_usd", 0)
+                        or pdata.get("total_value_usd", 0),
+                        0.0,
+                    )
+                    if futures_summary.get("unrealized_pnl") is not None:
+                        summary_unrealized = _coerce_monitoring_float(
+                            futures_summary.get("unrealized_pnl"), 0.0
+                        )
+                    break
+        if summary_unrealized is not None:
+            unrealized_pnl = summary_unrealized
         leverage = total_exposure / total_value if total_value > 0 else 0
 
         return {
@@ -434,8 +473,12 @@ class MonitoringContextProvider:
             - top_3_concentration: % in top 3 positions
             - diversification_score: 0-100 (higher = more diversified)
         """
-        futures_positions = portfolio.get("futures_positions", [])
-        total_value = portfolio.get("total_value_usd", 1)
+        futures_positions, _ = self._extract_active_positions_from_portfolio(portfolio)
+        total_value = _coerce_monitoring_float(portfolio.get("total_value_usd", 1), 1.0)
+        if total_value <= 0:
+            for pdata in (portfolio.get("platform_breakdowns") or {}).values():
+                if isinstance(pdata, dict):
+                    total_value = _coerce_monitoring_float(pdata.get("total_value_usd", 0.0), 0.0) or total_value
 
         if not futures_positions or total_value <= 0:
             return {
@@ -448,8 +491,13 @@ class MonitoringContextProvider:
         # Calculate position sizes as % of portfolio
         position_sizes = []
         for pos in futures_positions:
-            contracts = abs(pos.get("contracts", 0))
-            current_price = pos.get("current_price", 0)
+            contracts = abs(_coerce_monitoring_float(
+                pos.get("contracts", 0)
+                or pos.get("number_of_contracts", 0)
+                or pos.get("units", 0),
+                0.0,
+            ))
+            current_price = _coerce_monitoring_float(pos.get("current_price", 0), 0.0)
             notional = contracts * current_price
             pct = (notional / total_value) * 100
             position_sizes.append(pct)

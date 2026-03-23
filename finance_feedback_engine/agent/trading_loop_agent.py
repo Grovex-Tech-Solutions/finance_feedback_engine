@@ -1676,11 +1676,23 @@ class TradingLoopAgent:
 
                     analyze_fn = getattr(self.engine, "analyze_asset", None)
                     analyze_async_fn = getattr(self.engine, "analyze_asset_async", None)
+                    engine_config = getattr(self.engine, "config", None)
+                    monitoring_cfg = engine_config.get("monitoring", {}) if isinstance(engine_config, dict) else {}
+                    include_sentiment = bool(monitoring_cfg.get("include_sentiment", True))
+                    include_macro = bool(monitoring_cfg.get("include_macro", False))
 
                     if callable(analyze_async_fn):
-                        analysis_result = await analyze_async_fn(asset_pair)
+                        analysis_result = await analyze_async_fn(
+                            asset_pair,
+                            include_sentiment=include_sentiment,
+                            include_macro=include_macro,
+                        )
                     elif callable(analyze_fn):
-                        analysis_result = analyze_fn(asset_pair)
+                        analysis_result = analyze_fn(
+                            asset_pair,
+                            include_sentiment=include_sentiment,
+                            include_macro=include_macro,
+                        )
                     else:
                         raise AttributeError(
                             "Engine must implement analyze_asset() or analyze_asset_async()"
