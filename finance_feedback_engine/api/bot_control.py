@@ -1448,10 +1448,14 @@ async def close_position(
             # derive side from units when side field missing
             side = "LONG" if float(position.get("units", 0) or 0) >= 0 else "SHORT"
 
+        policy_action = "REDUCE_LONG" if side == "LONG" else "REDUCE_SHORT"
+        legacy_action = "SELL" if side == "LONG" else "BUY"
         result = await engine.trading_platform.aexecute_trade(
             {
                 "asset_pair": asset_pair,
-                "action": "SELL" if side == "LONG" else "BUY",
+                "action": legacy_action,
+                "policy_action": policy_action,
+                "legacy_action_compatibility": legacy_action,
                 "recommended_position_size": size,
                 "order_type": "MARKET",
             }
@@ -1462,6 +1466,8 @@ async def close_position(
         return {
             "status": "closed",
             "position_id": position_id,
+            "policy_action": policy_action,
+            "legacy_action_compatibility": legacy_action,
             "result": result,
             "timestamp": datetime.now(UTC).isoformat(),
         }
