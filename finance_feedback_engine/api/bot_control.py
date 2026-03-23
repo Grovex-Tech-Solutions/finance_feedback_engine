@@ -45,6 +45,27 @@ from .dependencies import get_auth_manager, get_engine, verify_api_key_or_dev
 logger = logging.getLogger(__name__)
 
 
+def _normalize_legacy_action(action: str) -> str:
+    normalized = str(action or "").upper()
+    return "BUY" if normalized == "LONG" else "SELL" if normalized == "SHORT" else normalized
+
+
+def _policy_metadata_from_action(action: str) -> Dict[str, Optional[str]]:
+    normalized = str(action or "").upper()
+    if is_policy_action(normalized):
+        return {
+            "action": normalized,
+            "policy_action": normalized,
+            "legacy_action_compatibility": get_legacy_action_compatibility(normalized),
+        }
+    legacy = _normalize_legacy_action(normalized)
+    return {
+        "action": normalized,
+        "policy_action": None,
+        "legacy_action_compatibility": legacy,
+    }
+
+
 def _derive_position_close_metadata(side: str) -> Dict[str, str]:
     normalized_side = str(side or "").upper()
     if normalized_side == "LONG":
@@ -55,6 +76,14 @@ def _derive_position_close_metadata(side: str) -> Dict[str, str]:
     return {
         "close_policy_action": "REDUCE_SHORT",
         "close_legacy_action_compatibility": "BUY",
+    }
+
+
+def _trade_metadata_for_position_side(side: str) -> Dict[str, str]:
+    close_meta = _derive_position_close_metadata(side)
+    return {
+        "policy_action": close_meta["close_policy_action"],
+        "legacy_action_compatibility": close_meta["close_legacy_action_compatibility"],
     }
 
 # ===== Model Definitions (must be defined before use in type hints) =====
@@ -175,17 +204,10 @@ class ManualTradeRequest(BaseModel):
 
     @model_validator(mode="after")
     def populate_policy_metadata(self):
-        normalized = str(self.action or "").upper()
-        if is_policy_action(normalized):
-            self.action = normalized
-            self.policy_action = normalized
-            self.legacy_action_compatibility = get_legacy_action_compatibility(normalized)
-        else:
-            self.action = normalized
-            self.policy_action = None
-            self.legacy_action_compatibility = (
-                "BUY" if normalized == "LONG" else "SELL" if normalized == "SHORT" else normalized
-            )
+        metadata = _policy_metadata_from_action(self.action)
+        self.action = str(metadata["action"])
+        self.policy_action = metadata["policy_action"]
+        self.legacy_action_compatibility = metadata["legacy_action_compatibility"]
         return self
 
 
@@ -1462,14 +1484,13 @@ async def close_position(
             # derive side from units when side field missing
             side = "LONG" if float(position.get("units", 0) or 0) >= 0 else "SHORT"
 
-        policy_action = "REDUCE_LONG" if side == "LONG" else "REDUCE_SHORT"
-        legacy_action = "SELL" if side == "LONG" else "BUY"
+        trade_metadata = _trade_metadata_for_position_side(side)
         result = await engine.trading_platform.aexecute_trade(
             {
                 "asset_pair": asset_pair,
-                "action": legacy_action,
-                "policy_action": policy_action,
-                "legacy_action_compatibility": legacy_action,
+                "action": trade_metadata["legacy_action_compatibility"],
+                "policy_action": trade_metadata["policy_action"],
+                "legacy_action_compatibility": trade_metadata["legacy_action_compatibility"],
                 "recommended_position_size": size,
                 "order_type": "MARKET",
             }
@@ -1480,8 +1501,8 @@ async def close_position(
         return {
             "status": "closed",
             "position_id": position_id,
-            "policy_action": policy_action,
-            "legacy_action_compatibility": legacy_action,
+            "policy_action": trade_metadata["policy_action"],
+            "legacy_action_compatibility": trade_metadata["legacy_action_compatibility"],
             "result": result,
             "timestamp": datetime.now(UTC).isoformat(),
         }
