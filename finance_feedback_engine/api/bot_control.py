@@ -44,6 +44,19 @@ from .dependencies import get_auth_manager, get_engine, verify_api_key_or_dev
 
 logger = logging.getLogger(__name__)
 
+
+def _derive_position_close_metadata(side: str) -> Dict[str, str]:
+    normalized_side = str(side or "").upper()
+    if normalized_side == "LONG":
+        return {
+            "close_policy_action": "REDUCE_LONG",
+            "close_legacy_action_compatibility": "SELL",
+        }
+    return {
+        "close_policy_action": "REDUCE_SHORT",
+        "close_legacy_action_compatibility": "BUY",
+    }
+
 # ===== Model Definitions (must be defined before use in type hints) =====
 class BotState(str, Enum):
     """Bot operational states."""
@@ -1361,6 +1374,7 @@ async def get_open_positions(
                         "current_price": current,
                         "unrealized_pnl": pnl,
                         "unrealized_pnl_pct": pnl_pct,
+                        **_derive_position_close_metadata(side),
                     }
                 )
             except Exception as e:
