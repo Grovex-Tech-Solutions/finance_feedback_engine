@@ -301,3 +301,25 @@ class TestDashboardDataAggregatorEdgeCases:
         assert status["kill_switch"]["active"] is True
         assert status["kill_switch"]["loss_threshold"] == 0.0
         assert status["kill_switch"]["gain_threshold"] == 0.15
+
+
+from finance_feedback_engine.cli.live_dashboard import DecisionLogPanel
+
+
+def test_decision_log_panel_prefers_policy_action_label():
+    panel = DecisionLogPanel().render([
+        {
+            "timestamp": "15:30:00",
+            "asset": "BTCUSD",
+            "action": "BUY",
+            "policy_action": "OPEN_SMALL_LONG",
+            "legacy_action_compatibility": "BUY",
+            "confidence": 81,
+            "status": "APPROVED",
+            "reasoning": "Bullish continuation setup",
+        }
+    ])
+
+    rendered = str(panel.renderable)
+    assert "OPEN_SMALL_LONG (BUY)" in rendered
+    assert "BTCUSD" in rendered

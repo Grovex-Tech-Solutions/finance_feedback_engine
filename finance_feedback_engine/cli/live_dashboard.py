@@ -13,6 +13,8 @@ from rich.layout import Layout
 from rich.panel import Panel
 from rich.table import Table
 
+from finance_feedback_engine.cli.commands.trading import _decision_display_label
+
 logger = logging.getLogger(__name__)
 
 
@@ -467,7 +469,7 @@ class DecisionLogPanel:
         for decision in decisions[:10]:  # Show max 10 decisions
             timestamp = decision.get("timestamp", "00:00:00")
             asset = decision.get("asset", "UNKNOWN")
-            action = decision.get("action", "UNKNOWN")
+            action = _decision_display_label(decision)
             confidence = decision.get("confidence", 0)
             status = decision.get("status", "UNKNOWN")
             reasoning = decision.get("reasoning", "")
