@@ -31,11 +31,12 @@ from fastapi import (
     status,
 )
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ..agent.config import TradingAgentConfig
 from ..agent.trading_loop_agent import TradingLoopAgent
 from ..core import FinanceFeedbackEngine
+from ..decision_engine.policy_actions import get_legacy_action_compatibility, is_policy_action
 from ..memory.portfolio_memory_adapter import PortfolioMemoryEngineAdapter
 from ..monitoring.trade_monitor import TradeMonitor
 from .unified_status import UnifiedAgentStatus, AgentStateMapper
@@ -133,7 +134,13 @@ class ManualTradeRequest(BaseModel):
     """Request model for manual trade execution."""
 
     asset_pair: str = Field(..., description="Asset pair to trade")
-    action: str = Field(..., description="Trade action: BUY or SELL")
+    action: str = Field(..., description="Trade action or canonical policy action")
+    policy_action: Optional[str] = Field(
+        None, description="Canonical policy action when provided or derivable"
+    )
+    legacy_action_compatibility: Optional[str] = Field(
+        None, description="Legacy directional compatibility value for adapter-facing execution"
+    )
     size: Optional[float] = Field(
         None, description="Position size (uses default if not specified)"
     )
@@ -146,9 +153,27 @@ class ManualTradeRequest(BaseModel):
     @field_validator("action")
     @classmethod
     def validate_action(cls, v: str) -> str:
-        if v.upper() not in ["BUY", "SELL", "LONG", "SHORT"]:
-            raise ValueError("Action must be BUY, SELL, LONG, or SHORT")
-        return v.upper()
+        normalized = v.upper()
+        if normalized in ["BUY", "SELL", "LONG", "SHORT"] or is_policy_action(normalized):
+            return normalized
+        raise ValueError(
+            "Action must be BUY, SELL, LONG, SHORT, or a supported policy action"
+        )
+
+    @model_validator(mode="after")
+    def populate_policy_metadata(self):
+        normalized = str(self.action or "").upper()
+        if is_policy_action(normalized):
+            self.action = normalized
+            self.policy_action = normalized
+            self.legacy_action_compatibility = get_legacy_action_compatibility(normalized)
+        else:
+            self.action = normalized
+            self.policy_action = None
+            self.legacy_action_compatibility = (
+                "BUY" if normalized == "LONG" else "SELL" if normalized == "SHORT" else normalized
+            )
+        return self
 
 
 class ConfigUpdateRequest(BaseModel):
