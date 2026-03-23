@@ -1195,9 +1195,12 @@ async def execute_manual_trade(
         logger.info(f"Manual trade request: {request.action} {request.asset_pair}")
 
         # Build trade parameters
+        downstream_action = request.legacy_action_compatibility or request.action
         trade_params: Dict[str, Any] = {
             "asset_pair": request.asset_pair,
-            "action": request.action,
+            "action": downstream_action,
+            "policy_action": request.policy_action,
+            "legacy_action_compatibility": request.legacy_action_compatibility,
             "order_type": "LIMIT" if request.price else "MARKET",
         }
 
@@ -1230,6 +1233,9 @@ async def execute_manual_trade(
 
         return {
             "status": "executed",
+            "requested_action": request.action,
+            "policy_action": request.policy_action,
+            "legacy_action_compatibility": request.legacy_action_compatibility,
             "trade": result,
             "timestamp": datetime.now(UTC).isoformat(),
         }
