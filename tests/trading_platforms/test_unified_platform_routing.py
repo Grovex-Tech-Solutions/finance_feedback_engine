@@ -239,3 +239,4 @@ class TestUnifiedPlatformRouting:
         assert any(c["asset_pair"] == "BTCUSD" for c in coinbase_calls)
         assert any(c["asset_pair"] == "ETHUSD" for c in coinbase_calls)
         assert any(c["asset_pair"] == "EURUSD" for c in oanda_calls)
+

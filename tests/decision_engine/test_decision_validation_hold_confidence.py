@@ -24,3 +24,15 @@ def test_validate_decision_still_rejects_raw_zero_confidence_payloads():
 
     assert ok is False
     assert any("Confidence 0 out of range" in error for error in errors)
+
+
+
+def test_try_parse_decision_json_normalizes_invalid_action_zero_confidence_to_hold():
+    parsed = try_parse_decision_json(
+        '{"action": "REASONING_NEEDED", "confidence": 0, "reasoning": "Need more reasoning"}'
+    )
+
+    assert parsed is not None
+    assert parsed["action"] == "HOLD"
+    assert parsed["policy_action"] == "HOLD"
+    assert parsed["confidence"] == 50

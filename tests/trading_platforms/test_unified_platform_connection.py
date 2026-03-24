@@ -179,6 +179,30 @@ class TestUnifiedPlatformConnection:
         assert result["balance_available"] is True
         assert result["market_data_access"] is True
 
+
+
+
+def test_get_balance_uses_cached_snapshot_on_trading_error(monkeypatch):
+    from unittest.mock import Mock
+    from finance_feedback_engine.exceptions import TradingError
+
+    mock_coinbase = Mock()
+    mock_coinbase.__class__.__name__ = "CoinbaseAdvancedPlatform"
+    mock_coinbase.get_balance.side_effect = TradingError("Coinbase authentication failed")
+
+    monkeypatch.setattr(
+        "finance_feedback_engine.trading_platforms.unified_platform.CoinbaseAdvancedPlatform",
+        lambda x: mock_coinbase,
+    )
+
+    unified = UnifiedTradingPlatform({"coinbase": {"api_key": "test", "api_secret": "test"}})
+    unified.platforms["coinbase"] = mock_coinbase
+    unified._last_good_balances["coinbase"] = {"FUTURES_USD": 1234.5}
+
+    result = unified.get_balance()
+
+    assert result["coinbase_FUTURES_USD"] == 1234.5
+
     def test_no_platforms_configured(self, monkeypatch):
         """Test when no platforms are configured."""
         # Mock empty credentials

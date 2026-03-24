@@ -70,7 +70,22 @@ def normalize_decision_action_payload(decision: Dict[str, Any]) -> Dict[str, Any
         normalized["action"] = canonical.value
         normalized["policy_action"] = canonical.value
     elif isinstance(action, str):
-        normalized["action"] = action.upper()
+        normalized_action = action.upper()
+        if normalized_action in LEGACY_DIRECTIONAL_ACTIONS | {POLICY_OR_LEGACY_HOLD}:
+            normalized["action"] = normalized_action
+        else:
+            normalized["action"] = POLICY_OR_LEGACY_HOLD
+            normalized["policy_action"] = POLICY_OR_LEGACY_HOLD
+            try:
+                conf = int(normalized.get("confidence", 50))
+            except (TypeError, ValueError):
+                conf = 50
+            if conf <= 0:
+                normalized["confidence"] = 50
+            normalized.setdefault(
+                "filtered_reason_code",
+                "INVALID_PROVIDER_ACTION_FALLBACK",
+            )
     elif action is not None:
         normalized["action"] = str(action).upper()
 

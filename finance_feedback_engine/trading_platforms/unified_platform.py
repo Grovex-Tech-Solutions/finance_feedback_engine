@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 from finance_feedback_engine.utils.asset_classifier import classify_asset_pair
 from finance_feedback_engine.utils.circuit_breaker import CircuitBreaker
 from finance_feedback_engine.utils.validation import standardize_asset_pair
+from finance_feedback_engine.exceptions import TradingError
 
 from .base_platform import BaseTradingPlatform, PositionInfo, PositionsResponse
 from .coinbase_platform import CoinbaseAdvancedPlatform
@@ -158,6 +159,24 @@ class UnifiedTradingPlatform(BaseTradingPlatform):
                     for asset, balance in cached.items():
                         combined_balances[f"{name}_{asset}"] = balance
                 # TODO: Track data validation errors for platform health monitoring (THR-XXX)
+            except TradingError as e:
+                logger.warning(
+                    "Trading error getting balance from platform; using cached snapshot when available",
+                    extra={
+                        "platform": name,
+                        "platform_class": platform.__class__.__name__,
+                        "error": str(e),
+                        "error_type": "trading"
+                    }
+                )
+                cached = self._last_good_balances.get(name)
+                if cached:
+                    logger.warning(
+                        "Using cached %s balance snapshot after trading error",
+                        name,
+                    )
+                    for asset, balance in cached.items():
+                        combined_balances[f"{name}_{asset}"] = balance
             except Exception as e:
                 logger.error(
                     "Unexpected error getting balance from platform",
