@@ -4542,6 +4542,59 @@ def build_policy_selection_learning_export_proof_batch(
     return proofs
 
 
+def build_policy_selection_eval_seed_batch(
+    decisions_by_id: Optional[dict],
+    trade_outcome_records: Optional[list[dict]],
+) -> list[dict]:
+    proofs = build_policy_selection_learning_export_proof_batch(
+        decisions_by_id,
+        trade_outcome_records,
+    )
+    rows = []
+    for proof in proofs:
+        dataset_row = dict(proof.get("dataset_row") or {})
+        trade_outcome_record = dict(proof.get("trade_outcome_record") or {})
+        realized_pnl_raw = trade_outcome_record.get("realized_pnl", 0)
+        try:
+            realized_pnl = float(realized_pnl_raw)
+        except (TypeError, ValueError):
+            realized_pnl = 0.0
+
+        if realized_pnl > 0:
+            outcome_label = "win"
+        elif realized_pnl < 0:
+            outcome_label = "loss"
+        else:
+            outcome_label = "flat"
+
+        row = {
+            "decision_id": dataset_row.get("decision_id"),
+            "asset_pair": dataset_row.get("asset_pair"),
+            "timestamp": dataset_row.get("timestamp"),
+            "ai_provider": dataset_row.get("ai_provider"),
+            "action": dataset_row.get("action"),
+            "policy_action": dataset_row.get("policy_action"),
+            "trade_outcome_product": trade_outcome_record.get("product"),
+            "trade_outcome_exit_time": trade_outcome_record.get("exit_time"),
+            "realized_pnl": realized_pnl,
+            "roi_percent": trade_outcome_record.get("roi_percent"),
+            "outcome_label": outcome_label,
+            "learning_eligible": bool(proof.get("decision_linked")),
+            "learning_feedback_summary": proof.get("learning_feedback_summary"),
+            "learning_analytics_summary": proof.get("learning_analytics_summary"),
+            "eval_seed_row_version": 1,
+        }
+        rows.append(row)
+
+    rows.sort(
+        key=lambda row: (
+            str(row.get("trade_outcome_exit_time") or ""),
+            str(row.get("decision_id") or ""),
+        )
+    )
+    return rows
+
+
 def extract_policy_selection_trade_outcome_summaries(
     trade_outcome_sets: Optional[list[dict]],
 ) -> list[dict]:

@@ -13803,3 +13803,190 @@ def test_build_policy_selection_learning_export_proof_batch_filters_to_linked_re
     assert batch[0]["dataset_row"]["decision_id"] == "decision-1"
     assert batch[0]["trade_outcome_record"]["product"] == "BIP-20DEC30-CDE"
     assert batch[0]["learning_feedback_summary"]["primary_cutover_learning_feedback_count"] == 1
+
+
+
+def test_build_policy_selection_eval_seed_batch_emits_deterministic_linked_rows():
+    from finance_feedback_engine.decision_engine.policy_actions import (
+        build_policy_selection_eval_seed_batch,
+    )
+
+    decisions_by_id = {
+        "c8813b99-e6de-4c88-9028-e6477011211a": {
+            "id": "c8813b99-e6de-4c88-9028-e6477011211a",
+            "asset_pair": "ETP20DEC30CDE",
+            "action": "SELL",
+            "confidence": 75,
+            "timestamp": "2026-03-24T03:13:58.684838Z",
+            "ai_provider": "recovery",
+            "policy_trace": {
+                "policy_package": {
+                    "policy_state": {"position_state": "short", "current_price": 2134.0, "version": 1},
+                    "action_context": {"structural_action_validity": "valid", "version": 1},
+                    "policy_sizing_intent": {"semantic_action": "OPEN_SMALL_SHORT", "provider_agnostic": True, "version": 1},
+                    "provider_translation_result": None,
+                    "control_outcome": {"status": "executed", "reason_code": "EXECUTED", "version": 1},
+                    "version": 1,
+                },
+                "decision_envelope": {
+                    "action": "OPEN_SMALL_SHORT",
+                    "policy_action": "OPEN_SMALL_SHORT",
+                    "legacy_action_compatibility": "SELL",
+                    "confidence": 75,
+                    "reasoning": "recovery seed",
+                    "version": 1,
+                },
+                "decision_metadata": {
+                    "asset_pair": "ETP20DEC30CDE",
+                    "ai_provider": "recovery",
+                    "timestamp": "2026-03-24T03:13:58.684838Z",
+                    "decision_id": "c8813b99-e6de-4c88-9028-e6477011211a",
+                },
+                "trace_version": 1,
+            },
+        },
+        "89881302-466a-44dd-a9e3-6c0d31d9ec6a": {
+            "id": "89881302-466a-44dd-a9e3-6c0d31d9ec6a",
+            "asset_pair": "BTCUSD",
+            "action": "CLOSE_SHORT",
+            "policy_action": "CLOSE_SHORT",
+            "confidence": 95,
+            "timestamp": "2026-03-24T04:31:14.284236+00:00",
+            "ai_provider": "ensemble",
+            "executed": True,
+            "execution_result": {"success": True},
+            "policy_trace": {
+                "policy_package": {
+                    "policy_state": {"position_state": "short", "current_price": 70539.0, "version": 1},
+                    "action_context": {"structural_action_validity": "valid", "version": 1},
+                    "policy_sizing_intent": {"semantic_action": "CLOSE_SHORT", "target_delta_pct": 0.0, "provider_agnostic": True, "version": 1},
+                    "provider_translation_result": None,
+                    "control_outcome": {"status": "executed", "reason_code": "EXECUTED", "version": 1},
+                    "version": 1,
+                },
+                "decision_envelope": {
+                    "action": "CLOSE_SHORT",
+                    "policy_action": "CLOSE_SHORT",
+                    "legacy_action_compatibility": "BUY",
+                    "confidence": 95,
+                    "reasoning": "btc close seed",
+                    "version": 1,
+                },
+                "decision_metadata": {
+                    "asset_pair": "BTCUSD",
+                    "ai_provider": "ensemble",
+                    "timestamp": "2026-03-24T04:31:14.284236+00:00",
+                    "decision_id": "89881302-466a-44dd-a9e3-6c0d31d9ec6a",
+                },
+                "trace_version": 1,
+            },
+        },
+    }
+    trade_outcome_records = [
+        {
+            "trade_id": "orphan-1",
+            "decision_id": None,
+            "product": "EUR_USD",
+            "exit_time": "2026-03-24T00:50:57.206382+00:00",
+            "realized_pnl": "-0.0187",
+        },
+        {
+            "trade_id": "linked-eth",
+            "decision_id": "c8813b99-e6de-4c88-9028-e6477011211a",
+            "product": "ETP-20DEC30-CDE",
+            "exit_time": "2026-03-24T03:45:36.660277+00:00",
+            "realized_pnl": "-5.00",
+            "roi_percent": "-0.2343",
+        },
+        {
+            "trade_id": "linked-btc",
+            "decision_id": "89881302-466a-44dd-a9e3-6c0d31d9ec6a",
+            "product": "BIP-20DEC30-CDE",
+            "exit_time": "2026-03-24T04:35:03.368795+00:00",
+            "realized_pnl": "0.0",
+            "roi_percent": "0",
+        },
+    ]
+
+    batch = build_policy_selection_eval_seed_batch(decisions_by_id, trade_outcome_records)
+
+    assert [row["decision_id"] for row in batch] == [
+        "c8813b99-e6de-4c88-9028-e6477011211a",
+        "89881302-466a-44dd-a9e3-6c0d31d9ec6a",
+    ]
+    assert batch[0]["asset_pair"] == "ETP20DEC30CDE"
+    assert batch[0]["trade_outcome_product"] == "ETP-20DEC30-CDE"
+    assert batch[0]["learning_eligible"] is True
+    assert batch[0]["outcome_label"] == "loss"
+    assert batch[1]["asset_pair"] == "BTCUSD"
+    assert batch[1]["trade_outcome_product"] == "BIP-20DEC30-CDE"
+    assert batch[1]["outcome_label"] == "flat"
+    assert batch[1]["learning_feedback_summary"]["primary_cutover_learning_feedback_count"] == 1
+
+
+
+def test_build_policy_selection_eval_seed_batch_sorts_by_exit_time_then_decision_id():
+    from finance_feedback_engine.decision_engine.policy_actions import (
+        build_policy_selection_eval_seed_batch,
+    )
+
+    decisions_by_id = {
+        "b-dec": {
+            "id": "b-dec",
+            "asset_pair": "BTCUSD",
+            "action": "CLOSE_SHORT",
+            "policy_action": "CLOSE_SHORT",
+            "confidence": 90,
+            "ai_provider": "ensemble",
+            "timestamp": "2026-03-24T04:31:14Z",
+            "executed": True,
+            "execution_result": {"success": True},
+            "policy_trace": {
+                "policy_package": {
+                    "policy_state": {"position_state": "short", "version": 1},
+                    "action_context": {"structural_action_validity": "valid", "version": 1},
+                    "policy_sizing_intent": {"semantic_action": "CLOSE_SHORT", "target_delta_pct": 0.0, "provider_agnostic": True, "version": 1},
+                    "provider_translation_result": None,
+                    "control_outcome": {"status": "executed", "reason_code": "EXECUTED", "version": 1},
+                    "version": 1,
+                },
+                "decision_envelope": {"action": "CLOSE_SHORT", "policy_action": "CLOSE_SHORT", "legacy_action_compatibility": "BUY", "confidence": 90, "reasoning": "sort test", "version": 1},
+                "decision_metadata": {"asset_pair": "BTCUSD", "ai_provider": "ensemble", "decision_id": "b-dec"},
+                "trace_version": 1,
+            },
+        },
+        "a-dec": {
+            "id": "a-dec",
+            "asset_pair": "ETHUSD",
+            "action": "CLOSE_SHORT",
+            "policy_action": "CLOSE_SHORT",
+            "confidence": 90,
+            "ai_provider": "ensemble",
+            "timestamp": "2026-03-24T04:31:14Z",
+            "executed": True,
+            "execution_result": {"success": True},
+            "policy_trace": {
+                "policy_package": {
+                    "policy_state": {"position_state": "short", "version": 1},
+                    "action_context": {"structural_action_validity": "valid", "version": 1},
+                    "policy_sizing_intent": {"semantic_action": "CLOSE_SHORT", "target_delta_pct": 0.0, "provider_agnostic": True, "version": 1},
+                    "provider_translation_result": None,
+                    "control_outcome": {"status": "executed", "reason_code": "EXECUTED", "version": 1},
+                    "version": 1,
+                },
+                "decision_envelope": {"action": "CLOSE_SHORT", "policy_action": "CLOSE_SHORT", "legacy_action_compatibility": "BUY", "confidence": 90, "reasoning": "sort test", "version": 1},
+                "decision_metadata": {"asset_pair": "ETHUSD", "ai_provider": "ensemble", "decision_id": "a-dec"},
+                "trace_version": 1,
+            },
+        },
+    }
+
+    rows = build_policy_selection_eval_seed_batch(
+        decisions_by_id,
+        [
+            {"decision_id": "b-dec", "product": "BIP-20DEC30-CDE", "exit_time": "2026-03-24T05:00:00Z", "realized_pnl": "1.0"},
+            {"decision_id": "a-dec", "product": "ETP-20DEC30-CDE", "exit_time": "2026-03-24T05:00:00Z", "realized_pnl": "-1.0"},
+        ],
+    )
+
+    assert [row["decision_id"] for row in rows] == ["a-dec", "b-dec"]
