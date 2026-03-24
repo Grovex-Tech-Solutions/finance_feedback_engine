@@ -286,10 +286,23 @@ class TradeOutcomeRecorder:
                 self._save_state()
             else:
                 # Keep most recent observed mark/current price for close-time fallback
+                state_changed = False
                 if current_price > 0:
                     self.open_positions[pos_key]["last_price"] = current_price
+                    state_changed = True
+                existing_size = self.open_positions[pos_key].get("entry_size")
+                if size > 0 and (existing_size is None or Decimal(str(existing_size)) <= 0):
+                    logger.warning(
+                        "Repairing zero/missing entry_size for %s from live position snapshot: %s",
+                        pos_key,
+                        size,
+                    )
+                    self.open_positions[pos_key]["entry_size"] = size
+                    state_changed = True
                 if pos.get("decision_id") and not self.open_positions[pos_key].get("decision_id"):
                     self.open_positions[pos_key]["decision_id"] = pos.get("decision_id")
+                    state_changed = True
+                if state_changed:
                     self._save_state()
         
         # Detect closed positions (in state but not in current)

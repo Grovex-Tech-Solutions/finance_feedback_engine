@@ -81,6 +81,15 @@ async def test_agent_initial_state(trading_agent):
 
 
 
+def test_extract_order_id_accepts_top_level_success_response(trading_agent):
+    assert trading_agent._extract_order_id_from_execution_result(
+        {
+            "success": True,
+            "success_response": {"order_id": "top-level-order-1"},
+        }
+    ) == "top-level-order-1"
+
+
 def test_sync_trade_outcome_recorder_forwards_closed_positions_into_learning(trading_agent, mock_dependencies):
     recorder = MagicMock()
     recorder.update_positions.return_value = [
@@ -154,6 +163,64 @@ async def test_perception_prefers_fresher_market_data_timestamp_for_crypto(tradi
     await trading_agent.handle_perception_state()
 
     assert trading_agent.state == AgentState.REASONING
+
+
+@pytest.mark.asyncio
+async def test_execution_round_trip_registers_derisk_order_and_forwards_close_into_learning(trading_agent, mock_dependencies):
+    """Successful CLOSE_* execution should register outcome tracking and forward repaired close data."""
+    trading_agent._current_decisions = [
+        {
+            "id": "decision-close-1",
+            "action": "CLOSE_SHORT",
+            "asset_pair": "ETHUSD",
+            "confidence": 92,
+            "recommended_position_size": 1.0,
+            "entry_price": 2166.5,
+        }
+    ]
+    trading_agent.daily_trade_count = 10
+
+    mock_dependencies["engine"].execute_decision_async = AsyncMock(
+        return_value={
+            "success": True,
+            "platform": "coinbase",
+            "success_response": {"order_id": "order-123"},
+        }
+    )
+    mock_dependencies["engine"].trade_outcome_recorder = MagicMock()
+    mock_dependencies["engine"].trade_outcome_recorder.update_positions.return_value = [
+        {
+            "decision_id": "decision-close-1",
+            "product": "ETP-20DEC30-CDE",
+            "exit_price": "2156.0",
+            "exit_time": "2026-03-24T13:30:00Z",
+            "realized_pnl": "10.5",
+            "exit_size": "1.0",
+        }
+    ]
+    mock_dependencies["engine"].record_trade_outcome.return_value = MagicMock(realized_pnl=10.5)
+    mock_dependencies["engine"].order_status_worker = MagicMock()
+
+    await trading_agent.handle_execution_state()
+
+    mock_dependencies["engine"].order_status_worker.add_pending_order.assert_called_once_with(
+        order_id="order-123",
+        decision_id="decision-close-1",
+        asset_pair="ETHUSD",
+        platform="coinbase",
+        action="BUY",
+        size=1.0,
+        entry_price=2166.5,
+    )
+    assert trading_agent.daily_trade_count == 11
+
+    trading_agent._sync_trade_outcome_recorder([])
+
+    mock_dependencies["engine"].record_trade_outcome.assert_called_once_with(
+        "decision-close-1",
+        exit_price=2156.0,
+        exit_timestamp="2026-03-24T13:30:00Z",
+    )
 
 
 @pytest.mark.asyncio

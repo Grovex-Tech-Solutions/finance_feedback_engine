@@ -3124,9 +3124,11 @@ class TradingLoopAgent:
             return None
 
         response = execution_result.get("response") or {}
+        top_level_success_response = execution_result.get("success_response") or {}
         success_response = response.get("success_response") or {}
         candidates = [
             execution_result.get("order_id"),
+            top_level_success_response.get("order_id") if isinstance(top_level_success_response, dict) else None,
             response.get("order_id") if isinstance(response, dict) else None,
             success_response.get("order_id") if isinstance(success_response, dict) else None,
         ]
@@ -3543,10 +3545,22 @@ class TradingLoopAgent:
             )
             return False, "QUALITY_GATE_BLOCK", msg
 
+        normalized_action = str(decision.get("policy_action") or decision.get("action") or "").upper()
+        is_derisking_action = normalized_action.startswith(("CLOSE_", "REDUCE_"))
+
         if (
             self.config.max_daily_trades > 0
             and self.daily_trade_count >= self.config.max_daily_trades
         ):
+            if is_derisking_action:
+                logger.info(
+                    "Allowing de-risking action despite daily trade limit: action=%s asset=%s count=%s max=%s",
+                    normalized_action,
+                    decision.get("asset_pair"),
+                    self.daily_trade_count,
+                    self.config.max_daily_trades,
+                )
+                return True, "OK", "De-risking action bypassed daily trade limit"
             msg = (
                 f"Max daily trade limit reached ({self.daily_trade_count}/{self.config.max_daily_trades})"
             )
