@@ -747,3 +747,19 @@ def test_prepare_execution_decision_backfills_derisking_notional_from_current_po
     prepared = engine._prepare_execution_decision("decision-derisk", decision)
 
     assert prepared["recommended_position_size"] == 0.004889383822138393
+
+
+def test_prepare_execution_decision_recomputes_nonpositive_derisking_amount_from_size_and_price():
+    engine = FinanceFeedbackEngine.__new__(FinanceFeedbackEngine)
+    decision = {
+        "policy_action": "CLOSE_SHORT",
+        "confidence": 100,
+        "entry_price": 2156.06,
+        "recommended_position_size": 0.1468458480421945,
+        "suggested_amount": 0,
+    }
+
+    prepared = engine._prepare_execution_decision("decision-zero-amount", decision)
+
+    assert prepared["suggested_amount"] == pytest.approx(0.1468458480421945 * 2156.06, rel=1e-9)
+    assert engine._validate_execution_decision(prepared) == []

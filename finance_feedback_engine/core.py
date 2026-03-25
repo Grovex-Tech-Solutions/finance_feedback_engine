@@ -525,7 +525,16 @@ class FinanceFeedbackEngine:
             elif prepared.get("current_position_size") is not None:
                 prepared["recommended_position_size"] = prepared.get("current_position_size")
 
-        if prepared.get("suggested_amount") is None:
+        normalized_action = self._normalize_execution_action(prepared)
+        current_amount = prepared.get("suggested_amount")
+        needs_backfill = current_amount is None
+        if normalized_action in {"BUY", "SELL"}:
+            try:
+                needs_backfill = needs_backfill or float(current_amount) <= 0
+            except (TypeError, ValueError):
+                needs_backfill = True
+
+        if needs_backfill:
             if prepared.get("amount") is not None:
                 prepared["suggested_amount"] = prepared.get("amount")
             else:
