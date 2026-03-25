@@ -733,3 +733,17 @@ def test_validate_execution_decision_rejects_hold_without_amount_requirement():
     }
     errors = engine._validate_execution_decision(decision)
     assert errors == []
+
+
+def test_prepare_execution_decision_backfills_derisking_notional_from_current_position_size():
+    engine = FinanceFeedbackEngine.__new__(FinanceFeedbackEngine)
+    decision = {
+        "policy_action": "CLOSE_SHORT",
+        "confidence": 90,
+        "entry_price": 71234.0,
+        "current_position_size": 0.004889383822138393,
+    }
+
+    prepared = engine._prepare_execution_decision("decision-derisk", decision)
+
+    assert prepared["recommended_position_size"] == 0.004889383822138393

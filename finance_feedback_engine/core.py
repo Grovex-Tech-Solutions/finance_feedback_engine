@@ -519,8 +519,11 @@ class FinanceFeedbackEngine:
             if isinstance(close_price, (int, float)) and close_price > 0:
                 prepared["entry_price"] = float(close_price)
 
-        if prepared.get("recommended_position_size") is None and prepared.get("position_size") is not None:
-            prepared["recommended_position_size"] = prepared.get("position_size")
+        if prepared.get("recommended_position_size") is None:
+            if prepared.get("position_size") is not None:
+                prepared["recommended_position_size"] = prepared.get("position_size")
+            elif prepared.get("current_position_size") is not None:
+                prepared["recommended_position_size"] = prepared.get("current_position_size")
 
         if prepared.get("suggested_amount") is None:
             if prepared.get("amount") is not None:
