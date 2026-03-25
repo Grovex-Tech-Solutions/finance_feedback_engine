@@ -1680,7 +1680,12 @@ Format response as a structured technical analysis demonstration.
         Returns:
             (is_valid, error_message)
         """
-        allowed = position_state.get("allowed_signals", ["BUY", "SELL", "HOLD"])
+        allowed_policy_actions = position_state.get("allowed_policy_actions")
+        if allowed_policy_actions:
+            derived_allowed = _legacy_allowed_signals_from_policy_actions(allowed_policy_actions)
+        else:
+            derived_allowed = ["BUY", "SELL", "HOLD"]
+        allowed = position_state.get("allowed_signals", derived_allowed)
         state = position_state.get("state", "UNKNOWN")
 
         if is_policy_action(action):
