@@ -4,7 +4,7 @@ import logging
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
 
-from .policy_actions import get_legacy_action_compatibility
+from .policy_actions import get_legacy_action_compatibility, get_position_orientation
 
 logger = logging.getLogger(__name__)
 
@@ -824,18 +824,5 @@ class PositionSizingCalculator:
 
     @staticmethod
     def _determine_position_type(action: str) -> Optional[str]:
-        """
-        Determine position type from action.
-
-        Args:
-            action: Trading action (legacy BUY/SELL/HOLD or policy action)
-
-        Returns:
-            Position type: 'LONG' for BUY-compatible actions, 'SHORT' for SELL-compatible actions, None for HOLD/close-reduce actions
-        """
-        normalized_action, legacy_action = _normalize_action_for_sizing(action)
-        if legacy_action == "BUY":
-            return "LONG"
-        elif legacy_action == "SELL":
-            return "SHORT"
-        return None
+        """Determine position type from shared canonical-first action semantics."""
+        return get_position_orientation(action)

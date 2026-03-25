@@ -85,6 +85,23 @@ def is_short_policy_action(action: PolicyAction | str) -> bool:
     return get_policy_action_family(action) in {"open_short", "add_short", "reduce_long", "close_long"}
 
 
+def get_position_orientation(action: object) -> Optional[str]:
+    """Return LONG/SHORT/None from canonical-first action semantics."""
+    if is_policy_action(action):
+        if is_long_policy_action(action):
+            return "LONG"
+        if is_short_policy_action(action):
+            return "SHORT"
+        return None
+
+    normalized = str(action or "").upper()
+    if normalized == "BUY":
+        return "LONG"
+    if normalized == "SELL":
+        return "SHORT"
+    return None
+
+
 def to_adapter_side(action: PolicyAction | str) -> str:
     normalized = normalize_policy_action(action)
     if normalized == PolicyAction.HOLD:

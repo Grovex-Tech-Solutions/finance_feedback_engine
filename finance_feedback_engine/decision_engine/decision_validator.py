@@ -16,6 +16,7 @@ from .policy_actions import (
     build_policy_state,
     get_legacy_action_compatibility,
     get_policy_action_family,
+    get_position_orientation,
     is_entry_policy_action,
     is_long_policy_action,
     is_policy_action,
@@ -522,18 +523,8 @@ class DecisionValidator:
 
     @staticmethod
     def _determine_position_type(action: str) -> Optional[str]:
-        """Determine coarse position orientation from canonical-first action semantics."""
-        if is_policy_action(action):
-            if is_long_policy_action(action):
-                return "LONG"
-            if is_short_policy_action(action):
-                return "SHORT"
-            return None
-        if action == "BUY":
-            return "LONG"
-        if action == "SELL":
-            return "SHORT"
-        return None
+        """Determine coarse position orientation from shared canonical-first semantics."""
+        return get_position_orientation(action)
 
 
     def _build_stage_49_62_contract_chain(self, decision: dict) -> dict:

@@ -14,6 +14,7 @@ from finance_feedback_engine.utils.config_loader import normalize_decision_confi
 from finance_feedback_engine.decision_engine.policy_actions import (
     PolicyAction,
     build_policy_state_from_position_snapshot,
+    get_position_orientation,
     invalid_action_reason,
     is_long_policy_action,
     is_policy_action,
@@ -1478,23 +1479,8 @@ Format response as a structured technical analysis demonstration.
 
     @staticmethod
     def _determine_position_type(action: str) -> Optional[str]:
-        """
-        Determine coarse position orientation from action.
-
-        Canonical policy actions are the primary source of truth. Legacy BUY/SELL
-        remains as compatibility fallback only.
-        """
-        if is_policy_action(action):
-            if is_long_policy_action(action):
-                return "LONG"
-            if is_short_policy_action(action):
-                return "SHORT"
-            return None
-        if action == "BUY":
-            return "LONG"
-        if action == "SELL":
-            return "SHORT"
-        return None
+        """Determine coarse position orientation from shared canonical-first semantics."""
+        return get_position_orientation(action)
 
     def _select_relevant_balance(
         self, balance: Dict[str, float], asset_pair: str, asset_type: str
