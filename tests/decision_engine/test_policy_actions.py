@@ -170,11 +170,18 @@ from finance_feedback_engine.decision_engine.policy_actions import (
     get_legacy_action_compatibility,
     get_policy_action_family,
     invalid_action_reason,
+    is_derisking_policy_action,
+    is_entry_policy_action,
+    is_exit_policy_action,
+    is_long_policy_action,
     is_policy_action,
+    is_reduce_policy_action,
+    is_short_policy_action,
     is_structurally_valid,
     legal_actions_for_position_state,
     normalize_policy_action,
     normalize_position_state,
+    to_adapter_side,
 )
 
 
@@ -208,6 +215,39 @@ def test_legacy_action_compatibility_mapping_is_explicit():
     assert get_legacy_action_compatibility("REDUCE_LONG") == "SELL"
     assert get_legacy_action_compatibility("CLOSE_SHORT") == "BUY"
 
+
+
+def test_policy_action_intent_helpers_are_explicit():
+    assert is_entry_policy_action("OPEN_SMALL_LONG") is True
+    assert is_entry_policy_action("ADD_SMALL_SHORT") is True
+    assert is_entry_policy_action("CLOSE_LONG") is False
+
+    assert is_exit_policy_action("REDUCE_LONG") is True
+    assert is_exit_policy_action("CLOSE_SHORT") is True
+    assert is_exit_policy_action("OPEN_MEDIUM_SHORT") is False
+
+    assert is_reduce_policy_action("REDUCE_SHORT") is True
+    assert is_reduce_policy_action("CLOSE_SHORT") is False
+
+    assert is_derisking_policy_action("REDUCE_LONG") is True
+    assert is_derisking_policy_action("CLOSE_SHORT") is True
+    assert is_derisking_policy_action("OPEN_SMALL_LONG") is False
+
+    assert is_long_policy_action("OPEN_SMALL_LONG") is True
+    assert is_long_policy_action("CLOSE_SHORT") is True
+    assert is_long_policy_action("OPEN_SMALL_SHORT") is False
+
+    assert is_short_policy_action("OPEN_SMALL_SHORT") is True
+    assert is_short_policy_action("CLOSE_LONG") is True
+    assert is_short_policy_action("OPEN_SMALL_LONG") is False
+
+
+def test_to_adapter_side_is_boundary_only_mapping():
+    assert to_adapter_side("OPEN_SMALL_LONG") == "BUY"
+    assert to_adapter_side("REDUCE_LONG") == "SELL"
+    assert to_adapter_side("OPEN_MEDIUM_SHORT") == "SELL"
+    assert to_adapter_side("CLOSE_SHORT") == "BUY"
+    assert to_adapter_side("HOLD") == "HOLD"
 
 
 def test_structural_legality_for_flat_position():

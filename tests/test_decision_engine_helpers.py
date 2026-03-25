@@ -47,6 +47,12 @@ class TestDeterminePositionType:
         """Invalid action should return None."""
         assert DecisionEngine._determine_position_type("INVALID") is None
 
+    def test_determine_position_type_policy_actions(self):
+        assert DecisionEngine._determine_position_type("OPEN_SMALL_LONG") == "LONG"
+        assert DecisionEngine._determine_position_type("CLOSE_SHORT") == "LONG"
+        assert DecisionEngine._determine_position_type("OPEN_SMALL_SHORT") == "SHORT"
+        assert DecisionEngine._determine_position_type("CLOSE_LONG") == "SHORT"
+
 
 class TestSelectRelevantBalance:
     """Tests for _select_relevant_balance method."""
@@ -356,6 +362,27 @@ class TestCreateDecisionIntegration:
         assert decision["action"] == "HOLD"
         assert decision["position_type"] is None
         assert decision["suggested_amount"] == 0
+
+
+    def test_create_decision_policy_action_only_prefers_canonical_action(self, decision_engine):
+        context = {
+            "market_data": {"close": 3000.0, "type": "crypto"},
+            "balance": {"coinbase_USD": 10000.0},
+            "price_change": -1.2,
+            "volatility": 1.1,
+        }
+        ai_response = {
+            "policy_action": "OPEN_SMALL_SHORT",
+            "confidence": 61,
+            "reasoning": "Bearish setup",
+            "amount": 0,
+        }
+
+        decision = decision_engine._create_decision("ETHUSD", context, ai_response)
+
+        assert decision["policy_action"] == "OPEN_SMALL_SHORT"
+        assert decision["position_type"] == "SHORT"
+        assert decision["confidence"] == 61
 
 
 def test_select_relevant_balance_plain_forex_pair_uses_oanda_balance(decision_engine):
