@@ -1544,11 +1544,11 @@ Format response as a structured technical analysis demonstration.
         Extract current position state for the given asset (for SHORT position awareness).
 
         This method provides detailed position state information to enable proper
-        signal interpretation:
-        - BUY when LONG = invalid (can't add to long)
-        - SELL when LONG = valid (closes long)
-        - BUY when SHORT = valid (closes short)
-        - SELL when SHORT = invalid (can't add to short)
+        canonical action interpretation:
+        - open/add long when LONG = structurally invalid
+        - reduce/close long when LONG = valid
+        - open/add short when SHORT = structurally invalid
+        - reduce/close short when SHORT = valid
 
         Args:
             context: Decision context with monitoring_context
@@ -1666,14 +1666,14 @@ Format response as a structured technical analysis demonstration.
         self, action: str, position_state: Dict[str, Any], asset_pair: str
     ) -> Tuple[bool, Optional[str]]:
         """
-        Validate that the signal is allowed given current position state.
+        Validate that the action is allowed given current position state.
 
-        Prevents invalid signals like:
-        - BUY when already LONG (can't add to long, must close first)
-        - SELL when already SHORT (can't add to short, must close first)
+        Canonical policy actions are the primary source of truth. Legacy
+        BUY/SELL/HOLD remains a compatibility layer derived from canonical
+        legality when available.
 
         Args:
-            action: The signal action (BUY, SELL, HOLD)
+            action: Canonical policy action or legacy compatibility action
             position_state: Current position state from _extract_position_state
             asset_pair: Asset pair for logging
 
@@ -1704,10 +1704,16 @@ Format response as a structured technical analysis demonstration.
             return True, None
 
         if action not in allowed:
+            allowed_policy_actions = position_state.get("allowed_policy_actions") or []
+            canonical_clause = (
+                f"Allowed policy actions: {', '.join(allowed_policy_actions)}. "
+                if allowed_policy_actions
+                else ""
+            )
             error = (
                 f"Signal {action} not allowed when {state}. "
                 f"Current position: {position_state.get('side', 'NONE')} {asset_pair}. "
-                f"Allowed signals: {', '.join(allowed)}"
+                f"{canonical_clause}Allowed signals: {', '.join(allowed)}"
             )
             return False, error
 
