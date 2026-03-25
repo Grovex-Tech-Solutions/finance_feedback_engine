@@ -194,6 +194,21 @@ class TestHasExistingPosition:
             is True
         )
 
+
+    def test_detects_coinbase_cfm_futures_position_by_base_asset(self, decision_engine):
+        """Should detect Coinbase CFM futures positions via canonical base-asset mapping."""
+        monitoring_context = {
+            "active_positions": {"futures": [{"product_id": "BIP-20DEC30-CDE"}]}
+        }
+        assert decision_engine._has_existing_position("BTCUSD", None, monitoring_context) is True
+
+    def test_detects_coinbase_cfm_eth_position_by_base_asset(self, decision_engine):
+        """Should detect ETH CFM futures positions via canonical base-asset mapping."""
+        monitoring_context = {
+            "active_positions": {"futures": [{"product_id": "ETP-20DEC30-CDE"}]}
+        }
+        assert decision_engine._has_existing_position("ETHUSD", None, monitoring_context) is True
+
     def test_handles_usdt_suffix(self, decision_engine):
         """Should handle USDT suffix when extracting base currency."""
         portfolio = {"holdings": [{"currency": "BTC", "amount": 0.5}]}
