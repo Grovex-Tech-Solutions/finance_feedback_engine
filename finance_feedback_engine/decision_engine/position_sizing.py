@@ -425,7 +425,11 @@ class PositionSizingCalculator:
             else:
                 position_type = self._determine_position_type(action)
                 if position_type is None and legacy_action == "HOLD" and has_existing_position:
-                    context_position_state = str(context.get("position_state") or "").upper()
+                    raw_position_state = context.get("position_state")
+                    if isinstance(raw_position_state, dict):
+                        context_position_state = str(raw_position_state.get("state") or raw_position_state.get("side") or "").upper()
+                    else:
+                        context_position_state = str(raw_position_state or "").upper()
                     if context_position_state == "LONG":
                         position_type = "LONG"
                     elif context_position_state == "SHORT":

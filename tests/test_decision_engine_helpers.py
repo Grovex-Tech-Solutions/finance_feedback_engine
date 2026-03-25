@@ -328,6 +328,22 @@ class TestCalculatePositionSizingParams:
 
         assert params["stop_loss_price"] < 50000.0
 
+
+    def test_hold_with_existing_short_accepts_dict_position_state(self, decision_engine):
+        context = {"market_data": {"close": 50000.0}, "position_state": {"state": "SHORT", "side": "SHORT"}}
+        relevant_balance = {"USD": 10000.0}
+
+        params = decision_engine._calculate_position_sizing_params(
+            context=context,
+            current_price=50000.0,
+            action="HOLD",
+            has_existing_position=True,
+            relevant_balance=relevant_balance,
+            balance_source="Coinbase",
+        )
+
+        assert params["stop_loss_price"] > 50000.0
+
     def test_legacy_percentage_conversion(self):
         """Legacy percentage values (>1) should be converted to decimals."""
         # Create engine with legacy percentage values (>1)

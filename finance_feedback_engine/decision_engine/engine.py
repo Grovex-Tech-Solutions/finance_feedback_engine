@@ -2011,6 +2011,10 @@ Format response as a structured technical analysis demonstration.
                         logger.debug("Decisions error counter not available for metrics recording")
                     context["semantic_memory"] = []
 
+            # Attach extracted position snapshot to decision context so downstream
+            # sizing/validation paths can reason about current LONG/SHORT state.
+            context["position_state"] = self._extract_position_state(context, asset_pair)
+
             # Generate AI prompt
             prompt = self._create_ai_prompt(context)
 
