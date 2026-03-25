@@ -511,6 +511,95 @@ def test_build_policy_trace_gracefully_allows_partial_inputs():
 
 
 
+def test_build_policy_trace_allows_canonical_decision_without_legacy_compatibility():
+    trace = build_policy_trace(
+        policy_package={"policy_state": {"position_state": "flat", "version": 1}},
+        action="OPEN_SMALL_LONG",
+        policy_action="OPEN_SMALL_LONG",
+        legacy_action_compatibility=None,
+        confidence=88,
+        reasoning="canonical first",
+    )
+
+    assert trace["decision_envelope"]["action"] == "OPEN_SMALL_LONG"
+    assert trace["decision_envelope"]["policy_action"] == "OPEN_SMALL_LONG"
+    assert trace["decision_envelope"]["legacy_action_compatibility"] is None
+
+
+def test_build_policy_replay_record_preserves_missing_legacy_compatibility_for_canonical_decision():
+    policy_trace = build_policy_trace(
+        policy_package={"policy_state": {"position_state": "flat", "version": 1}},
+        action="OPEN_SMALL_LONG",
+        policy_action="OPEN_SMALL_LONG",
+        legacy_action_compatibility=None,
+        confidence=82,
+        reasoning="canonical replay",
+        asset_pair="BTCUSD",
+        decision_id="decision-no-legacy",
+    )
+    record = build_policy_replay_record({"id": "decision-no-legacy", "asset_pair": "BTCUSD", "policy_trace": policy_trace})
+
+    assert record["policy_action"] == "OPEN_SMALL_LONG"
+    assert record["legacy_action_compatibility"] is None
+
+
+def test_build_policy_dataset_row_preserves_missing_legacy_compatibility_for_canonical_decision():
+    policy_trace = build_policy_trace(
+        policy_package=build_policy_package(
+            policy_state={"position_state": "flat", "version": 1},
+            action_context={"structural_action_validity": "valid", "version": 1},
+            policy_sizing_intent=None,
+            provider_translation_result=None,
+            control_outcome={"status": "executed", "version": 1},
+        ),
+        action="OPEN_SMALL_LONG",
+        policy_action="OPEN_SMALL_LONG",
+        legacy_action_compatibility=None,
+        confidence=82,
+        reasoning="canonical dataset",
+        asset_pair="BTCUSD",
+        decision_id="decision-dataset-no-legacy",
+    )
+    row = build_policy_dataset_row_from_decision({
+        "id": "decision-dataset-no-legacy",
+        "asset_pair": "BTCUSD",
+        "policy_trace": policy_trace,
+    })
+
+    assert row["policy_action"] == "OPEN_SMALL_LONG"
+    assert row["legacy_action_compatibility"] is None
+
+
+
+def test_build_policy_evaluation_record_preserves_missing_legacy_compatibility_for_canonical_decision():
+    policy_trace = build_policy_trace(
+        policy_package=build_policy_package(
+            policy_state={"position_state": "flat", "version": 1},
+            action_context={"structural_action_validity": "valid", "version": 1},
+            policy_sizing_intent=None,
+            provider_translation_result=None,
+            control_outcome={"status": "executed", "reason_code": "ok", "version": 1},
+        ),
+        action="OPEN_SMALL_LONG",
+        policy_action="OPEN_SMALL_LONG",
+        legacy_action_compatibility=None,
+        confidence=82,
+        reasoning="canonical eval",
+        asset_pair="BTCUSD",
+        decision_id="decision-eval-no-legacy",
+    )
+    row = build_policy_dataset_row_from_decision({
+        "id": "decision-eval-no-legacy",
+        "asset_pair": "BTCUSD",
+        "policy_trace": policy_trace,
+    })
+    record = build_policy_evaluation_record_from_dataset_row(row)
+
+    assert record["policy_action"] == "OPEN_SMALL_LONG"
+    assert record["legacy_action_compatibility"] is None
+
+
+
 def test_build_policy_replay_record_extracts_canonical_replay_surface():
     policy_package = build_policy_package(
         policy_state={"position_state": "flat", "version": 1},
