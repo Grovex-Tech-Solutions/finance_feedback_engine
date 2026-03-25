@@ -585,12 +585,15 @@ class PositionSizingCalculator:
             recommended_position_size = 0
             logger.warning("Price unavailable; cannot compute minimum position size")
 
-        # Calculate stop loss price
+        # Calculate stop loss price using canonical-first orientation semantics.
         if current_price > 0 and sizing_stop_loss_percentage > 0:
-            if action == "BUY":
+            orientation = self._determine_position_type(action)
+            if orientation == "LONG":
                 stop_loss_price = current_price * (1 - sizing_stop_loss_percentage)
-            else:
+            elif orientation == "SHORT":
                 stop_loss_price = current_price * (1 + sizing_stop_loss_percentage)
+            else:
+                stop_loss_price = current_price
         else:
             stop_loss_price = current_price
 

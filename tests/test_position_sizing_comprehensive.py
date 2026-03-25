@@ -872,6 +872,31 @@ class TestPositionSizingLogBehavior:
         assert "No valid Coinbase balance - using minimum order size" not in caplog.text
         assert "Position sizing:" in caplog.text
 
+
+    def test_policy_open_short_minimum_sizing_uses_short_stop_loss_direction(self):
+        calculator = PositionSizingCalculator({"agent": {"risk_percentage": 0.01, "sizing_stop_loss_percentage": 0.02, "use_dynamic_stop_loss": False, "use_kelly_criterion": False}})
+        result = calculator.calculate_position_sizing_params(
+            context={"asset_pair": "ETHUSD", "market_data": {"type": "crypto"}},
+            current_price=2000.0,
+            action="OPEN_SMALL_SHORT",
+            has_existing_position=False,
+            relevant_balance={"USD": 0.0},
+            balance_source="Coinbase",
+        )
+        assert result["stop_loss_price"] > 2000.0
+
+    def test_policy_open_long_minimum_sizing_uses_long_stop_loss_direction(self):
+        calculator = PositionSizingCalculator({"agent": {"risk_percentage": 0.01, "sizing_stop_loss_percentage": 0.02, "use_dynamic_stop_loss": False, "use_kelly_criterion": False}})
+        result = calculator.calculate_position_sizing_params(
+            context={"asset_pair": "ETHUSD", "market_data": {"type": "crypto"}},
+            current_price=2000.0,
+            action="OPEN_SMALL_LONG",
+            has_existing_position=False,
+            relevant_balance={"USD": 0.0},
+            balance_source="Coinbase",
+        )
+        assert result["stop_loss_price"] < 2000.0
+
     def test_position_sizing_input_debug_does_not_emit_critical(self, caplog):
         calculator = PositionSizingCalculator({"agent": {"risk_percentage": 0.01, "sizing_stop_loss_percentage": 0.02, "use_dynamic_stop_loss": False, "use_kelly_criterion": False}})
         with caplog.at_level(logging.DEBUG):
