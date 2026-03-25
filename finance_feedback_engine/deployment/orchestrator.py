@@ -11,6 +11,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict
 
+from finance_feedback_engine import __version__
+
 from .docker import DockerError, DockerOperations
 from .health import HealthChecker, HealthCheckError
 from .logger import get_deployment_logger, setup_logging
@@ -83,6 +85,7 @@ class DeploymentOrchestrator:
 
         # State
         self.current_stage = DeploymentStage.INITIALIZING
+        self.release_version = __version__
         self.start_time = datetime.now(UTC)
         self.end_time = None
         self.errors = []
@@ -195,7 +198,7 @@ class DeploymentOrchestrator:
             self.docker_ops.build_image(
                 service="backend",
                 dockerfile="Dockerfile",
-                tag=self.environment,
+                tag=f"{self.environment}-{self.release_version}",
                 no_cache=self.no_cache,
             )
 
@@ -204,7 +207,7 @@ class DeploymentOrchestrator:
             self.docker_ops.build_image(
                 service="frontend",
                 dockerfile="Dockerfile",
-                tag=self.environment,
+                tag=f"{self.environment}-{self.release_version}",
                 no_cache=self.no_cache,
             )
 
@@ -221,6 +224,7 @@ class DeploymentOrchestrator:
                 extra={
                     "backend_size": backend_size,
                     "frontend_size": frontend_size,
+                    "release_version": self.release_version,
                 },
             )
 

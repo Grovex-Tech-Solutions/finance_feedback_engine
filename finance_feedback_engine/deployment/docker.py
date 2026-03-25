@@ -5,9 +5,12 @@ Handles Docker image building, container management, and compose operations.
 Designed with TDD - all tests written first in test_docker.py
 """
 
+import re
 import subprocess
 from pathlib import Path
 from typing import Dict
+
+from finance_feedback_engine import __version__
 
 from .logger import get_logger
 
@@ -18,6 +21,11 @@ class DockerError(Exception):
     """Custom exception for Docker operation failures."""
 
     pass
+
+
+def _sanitize_docker_tag(tag: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9_.-]", "-", tag)
+    return sanitized.strip(".-") or "unknown"
 
 
 class DockerOperations:
@@ -40,16 +48,22 @@ class DockerOperations:
         """Build a Docker image."""
         logger.info(f"Building {service} image with tag {tag}")
 
-        cmd = [
-            "docker",
-            "build",
-            "-t",
-            f"finance-feedback-engine-{service}:{tag}",
-            "-t",
+        requested_tag = _sanitize_docker_tag(tag)
+        version_tag = _sanitize_docker_tag(__version__)
+        image_tags = [
+            f"finance-feedback-engine-{service}:{requested_tag}",
+            f"finance-feedback-engine-{service}:{version_tag}",
             f"finance-feedback-engine-{service}:latest",
-            "-f",
-            dockerfile,
         ]
+        deduped_tags = []
+        for image_tag in image_tags:
+            if image_tag not in deduped_tags:
+                deduped_tags.append(image_tag)
+
+        cmd = ["docker", "build"]
+        for image_tag in deduped_tags:
+            cmd.extend(["-t", image_tag])
+        cmd.extend(["-f", dockerfile])
 
         if no_cache:
             cmd.append("--no-cache")

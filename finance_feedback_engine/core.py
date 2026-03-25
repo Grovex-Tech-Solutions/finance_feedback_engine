@@ -34,6 +34,7 @@ from .utils.cache_metrics import CacheMetrics
 from .utils.circuit_breaker import CircuitBreaker
 from .utils.failure_logger import log_quorum_failure
 from .utils.model_installer import ensure_models_installed
+from .utils.versioning import get_version_info
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,15 @@ class FinanceFeedbackEngine:
         validate_and_warn(config)
 
         self.config = config
+
+        version_info = get_version_info()
+        logger.info(
+            "Finance Feedback Engine starting | version=%s sha=%s describe=%s branch=%s",
+            version_info.get("version"),
+            version_info.get("git_sha"),
+            version_info.get("git_describe"),
+            version_info.get("git_branch"),
+        )
 
         # Initialize error tracking (Phase 2.1)
         self.error_tracker = ErrorTracker(config.get("error_tracking", {}))
