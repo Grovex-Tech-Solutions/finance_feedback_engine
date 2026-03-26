@@ -2264,6 +2264,15 @@ class TradingLoopAgent:
         Returns:
             Tuple of (is_approved, reason) where is_approved indicates if the decision should proceed
         """
+        normalized_action = str(
+            decision.get("policy_action") or decision.get("action") or ""
+        ).upper()
+        if normalized_action.startswith(("CLOSE_", "REDUCE_")):
+            return (
+                True,
+                f"Performance-based risk checks bypassed for derisking action: {normalized_action}",
+            )
+
         # Check for excessive consecutive losses
         current_streak = self._performance_metrics["current_streak"]
 

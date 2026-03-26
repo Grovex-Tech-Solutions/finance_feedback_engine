@@ -669,6 +669,62 @@ def test_derisking_execution_metadata_uses_active_position_size(trading_agent):
 
 
 
+def test_performance_risk_checks_allow_derisking_actions(trading_agent):
+    trading_agent._performance_metrics.update(
+        {
+            "current_streak": 0,
+            "total_trades": 12,
+            "win_rate": 80,
+            "avg_loss": -10,
+            "avg_win": 40,
+            "total_pnl": 100.0,
+        }
+    )
+    decision = {
+        "asset_pair": "BTCUSD",
+        "action": "CLOSE_SHORT",
+        "policy_action": "CLOSE_SHORT",
+        "confidence": 95,
+        "entry_price": 70535.0,
+        "stop_loss_price": 0.0,
+        "recommended_position_size": 0.293,
+    }
+
+    approved, reason = trading_agent._check_performance_based_risks(decision)
+
+    assert approved is True
+    assert "derisking" in reason.lower()
+
+
+
+def test_performance_risk_checks_do_not_block_derisking_high_risk_to_recent_pnl(trading_agent):
+    trading_agent._performance_metrics.update(
+        {
+            "current_streak": 0,
+            "total_trades": 12,
+            "win_rate": 80,
+            "avg_loss": -10,
+            "avg_win": 40,
+            "total_pnl": 100.0,
+        }
+    )
+    decision = {
+        "asset_pair": "BTCUSD",
+        "action": "CLOSE_SHORT",
+        "policy_action": "CLOSE_SHORT",
+        "confidence": 95,
+        "entry_price": 70535.0,
+        "stop_loss_price": 69000.0,
+        "recommended_position_size": 0.293,
+    }
+
+    approved, reason = trading_agent._check_performance_based_risks(decision)
+
+    assert approved is True
+    assert "derisking" in reason.lower()
+
+
+
 
 @pytest.mark.asyncio
 async def test_process_cycle_passes_monitoring_macro_flags_to_engine_analysis(trading_agent, mock_dependencies):
