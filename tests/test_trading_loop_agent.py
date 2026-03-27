@@ -1573,3 +1573,75 @@ def test_sync_trade_outcome_recorder_recovers_missing_decision_id_from_trade_mon
         exit_price=1986.0,
         exit_timestamp="2026-03-27T22:25:38+00:00",
     )
+
+
+
+@pytest.mark.asyncio
+async def test_process_cycle_stale_data_ends_cycle_without_looping(trading_agent, mock_dependencies, monkeypatch):
+    from finance_feedback_engine.agent.trading_loop_agent import AgentState
+    monkeypatch.setattr('finance_feedback_engine.agent.trading_loop_agent.validate_data_freshness', lambda **kwargs: (False, '10m', 'stale market data'))
+    trading_agent.trade_monitor.monitoring_context_provider.get_monitoring_context = Mock(return_value={
+        'asset_type': 'crypto',
+        'latest_market_data_timestamp': '2026-03-27T00:00:00+00:00',
+        'timeframe': 'intraday',
+        'market_status': {'is_open': True},
+    })
+    trading_agent.state = AgentState.PERCEPTION
+    trading_agent.is_running = True
+    await trading_agent.process_cycle()
+    assert trading_agent.state == AgentState.IDLE
+
+
+@pytest.mark.asyncio
+async def test_process_cycle_closed_market_staleness_ends_cycle_without_looping(trading_agent, mock_dependencies, monkeypatch):
+    from finance_feedback_engine.agent.trading_loop_agent import AgentState
+    monkeypatch.setattr('finance_feedback_engine.agent.trading_loop_agent.validate_data_freshness', lambda **kwargs: (False, '2d', 'closed-market stale weekend'))
+    trading_agent.trade_monitor.monitoring_context_provider.get_monitoring_context = Mock(return_value={
+        'asset_type': 'forex',
+        'latest_market_data_timestamp': '2026-03-27T00:00:00+00:00',
+        'timeframe': 'intraday',
+        'market_status': {'is_open': False},
+    })
+    trading_agent.state = AgentState.PERCEPTION
+    trading_agent.is_running = True
+    await trading_agent.process_cycle()
+    assert trading_agent.state == AgentState.IDLE
+
+
+@pytest.mark.asyncio
+async def test_process_cycle_empty_pairs_reasoning_ends_cycle_without_looping(trading_agent, mock_dependencies):
+    from finance_feedback_engine.agent.trading_loop_agent import AgentState
+    trading_agent.config.asset_pairs = []
+    trading_agent.state = AgentState.REASONING
+    trading_agent.is_running = True
+    await trading_agent.process_cycle()
+    assert trading_agent.state == AgentState.IDLE
+
+
+def test_sync_trade_outcome_recorder_recovers_missing_decision_id_from_closed_trade_queue_after_tracker_cleanup(trading_agent, mock_dependencies):
+    from queue import Queue
+    from types import SimpleNamespace
+    recorder = mock_dependencies['engine'].trade_outcome_recorder
+    recorder.update_positions.return_value = [{
+        'product': 'ETP-20DEC30-CDE',
+        'side': 'SHORT',
+        'exit_price': '1986.0',
+        'exit_time': '2026-03-27T22:25:38+00:00',
+        'realized_pnl': '0.85',
+        'decision_id': None,
+    }]
+    mock_dependencies['engine'].record_trade_outcome.return_value = SimpleNamespace(realized_pnl=0.85)
+    trading_agent.trade_monitor.expected_trades = {}
+    trading_agent.trade_monitor.active_trackers = {}
+    q = Queue()
+    q.put({'product_id': 'ETP-20DEC30-CDE', 'side': 'SHORT', 'decision_id': 'decision-eth-open'})
+    trading_agent.trade_monitor.closed_trades_queue = q
+    trading_agent.trade_monitor.get_decision_id_by_asset = Mock(return_value=None)
+
+    trading_agent._sync_trade_outcome_recorder([])
+
+    mock_dependencies['engine'].record_trade_outcome.assert_called_once_with(
+        'decision-eth-open',
+        exit_price=1986.0,
+        exit_timestamp='2026-03-27T22:25:38+00:00',
+    )

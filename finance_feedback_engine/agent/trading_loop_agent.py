@@ -1379,6 +1379,7 @@ class TradingLoopAgent:
                 logger.info(
                     "DATA FRESHNESS CHECK DEFERRED: %s (age: %s)", warning_msg, age_str
                 )
+                await self._transition_to(AgentState.IDLE)
                 return
             logger.error("DATA FRESHNESS CHECK FAILED: %s (age: %s)", warning_msg, age_str)
             self._emit_dashboard_event({
@@ -1387,7 +1388,8 @@ class TradingLoopAgent:
                 "age": age_str,
                 "timestamp": time.time(),
             })
-            # Optionally halt or retry, here we halt transition for safety
+            # Halt this cycle safely; outer scheduler can retry later.
+            await self._transition_to(AgentState.IDLE)
             return
 
         # --- Cleanup rejected decisions cache (prevent memory leak) ---
@@ -1601,7 +1603,8 @@ class TradingLoopAgent:
         # IMPORTANT: do not forcibly re-add hardcoded pairs here; API callers may
         # intentionally run focused universes (e.g., BTC/ETH long-short only).
         if not self.config.asset_pairs:
-            logger.error("CRITICAL: No asset pairs configured; skipping reasoning cycle")
+            logger.error("CRITICAL: No asset pairs configured; ending cycle without reasoning")
+            await self._transition_to(AgentState.IDLE)
             return
 
         # Create a snapshot copy for iteration (prevents race conditions)
@@ -2868,6 +2871,33 @@ class TradingLoopAgent:
                             decision_id = decision_id[0]
                         if decision_id:
                             return decision_id, "trade_monitor.get_decision_id_by_asset", attempted_sources
+
+                attempted_sources.append("trade_monitor.closed_trades_queue")
+                closed_queue = getattr(trade_monitor, "closed_trades_queue", None)
+                if closed_queue is not None:
+                    queue_items = list(getattr(closed_queue, "queue", []))
+                    for closed_trade in reversed(queue_items):
+                        closed_product = closed_trade.get("product_id") or closed_trade.get("product")
+                        closed_side = closed_trade.get("side")
+                        closed_decision_id = closed_trade.get("decision_id")
+                        if not closed_product or not closed_decision_id:
+                            continue
+                        if closed_side and side and str(closed_side).upper() != str(side).upper():
+                            continue
+                        try:
+                            closed_asset_pair = standardize_asset_pair(closed_product)
+                        except Exception:
+                            closed_asset_pair = None
+                        closed_candidates = [closed_asset_pair] if closed_asset_pair else []
+                        closed_raw_upper = str(closed_product or "").upper()
+                        if closed_raw_upper.startswith(("ETP", "ET", "ETH")):
+                            closed_candidates.append("ETHUSD")
+                        if closed_raw_upper.startswith(("BIP", "BIT", "BTC")):
+                            closed_candidates.append("BTCUSD")
+                        if closed_raw_upper.startswith(("SLP", "SOL")):
+                            closed_candidates.append("SOLUSD")
+                        if any(candidate in closed_candidates for candidate in candidate_asset_pairs):
+                            return closed_decision_id, "trade_monitor.closed_trades_queue", attempted_sources
             except Exception:
                 logger.debug(
                     "Failed trade-monitor decision recovery for closed outcome %s",
