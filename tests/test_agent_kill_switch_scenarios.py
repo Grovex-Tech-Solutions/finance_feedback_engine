@@ -173,6 +173,56 @@ class TestDailyTradeLimit:
 
         # Assert: No decisions should have been collected for execution
         assert len(trading_agent._current_decisions) == 0
-        mock_dependencies["engine"].analyze_asset_async.assert_called_once_with(
-            "BTCUSD"
+        mock_dependencies["engine"].analyze_asset_async.assert_not_called()
+
+
+    @pytest.mark.asyncio
+    async def test_reasoning_state_skips_all_analysis_at_limit_without_active_positions(
+        self, trading_agent, mock_dependencies
+    ):
+        """When the daily trade limit is already hit and nothing is open, skip reasoning entirely."""
+        from finance_feedback_engine.agent.trading_loop_agent import AgentState
+
+        trading_agent.config.asset_pairs = ["BTCUSD", "ETHUSD"]
+        trading_agent.config.max_daily_trades = 2
+        trading_agent.daily_trade_count = 2
+        trading_agent.state = AgentState.REASONING
+        mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context = MagicMock(
+            return_value={"active_positions": {"futures": []}}
         )
+        mock_dependencies["engine"].analyze_asset_async = AsyncMock()
+
+        trading_agent._current_decisions = []
+
+        await trading_agent.handle_reasoning_state()
+
+        assert len(trading_agent._current_decisions) == 0
+        mock_dependencies["engine"].analyze_asset_async.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reasoning_state_keeps_one_analysis_at_limit_for_active_position(
+        self, trading_agent, mock_dependencies
+    ):
+        """At the daily limit, still analyze one asset if it has an active position that may need de-risking."""
+        from finance_feedback_engine.agent.trading_loop_agent import AgentState
+
+        trading_agent.config.asset_pairs = ["BTCUSD", "ETHUSD"]
+        trading_agent.config.max_daily_trades = 2
+        trading_agent.daily_trade_count = 2
+        trading_agent.state = AgentState.REASONING
+        mock_dependencies["trade_monitor"].monitoring_context_provider.get_monitoring_context = MagicMock(
+            side_effect=lambda asset_pair=None: {
+                "active_positions": {
+                    "futures": ([{"product_id": "BTC-USD"}] if asset_pair == "BTCUSD" else [])
+                }
+            }
+        )
+        mock_dependencies["engine"].analyze_asset_async = AsyncMock(
+            return_value={"action": "HOLD", "confidence": 55, "asset_pair": "BTCUSD"}
+        )
+
+        trading_agent._current_decisions = []
+
+        await trading_agent.handle_reasoning_state()
+
+        mock_dependencies["engine"].analyze_asset_async.assert_called_once_with("BTCUSD", include_sentiment=True, include_macro=False)

@@ -1634,13 +1634,53 @@ class TradingLoopAgent:
                 self.analysis_failures.pop(key, None)
                 self.analysis_failure_timestamps.pop(key, None)
 
+        def _pair_has_active_position(asset_pair: str) -> bool:
+            try:
+                monitoring_context = (
+                    self.trade_monitor.monitoring_context_provider.get_monitoring_context(
+                        asset_pair=asset_pair
+                    )
+                )
+            except Exception as exc:
+                logger.debug(
+                    "Unable to load monitoring context while checking daily-limit exemptions for %s: %s",
+                    asset_pair,
+                    exc,
+                )
+                return False
+
+            active_positions = ((monitoring_context or {}).get("active_positions") or {}).get("futures") or []
+            target_asset = str(asset_pair or "").upper()
+            for pos in active_positions:
+                raw_pair = pos.get("product_id") or pos.get("instrument") or pos.get("asset_pair")
+                canonical = None
+                try:
+                    canonical = standardize_asset_pair(raw_pair) if raw_pair else None
+                except Exception:
+                    canonical = None
+                raw_upper = str(raw_pair or "").upper()
+                if canonical == target_asset or raw_upper == target_asset:
+                    return True
+                if target_asset == "BTCUSD" and raw_upper.startswith(("BIP", "BIT", "BTC")):
+                    return True
+                if target_asset == "ETHUSD" and raw_upper.startswith(("ETP", "ET", "ETH")):
+                    return True
+            return False
+
         pairs_to_analyze: list[tuple[int, str]] = []
         for idx, asset_pair in enumerate(asset_pairs_snapshot):
-            if limit_reached and len(pairs_to_analyze) >= 1:
-                logger.info(
-                    "Daily trade limit reached; skipping analysis for remaining pairs."
-                )
-                break
+            if limit_reached:
+                if pairs_to_analyze:
+                    logger.info(
+                        "Daily trade limit reached; skipping analysis for remaining pairs."
+                    )
+                    break
+                if not _pair_has_active_position(asset_pair):
+                    logger.info(
+                        "Daily trade limit reached with no active position in %s; skipping analysis.",
+                        asset_pair,
+                    )
+                    continue
 
             failure_key = f"analysis:{asset_pair}"
 
