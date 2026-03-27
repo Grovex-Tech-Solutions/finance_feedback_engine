@@ -366,6 +366,17 @@ class OrderStatusWorker:
             logger.debug(f"Oanda order status query failed: {e}")
             return None
 
+    def _normalize_order_status(self, order_status: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize provider-specific order payloads into a flat dict."""
+        if not isinstance(order_status, dict):
+            return order_status
+        nested = order_status.get("order")
+        if isinstance(nested, dict):
+            merged = dict(order_status)
+            merged.update(nested)
+            return merged
+        return order_status
+
     def _is_order_complete(self, order_status: Dict[str, Any]) -> bool:
         """
         Determine if an order is complete (filled and closed).
@@ -376,6 +387,8 @@ class OrderStatusWorker:
         Returns:
             True if order is complete
         """
+        order_status = self._normalize_order_status(order_status)
+
         if "status" in order_status:
             status = order_status["status"]
             return status.upper() in ["FILLED", "DONE", "SETTLED"]
@@ -404,6 +417,7 @@ class OrderStatusWorker:
             Outcome dict or None if recording failed
         """
         try:
+            order_status = self._normalize_order_status(order_status)
             fill_info = self._extract_fill_info(order_status, order_data)
 
             if not fill_info:
