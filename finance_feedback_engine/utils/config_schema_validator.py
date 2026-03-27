@@ -101,7 +101,7 @@ class AgentConfig(BaseModel):
         default="on_new_asset",
         pattern="^(on_new_asset|always|never)$"
     )
-    max_daily_trades: int = Field(default=5, ge=1, le=100)
+    max_daily_trades: int = Field(default=5, ge=0, le=100)
     strategic_goal: str = Field(
         default="balanced",
         pattern="^(conservative|balanced|aggressive)$"
@@ -117,7 +117,9 @@ class AgentConfig(BaseModel):
     @field_validator("max_daily_trades")
     @classmethod
     def validate_max_trades(cls, v: int) -> int:
-        """Warn if max daily trades is very high."""
+        """Warn if max daily trades is very high; 0 disables the cap."""
+        if v == 0:
+            return v
         if v > 20:
             logger.warning(
                 f"⚠️  Max daily trades set to {v}, which may incur high fees. "

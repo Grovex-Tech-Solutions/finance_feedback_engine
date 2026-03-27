@@ -64,7 +64,7 @@ agent:
     var_confidence: 0.9
   main_loop_error_backoff_seconds: 300
   max_correlated_assets: 2
-  max_daily_trades: 6
+  max_daily_trades: 0
   max_retries_per_cycle: 3
   max_var_pct: 0.05
   position_sizing:
