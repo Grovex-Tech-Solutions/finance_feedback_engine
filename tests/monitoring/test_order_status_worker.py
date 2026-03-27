@@ -112,3 +112,76 @@ def test_stale_timeout_is_configurable_and_defaults_to_20(tmp_path):
 
     worker._check_pending_orders()  # checks=3 -> removed
     assert "order-stale" not in worker._pending_cache
+
+
+class _CoinbaseGetClientPlatform:
+    def __init__(self, order_payload):
+        self._order_payload = order_payload
+        self._client = MagicMock()
+        self._client.get_order.return_value = order_payload
+
+    def _get_client(self):
+        return self._client
+
+
+def test_coinbase_platform_with_get_client_is_polled_and_recorded(tmp_path):
+    recorder = MagicMock()
+    recorder.record_order_outcome.return_value = {"realized_pnl": "1.23"}
+    order_payload = {
+        "status": "FILLED",
+        "average_filled_price": "50000",
+        "filled_size": "0.1",
+        "total_fees": "1.5",
+    }
+    worker = OrderStatusWorker(
+        trading_platform=_CoinbaseGetClientPlatform(order_payload),
+        outcome_recorder=recorder,
+        data_dir=str(tmp_path),
+        poll_interval=1,
+        flush_every_cycles=1,
+        max_stale_checks=20,
+    )
+
+    worker.add_pending_order(
+        order_id="cb-order-1",
+        decision_id="decision-1",
+        asset_pair="BTCUSD",
+        platform="coinbase",
+        action="BUY",
+        size=0.1,
+        entry_price=50000,
+    )
+
+    worker._check_pending_orders()
+
+    recorder.record_order_outcome.assert_called_once()
+    assert "cb-order-1" not in worker._pending_cache
+
+
+def test_coinbase_platform_without_rest_client_no_longer_ages_out_immediately(tmp_path):
+    recorder = MagicMock()
+    order_payload = {"status": "OPEN"}
+    worker = OrderStatusWorker(
+        trading_platform=_CoinbaseGetClientPlatform(order_payload),
+        outcome_recorder=recorder,
+        data_dir=str(tmp_path),
+        poll_interval=1,
+        flush_every_cycles=1,
+        max_stale_checks=2,
+    )
+
+    worker.add_pending_order(
+        order_id="cb-order-2",
+        decision_id="decision-2",
+        asset_pair="BTCUSD",
+        platform="coinbase",
+        action="BUY",
+        size=0.1,
+        entry_price=50000,
+    )
+
+    worker._check_pending_orders()
+
+    recorder.record_order_outcome.assert_not_called()
+    assert "cb-order-2" in worker._pending_cache
+    assert worker._pending_cache["cb-order-2"]["checks"] == 1

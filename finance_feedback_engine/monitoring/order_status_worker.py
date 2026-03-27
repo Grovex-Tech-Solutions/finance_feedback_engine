@@ -332,10 +332,18 @@ class OrderStatusWorker:
             return None
 
     def _get_coinbase_order_status(self, order_id: str) -> Optional[Dict[str, Any]]:
-        """Get Coinbase order status using REST API."""
+        """Get Coinbase order status using the available Coinbase client."""
         try:
+            client = None
             if hasattr(self.platform, "rest_client"):
-                order = self.platform.rest_client.get_order(order_id)
+                client = self.platform.rest_client
+            elif hasattr(self.platform, "_get_client"):
+                client = self.platform._get_client()
+            elif hasattr(self.platform, "client"):
+                client = self.platform.client
+
+            if client and hasattr(client, "get_order"):
+                order = client.get_order(order_id)
                 return order.to_dict() if hasattr(order, "to_dict") else order
             return None
         except Exception as e:
