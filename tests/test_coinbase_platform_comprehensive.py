@@ -1453,6 +1453,25 @@ class TestGetActivePositions:
 
         assert result["positions"] == []
 
+    def test_get_active_positions_reads_nested_platform_breakdowns(self, platform):
+        """Test active positions can be sourced from nested platform_breakdowns."""
+        portfolio = {
+            "platform_breakdowns": {
+                "coinbase": {
+                    "futures_positions": [
+                        {"product_id": "BTC-USD-PERP", "side": "LONG", "number_of_contracts": 1}
+                    ]
+                }
+            }
+        }
+        platform.get_portfolio_breakdown = MagicMock(return_value=portfolio)
+
+        result = platform.get_active_positions()
+
+        assert "positions" in result
+        assert len(result["positions"]) == 1
+        assert result["positions"][0]["product_id"] == "BTC-USD-PERP"
+
 
 # ============================================================================
 # ACCOUNT INFO TESTS

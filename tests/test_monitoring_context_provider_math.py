@@ -40,3 +40,49 @@ def test_analyze_concentration_tracks_asset_specific_percentages():
 
     assert concentration["largest_position_pct"] < 30.0
     assert concentration["asset_position_pct"]["ETHUSD"] == concentration["largest_position_pct"]
+
+
+
+def test_extract_active_positions_reads_nested_platform_breakdowns():
+    provider = MonitoringContextProvider(_DummyPlatform())
+    portfolio = {
+        "platform_breakdowns": {
+            "coinbase": {
+                "futures_positions": [
+                    {
+                        "product_id": "BIP-20DEC30-CDE",
+                        "side": "SHORT",
+                        "contracts": 1,
+                    }
+                ]
+            }
+        }
+    }
+
+    futures_positions, holdings = provider._extract_active_positions_from_portfolio(portfolio)
+
+    assert len(futures_positions) == 1
+    assert futures_positions[0]["product_id"] == "BIP-20DEC30-CDE"
+
+
+def test_asset_scoped_filter_matches_cfm_btc_product_to_btcusd():
+    provider = MonitoringContextProvider(_DummyPlatform())
+    portfolio = {
+        "platform_breakdowns": {
+            "coinbase": {
+                "futures_positions": [
+                    {
+                        "product_id": "BIP-20DEC30-CDE",
+                        "side": "SHORT",
+                        "contracts": 1,
+                    }
+                ]
+            }
+        }
+    }
+
+    provider.platform.get_portfolio_breakdown = lambda: portfolio
+    context = provider.get_monitoring_context(asset_pair="BTCUSD")
+
+    assert len(context["active_positions"]["futures"]) == 1
+    assert context["active_positions"]["futures"][0]["product_id"] == "BIP-20DEC30-CDE"

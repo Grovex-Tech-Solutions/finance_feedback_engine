@@ -2014,7 +2014,14 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
         """
         logger.info("Fetching active positions from Coinbase")
         portfolio = self.get_portfolio_breakdown()
-        positions: List[Dict[str, Any]] = portfolio.get("futures_positions", [])
+        positions: List[Dict[str, Any]] = list(portfolio.get("futures_positions", []) or [])
+
+        if not positions:
+            for breakdown in (portfolio.get("platform_breakdowns") or {}).values():
+                nested = (breakdown or {}).get("futures_positions") or (breakdown or {}).get("positions") or []
+                if nested:
+                    positions.extend(nested)
+
         return {"positions": positions}
 
     def get_account_info(self) -> Dict[str, Any]:

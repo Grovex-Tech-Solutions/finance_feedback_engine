@@ -615,8 +615,17 @@ class TradeMonitor:
                 tracker_pair = standardize_asset_pair(product_id)
             except Exception:
                 tracker_pair = str(product_id or "").replace("-", "").upper()
+
+            raw_upper = str(product_id or "").upper()
+            if standardized_pair == "BTCUSD" and raw_upper.startswith(("BIP", "BIT", "BTC")):
+                tracker_pair = "BTCUSD"
+            elif standardized_pair == "ETHUSD" and raw_upper.startswith(("ETP", "ET", "ETH")):
+                tracker_pair = "ETHUSD"
+
             if tracker_pair == standardized_pair:
                 decision_id = getattr(tracker, "decision_id", None)
+                if isinstance(decision_id, tuple) and decision_id:
+                    decision_id = decision_id[0]
                 if decision_id:
                     return decision_id
         return None

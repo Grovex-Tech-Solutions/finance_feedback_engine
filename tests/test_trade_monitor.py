@@ -186,3 +186,13 @@ class TestTradeMonitorIntegration:
 
         trade_monitor.stop()
         time.sleep(1.0)
+
+
+
+def test_get_decision_id_by_asset_unwraps_active_tracker_tuple(trade_monitor):
+    from types import SimpleNamespace
+    trade_monitor.active_trackers = {
+        "trade-1": SimpleNamespace(product_id="BIP-20DEC30-CDE", decision_id=("decision-btc", 123.0))
+    }
+
+    assert trade_monitor.get_decision_id_by_asset("BTCUSD") == "decision-btc"
