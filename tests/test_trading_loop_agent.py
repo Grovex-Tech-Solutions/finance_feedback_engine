@@ -728,6 +728,39 @@ def test_performance_risk_checks_do_not_block_derisking_high_risk_to_recent_pnl(
 
 
 
+def test_sync_trade_outcome_recorder_uses_recorder_backfilled_decision_id_from_open_state(trading_agent, mock_dependencies):
+    recorder = mock_dependencies["engine"].trade_outcome_recorder
+    recorder.open_positions = {
+        "ETP-20DEC30-CDE_SHORT": {
+            "product": "ETP-20DEC30-CDE",
+            "side": "SHORT",
+            "entry_price": 2080.0,
+            "entry_size": 1.0,
+            "decision_id": "decision-eth-close",
+        }
+    }
+    recorder.update_positions.return_value = [
+        {
+            "product": "ETP-20DEC30-CDE",
+            "side": "SHORT",
+            "exit_price": "2073.0",
+            "exit_time": "2026-03-27T01:03:32+00:00",
+            "realized_pnl": "-6.5",
+            "decision_id": None,
+        }
+    ]
+    mock_dependencies["engine"].record_trade_outcome.return_value = SimpleNamespace(realized_pnl=-6.5)
+    trading_agent.trade_monitor.get_decision_id_by_asset = Mock(return_value=None)
+
+    trading_agent._sync_trade_outcome_recorder([])
+
+    mock_dependencies["engine"].record_trade_outcome.assert_called_once_with(
+        "decision-eth-close",
+        exit_price=2073.0,
+        exit_timestamp="2026-03-27T01:03:32+00:00",
+    )
+
+
 def test_sync_trade_outcome_recorder_recovers_missing_decision_id_from_trade_monitor(trading_agent, mock_dependencies):
     recorder = mock_dependencies["engine"].trade_outcome_recorder
     recorder.update_positions.return_value = [

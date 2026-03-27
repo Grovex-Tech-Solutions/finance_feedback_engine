@@ -2729,8 +2729,26 @@ class TradingLoopAgent:
     def _recover_decision_id_for_closed_outcome(self, outcome: Dict[str, Any]) -> Optional[str]:
         """Best-effort recovery of decision lineage for recorder close events."""
         product = outcome.get("product")
+        side = outcome.get("side")
         if not product:
             return None
+
+        recorder = getattr(self.engine, "trade_outcome_recorder", None)
+        if recorder and side:
+            try:
+                pos_key = f"{product}_{side}"
+                open_positions = getattr(recorder, "open_positions", None)
+                if isinstance(open_positions, dict):
+                    existing = open_positions.get(pos_key) or {}
+                    decision_id = existing.get("decision_id")
+                    if decision_id:
+                        return decision_id
+            except Exception:
+                logger.debug(
+                    "Failed recorder-state decision recovery for closed outcome %s",
+                    product,
+                    exc_info=True,
+                )
 
         try:
             asset_pair = standardize_asset_pair(product)
