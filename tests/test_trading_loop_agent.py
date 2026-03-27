@@ -1585,6 +1585,7 @@ async def test_process_cycle_stale_data_ends_cycle_without_looping(trading_agent
         'latest_market_data_timestamp': '2026-03-27T00:00:00+00:00',
         'timeframe': 'intraday',
         'market_status': {'is_open': True},
+        'current_timestamp': '2026-03-27T00:10:00+00:00',
     })
     trading_agent.state = AgentState.PERCEPTION
     trading_agent.is_running = True
@@ -1601,6 +1602,7 @@ async def test_process_cycle_closed_market_staleness_ends_cycle_without_looping(
         'latest_market_data_timestamp': '2026-03-27T00:00:00+00:00',
         'timeframe': 'intraday',
         'market_status': {'is_open': False},
+        'current_timestamp': '2026-03-29T00:10:00+00:00',
     })
     trading_agent.state = AgentState.PERCEPTION
     trading_agent.is_running = True
