@@ -334,15 +334,20 @@ class OrderStatusWorker:
     def _get_coinbase_order_status(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get Coinbase order status using the available Coinbase client."""
         try:
+            platform_obj = self.platform
+            nested_platforms = getattr(platform_obj, "platforms", None)
+            if isinstance(nested_platforms, dict) and nested_platforms.get("coinbase") is not None:
+                platform_obj = nested_platforms["coinbase"]
+
             client = None
-            if hasattr(self.platform, "rest_client"):
-                client = self.platform.rest_client
-            elif hasattr(self.platform, "_get_client"):
-                client = self.platform._get_client()
-            elif hasattr(self.platform, "_client"):
-                client = self.platform._client
-            elif hasattr(self.platform, "client"):
-                client = self.platform.client
+            if hasattr(platform_obj, "rest_client"):
+                client = platform_obj.rest_client
+            elif hasattr(platform_obj, "_get_client"):
+                client = platform_obj._get_client()
+            elif hasattr(platform_obj, "_client"):
+                client = platform_obj._client
+            elif hasattr(platform_obj, "client"):
+                client = platform_obj.client
 
             if client and hasattr(client, "get_order"):
                 order = client.get_order(order_id)

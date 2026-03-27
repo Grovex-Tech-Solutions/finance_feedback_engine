@@ -262,3 +262,43 @@ def test_coinbase_nested_order_payload_is_unwrapped_and_recorded(tmp_path):
 
     recorder.record_order_outcome.assert_called_once()
     assert "cb-order-nested" not in worker._pending_cache
+
+
+
+class _UnifiedCoinbasePlatform:
+    def __init__(self, order_payload):
+        self.platforms = {"coinbase": _CoinbaseUnderscoreClientPlatform(order_payload)}
+
+
+def test_coinbase_status_lookup_uses_nested_platform_client(tmp_path):
+    recorder = MagicMock()
+    recorder.record_order_outcome.return_value = {"realized_pnl": "4.56"}
+    order_payload = {
+        "status": "FILLED",
+        "average_filled_price": "50100",
+        "filled_size": "0.3",
+        "total_fees": "2.5",
+    }
+    worker = OrderStatusWorker(
+        trading_platform=_UnifiedCoinbasePlatform(order_payload),
+        outcome_recorder=recorder,
+        data_dir=str(tmp_path),
+        poll_interval=1,
+        flush_every_cycles=1,
+        max_stale_checks=20,
+    )
+
+    worker.add_pending_order(
+        order_id="cb-order-unified",
+        decision_id="decision-unified",
+        asset_pair="BTCUSD",
+        platform="coinbase",
+        action="BUY",
+        size=0.3,
+        entry_price=50100,
+    )
+
+    worker._check_pending_orders()
+
+    recorder.record_order_outcome.assert_called_once()
+    assert "cb-order-unified" not in worker._pending_cache

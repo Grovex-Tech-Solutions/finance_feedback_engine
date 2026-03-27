@@ -2805,9 +2805,31 @@ class TradingLoopAgent:
                         decision_id = association[0]
                         if decision_id:
                             return decision_id
+                    elif association:
+                        return association
+
+                active_trackers = getattr(trade_monitor, "active_trackers", None)
+                if isinstance(active_trackers, dict):
+                    for tracker in active_trackers.values():
+                        raw_product = getattr(tracker, "product_id", None)
+                        if not raw_product:
+                            continue
+                        try:
+                            tracker_pair = standardize_asset_pair(raw_product)
+                        except Exception:
+                            tracker_pair = None
+                        if tracker_pair == asset_pair:
+                            decision_id = getattr(tracker, "decision_id", None)
+                            if isinstance(decision_id, tuple) and decision_id:
+                                decision_id = decision_id[0]
+                            if decision_id:
+                                return decision_id
+
                 getter = getattr(trade_monitor, "get_decision_id_by_asset", None)
                 if callable(getter):
                     decision_id = getter(asset_pair)
+                    if isinstance(decision_id, tuple) and decision_id:
+                        decision_id = decision_id[0]
                     if decision_id:
                         return decision_id
             except Exception:

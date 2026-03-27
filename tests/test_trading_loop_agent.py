@@ -1422,3 +1422,54 @@ def test_counts_toward_daily_trade_limit_accepts_policy_open_action():
     decision = {"policy_action": "OPEN_SMALL_LONG"}
     execution_result = {"success": True, "order_id": "abc123", "order_status": "FILLED", "response": {}}
     assert agent._counts_toward_daily_trade_limit(decision, execution_result) is True
+
+
+
+def test_sync_trade_outcome_recorder_recovers_missing_decision_id_from_trade_monitor_active_tracker(trading_agent, mock_dependencies):
+    from types import SimpleNamespace
+    recorder = mock_dependencies["engine"].trade_outcome_recorder
+    recorder.update_positions.return_value = [
+        {
+            "product": "ETP-20DEC30-CDE",
+            "side": "SHORT",
+            "exit_price": "1974.0",
+            "exit_time": "2026-03-27T17:57:20+00:00",
+            "realized_pnl": "1.5",
+            "decision_id": None,
+        }
+    ]
+    mock_dependencies["engine"].record_trade_outcome.return_value = SimpleNamespace(realized_pnl=1.5)
+    trading_agent.trade_monitor.active_trackers = {
+        "tracker-1": SimpleNamespace(product_id="ETP-20DEC30-CDE", decision_id="decision-eth-close")
+    }
+    trading_agent.trade_monitor.get_decision_id_by_asset = Mock(return_value=None)
+
+    trading_agent._sync_trade_outcome_recorder([])
+
+    mock_dependencies["engine"].record_trade_outcome.assert_called_once_with(
+        "decision-eth-close",
+        exit_price=1974.0,
+        exit_timestamp="2026-03-27T17:57:20+00:00",
+    )
+
+
+def test_trade_monitor_detect_new_trades_unwraps_expected_trade_tuple(tmp_path):
+    from finance_feedback_engine.monitoring.trade_monitor import TradeMonitor
+    platform = MagicMock()
+    platform.get_portfolio_breakdown.return_value = {
+        "futures_positions": [
+            {
+                "product_id": "ETP-20DEC30-CDE",
+                "side": "SHORT",
+                "entry_price": 2080.0,
+                "contracts": 1,
+            }
+        ]
+    }
+    monitor = TradeMonitor(platform=platform, detection_interval=30, poll_interval=30)
+    monitor.expected_trades = {"ETP20DEC30CDE": ("decision-eth-open", 0.0)}
+
+    monitor._detect_new_trades()
+
+    queued = monitor.pending_queue.get_nowait()
+    assert queued["decision_id"] == "decision-eth-open"

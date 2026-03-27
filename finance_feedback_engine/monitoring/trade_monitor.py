@@ -422,9 +422,10 @@ class TradeMonitor:
                 # Associate with a decision if one is expected for this asset
                 from ..utils.validation import standardize_asset_pair
 
-                standardized_key = standardize_asset_pair(product_id, separator="-")
+                standardized_key = standardize_asset_pair(product_id)
                 with self._expected_trades_lock:
-                    decision_id = self.expected_trades.pop(standardized_key, None)
+                    association = self.expected_trades.pop(standardized_key, None)
+                decision_id = association[0] if isinstance(association, tuple) and association else association
                 if decision_id:
                     logger.info(
                         f"Associated new trade {trade_id} with decision {decision_id}"
@@ -587,6 +588,38 @@ class TradeMonitor:
             for key in stale_keys:
                 del self.expected_trades[key]
                 logger.info(f"Cleaned up stale expectation for {key}")
+
+    def get_decision_id_by_asset(self, asset_pair: str) -> Optional[str]:
+        """Best-effort lookup of a decision id by asset across expected trades and active trackers."""
+        from ..utils.validation import standardize_asset_pair
+
+        try:
+            standardized_pair = standardize_asset_pair(asset_pair)
+        except Exception:
+            standardized_pair = str(asset_pair or "").replace("-", "").upper()
+
+        with self._expected_trades_lock:
+            association = self.expected_trades.get(standardized_pair)
+            if isinstance(association, tuple) and association:
+                decision_id = association[0]
+                if decision_id:
+                    return decision_id
+            elif association:
+                return association
+
+        for tracker in self.active_trackers.values():
+            product_id = getattr(tracker, "product_id", None)
+            if not product_id:
+                continue
+            try:
+                tracker_pair = standardize_asset_pair(product_id)
+            except Exception:
+                tracker_pair = str(product_id or "").replace("-", "").upper()
+            if tracker_pair == standardized_pair:
+                decision_id = getattr(tracker, "decision_id", None)
+                if decision_id:
+                    return decision_id
+        return None
 
     def is_trade_open(self) -> bool:
         """Check if there are any actively monitored trades."""
