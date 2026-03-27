@@ -581,7 +581,7 @@ def test_log_portfolio_risk_snapshot_summarizes_positions_and_balance(trading_ag
     with caplog.at_level(logging.INFO):
         trading_agent._log_portfolio_risk_snapshot("Portfolio risk snapshot (decision loop)", snapshot)
 
-    assert "Portfolio risk snapshot (decision loop) | managed_positions=2" in caplog.text
+    assert "Portfolio risk snapshot (decision loop) | asset_scoped_open_positions=2" in caplog.text
     assert "total_balance=$749.04" in caplog.text
     assert "buying_power=$232.31" in caplog.text
     assert "margin_usage=58.41%" in caplog.text
@@ -632,9 +632,9 @@ async def test_process_cycle_logs_portfolio_risk_snapshot_for_managed_positions(
     with caplog.at_level(logging.INFO):
         await trading_agent.process_cycle()
 
-    assert "Portfolio risk snapshot (decision loop) | managed_positions=1" in caplog.text
-    assert "managed_assets=['BIP20DEC30CDE', 'BTCUSD']" in caplog.text
-    assert "managed_asset_scope=['BTCUSD']" in caplog.text
+    assert "Portfolio risk snapshot (decision loop) | asset_scoped_open_positions=1" in caplog.text
+    assert "asset_scoped_pairs=['BIP20DEC30CDE', 'BTCUSD']" in caplog.text
+    assert "global_managed_pairs=['BTCUSD']" in caplog.text
     assert "margin_usage=50.00%" in caplog.text
     assert "Skipping OPEN_SMALL_SHORT for BTCUSD: SHORT position already exists (duplicate-entry guard)." in caplog.text
 
@@ -1473,3 +1473,50 @@ def test_trade_monitor_detect_new_trades_unwraps_expected_trade_tuple(tmp_path):
 
     queued = monitor.pending_queue.get_nowait()
     assert queued["decision_id"] == "decision-eth-open"
+
+
+
+def test_sync_trade_outcome_recorder_logs_lineage_source_for_recovered_close(trading_agent, mock_dependencies, caplog):
+    from types import SimpleNamespace
+    recorder = mock_dependencies["engine"].trade_outcome_recorder
+    recorder.update_positions.return_value = [
+        {
+            "product": "BIP-20DEC30-CDE",
+            "side": "LONG",
+            "exit_price": "88450.0",
+            "exit_time": "2026-03-27T21:35:43+00:00",
+            "realized_pnl": "15.0",
+            "decision_id": None,
+        }
+    ]
+    mock_dependencies["engine"].record_trade_outcome.return_value = SimpleNamespace(realized_pnl=15.0)
+    trading_agent.trade_monitor.expected_trades = {}
+    trading_agent.trade_monitor.active_trackers = {
+        "trade-1": SimpleNamespace(product_id="BIP-20DEC30-CDE", decision_id="decision-btc-open")
+    }
+
+    with caplog.at_level(logging.INFO):
+        trading_agent._sync_trade_outcome_recorder([])
+
+    assert "lineage_source=trade_monitor.active_trackers" in caplog.text
+    assert "attempted_sources=[" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_process_cycle_logs_reasoning_cycle_summary(trading_agent, mock_dependencies, caplog):
+    mock_dependencies["engine"].get_portfolio_breakdown_async = AsyncMock(return_value={})
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(
+        return_value={
+            "id": "decision-hold-1",
+            "action": "HOLD",
+            "confidence": 55,
+            "asset_pair": "BTCUSD",
+        }
+    )
+    trading_agent.is_running = True
+
+    with caplog.at_level(logging.INFO):
+        await trading_agent.process_cycle()
+
+    assert "Reasoning cycle summary | analyzed_pairs=[(0, 'BTCUSD')]" in caplog.text
+    assert "actionable_count=0" in caplog.text

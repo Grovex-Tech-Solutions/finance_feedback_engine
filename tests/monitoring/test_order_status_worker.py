@@ -1,3 +1,4 @@
+import logging
 import json
 import threading
 from unittest.mock import MagicMock
@@ -302,3 +303,56 @@ def test_coinbase_status_lookup_uses_nested_platform_client(tmp_path):
 
     recorder.record_order_outcome.assert_called_once()
     assert "cb-order-unified" not in worker._pending_cache
+
+
+
+def test_coinbase_status_lookup_reports_lookup_path(tmp_path, caplog):
+    recorder = MagicMock()
+    recorder.record_order_outcome.return_value = {"realized_pnl": "4.56"}
+    order_payload = {
+        "status": "FILLED",
+        "average_filled_price": "50030",
+        "filled_size": "0.25",
+        "total_fees": "1.2",
+    }
+    worker = OrderStatusWorker(
+        trading_platform=_UnifiedCoinbasePlatform(order_payload),
+        outcome_recorder=recorder,
+        data_dir=str(tmp_path),
+        poll_interval=1,
+        flush_every_cycles=1,
+        max_stale_checks=20,
+    )
+    worker.add_pending_order(
+        order_id="cb-order-unified-log",
+        decision_id="decision-unified",
+        asset_pair="BTCUSD",
+        platform="coinbase",
+        action="BUY",
+        size=0.25,
+        entry_price=50030,
+    )
+
+    with caplog.at_level(logging.INFO):
+        worker._check_pending_orders()
+
+    assert "lookup_path=platforms[coinbase]._client" in caplog.text
+    assert "Pending-order sweep removed 1 order(s) from pending" in caplog.text
+
+
+def test_stale_order_log_uses_stale_orphaned_wording(tmp_path, caplog):
+    worker = _new_worker(tmp_path, max_stale_checks=1)
+    worker.add_pending_order(
+        order_id="order-stale-log",
+        decision_id="decision-stale",
+        asset_pair="BTCUSD",
+        platform="coinbase",
+        action="BUY",
+        size=0.01,
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="finance_feedback_engine.monitoring.order_status_worker"):
+        worker._check_pending_orders()
+        worker._check_pending_orders()
+
+    assert "stale/orphaned" in caplog.text

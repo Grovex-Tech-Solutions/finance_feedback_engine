@@ -252,29 +252,45 @@ class OrderStatusWorker:
                     order_data["asset_pair"],
                 )
 
+                lookup_path = order_status.get("_lookup_path", "unknown") if isinstance(order_status, dict) else "unknown"
+
                 if not order_status:
-                    logger.debug(f"Order {order_id} status not available yet")
+                    logger.debug(f"Pending order {order_id} remains unresolved; status not available yet")
                     if order_data["checks"] > self.max_stale_checks:
                         logger.warning(
-                            f"Order {order_id} exceeded max checks ({order_data['checks']}), "
-                            f"removing from pending (may be orphaned)"
+                            "Pending order %s became stale/orphaned after %s checks; removing from pending | platform=%s | asset=%s",
+                            order_id,
+                            order_data["checks"],
+                            order_data.get("platform"),
+                            order_data.get("asset_pair"),
                         )
                         completed_orders.append(order_id)
                     continue
 
                 if self._is_order_complete(order_status):
-                    logger.info(f"Order {order_id} completed, recording outcome")
+                    logger.info(
+                        "Pending order %s resolved to terminal status; recording outcome | lookup_path=%s",
+                        order_id,
+                        lookup_path,
+                    )
                     outcome = self._record_order_outcome(order_id, order_data, order_status)
                     if outcome:
                         completed_orders.append(order_id)
                         logger.info(
-                            f"Recorded outcome for order {order_id}: P&L {outcome.get('realized_pnl', 'N/A')}"
+                            "Recorded outcome for order %s: P&L %s | lookup_path=%s",
+                            order_id,
+                            outcome.get('realized_pnl', 'N/A'),
+                            lookup_path,
                         )
 
                 elif order_data["checks"] > self.max_stale_checks:
                     logger.warning(
-                        f"Order {order_id} exceeded max checks ({order_data['checks']}), "
-                        f"removing from pending (may be orphaned)"
+                        "Pending order %s remained unresolved after %s checks; removing as stale/orphaned | platform=%s | asset=%s | lookup_path=%s",
+                        order_id,
+                        order_data["checks"],
+                        order_data.get("platform"),
+                        order_data.get("asset_pair"),
+                        lookup_path,
                     )
                     completed_orders.append(order_id)
 
@@ -292,7 +308,7 @@ class OrderStatusWorker:
                     self._pending_cache.pop(order_id, None)
                 self._dirty = True
                 self._flush_pending_to_disk_locked(force=True)
-                logger.info(f"Removed {len(completed_orders)} completed orders from pending")
+                logger.info("Pending-order sweep removed %d order(s) from pending: %s", len(completed_orders), completed_orders)
             else:
                 # Check count increments are low-priority persistence; batch them.
                 self._dirty = True
@@ -331,27 +347,45 @@ class OrderStatusWorker:
             logger.debug(f"Failed to get order status for {order_id}: {e}")
             return None
 
+    def _resolve_coinbase_client(self) -> tuple[Optional[Any], str]:
+        """Resolve Coinbase client and report the lookup path for observability."""
+        platform_candidates = [(self.platform, "platform")]
+        nested_platforms = getattr(self.platform, "platforms", None)
+        if isinstance(nested_platforms, dict):
+            for key in ("coinbase", "coinbase_advanced"):
+                nested = nested_platforms.get(key)
+                if nested is not None:
+                    platform_candidates.append((nested, f"platforms[{key}]"))
+
+        for platform_candidate, source in platform_candidates:
+            if platform_candidate is None:
+                continue
+            if hasattr(platform_candidate, "rest_client"):
+                return platform_candidate.rest_client, f"{source}.rest_client"
+            if hasattr(platform_candidate, "_get_client"):
+                client = platform_candidate._get_client()
+                if client is not None:
+                    return client, f"{source}._get_client()"
+            if hasattr(platform_candidate, "_client"):
+                client = platform_candidate._client
+                if client is not None:
+                    return client, f"{source}._client"
+            if hasattr(platform_candidate, "client"):
+                client = platform_candidate.client
+                if client is not None:
+                    return client, f"{source}.client"
+        return None, "unresolved"
+
     def _get_coinbase_order_status(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get Coinbase order status using the available Coinbase client."""
         try:
-            platform_obj = self.platform
-            nested_platforms = getattr(platform_obj, "platforms", None)
-            if isinstance(nested_platforms, dict) and nested_platforms.get("coinbase") is not None:
-                platform_obj = nested_platforms["coinbase"]
-
-            client = None
-            if hasattr(platform_obj, "rest_client"):
-                client = platform_obj.rest_client
-            elif hasattr(platform_obj, "_get_client"):
-                client = platform_obj._get_client()
-            elif hasattr(platform_obj, "_client"):
-                client = platform_obj._client
-            elif hasattr(platform_obj, "client"):
-                client = platform_obj.client
-
+            client, lookup_path = self._resolve_coinbase_client()
             if client and hasattr(client, "get_order"):
                 order = client.get_order(order_id)
-                return order.to_dict() if hasattr(order, "to_dict") else order
+                payload = order.to_dict() if hasattr(order, "to_dict") else order
+                if isinstance(payload, dict):
+                    payload.setdefault("_lookup_path", lookup_path)
+                return payload
             return None
         except Exception as e:
             logger.debug(f"Coinbase order status query failed: {e}")

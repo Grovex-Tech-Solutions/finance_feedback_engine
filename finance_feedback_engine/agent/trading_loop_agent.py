@@ -1900,7 +1900,7 @@ class TradingLoopAgent:
 
                 if canonical and managed_asset_pairs and canonical not in managed_asset_pairs:
                     logger.info(
-                        "Ignoring unmanaged open position for duplicate-entry guard: %s (%s)",
+                        "Duplicate-entry guard ignoring position outside global managed scope: asset=%s raw_product=%s",
                         canonical,
                         raw_pair,
                     )
@@ -1920,8 +1920,9 @@ class TradingLoopAgent:
             )
             if open_asset_pairs:
                 logger.info(
-                    "Managed open position assets detected (duplicate-entry guard active): %s | margin_usage=%.2f%% (limit %.2f%%)",
+                    "Duplicate-entry guard context | asset_scoped_pairs=%s | global_managed_pairs=%s | margin_usage=%.2f%% (limit %.2f%%)",
                     sorted(open_asset_pairs),
+                    sorted(managed_asset_pairs),
                     margin_usage_pct * 100,
                     margin_usage_limit_pct * 100,
                 )
@@ -2061,6 +2062,15 @@ class TradingLoopAgent:
         async with self._current_decisions_lock:
             has_decisions = bool(self._current_decisions)
             decisions_count = len(self._current_decisions)
+
+        logger.info(
+            "Reasoning cycle summary | analyzed_pairs=%s | actionable_pairs=%s | actionable_count=%d | non_actionable_count=%d | skipped_before_analysis=%d",
+            pairs_to_analyze,
+            [d.get("asset_pair") for d in ordered_actionable_decisions],
+            len(ordered_actionable_decisions),
+            len([1 for _, decision in ordered_results if decision and not _derive_execution_intent(decision)["is_actionable"]]),
+            max(0, len(asset_pairs_snapshot) - len(pairs_to_analyze)),
+        )
 
         if has_decisions:
             logger.info(
@@ -2766,15 +2776,17 @@ class TradingLoopAgent:
             )
             logger.warning(f"Failed signals: {'; '.join(failure_reasons)}")
 
-    def _recover_decision_id_for_closed_outcome(self, outcome: Dict[str, Any]) -> Optional[str]:
+    def _recover_decision_lineage_for_closed_outcome(self, outcome: Dict[str, Any]) -> tuple[Optional[str], str, list[str]]:
         """Best-effort recovery of decision lineage for recorder close events."""
         product = outcome.get("product")
         side = outcome.get("side")
+        attempted_sources: list[str] = []
         if not product:
-            return None
+            return None, "no-product", attempted_sources
 
         recorder = getattr(self.engine, "trade_outcome_recorder", None)
         if recorder and side:
+            attempted_sources.append("recorder.open_positions")
             try:
                 pos_key = f"{product}_{side}"
                 open_positions = getattr(recorder, "open_positions", None)
@@ -2782,7 +2794,7 @@ class TradingLoopAgent:
                     existing = open_positions.get(pos_key) or {}
                     decision_id = existing.get("decision_id")
                     if decision_id:
-                        return decision_id
+                        return decision_id, "recorder.open_positions", attempted_sources
             except Exception:
                 logger.debug(
                     "Failed recorder-state decision recovery for closed outcome %s",
@@ -2799,16 +2811,18 @@ class TradingLoopAgent:
         if trade_monitor and asset_pair:
             try:
                 expected = getattr(trade_monitor, "expected_trades", None)
+                attempted_sources.append("trade_monitor.expected_trades")
                 if isinstance(expected, dict):
                     association = expected.get(asset_pair)
                     if isinstance(association, tuple) and association:
                         decision_id = association[0]
                         if decision_id:
-                            return decision_id
+                            return decision_id, "trade_monitor.expected_trades", attempted_sources
                     elif association:
-                        return association
+                        return association, "trade_monitor.expected_trades", attempted_sources
 
                 active_trackers = getattr(trade_monitor, "active_trackers", None)
+                attempted_sources.append("trade_monitor.active_trackers")
                 if isinstance(active_trackers, dict):
                     for tracker in active_trackers.values():
                         raw_product = getattr(tracker, "product_id", None)
@@ -2823,15 +2837,16 @@ class TradingLoopAgent:
                             if isinstance(decision_id, tuple) and decision_id:
                                 decision_id = decision_id[0]
                             if decision_id:
-                                return decision_id
+                                return decision_id, "trade_monitor.active_trackers", attempted_sources
 
                 getter = getattr(trade_monitor, "get_decision_id_by_asset", None)
+                attempted_sources.append("trade_monitor.get_decision_id_by_asset")
                 if callable(getter):
                     decision_id = getter(asset_pair)
                     if isinstance(decision_id, tuple) and decision_id:
                         decision_id = decision_id[0]
                     if decision_id:
-                        return decision_id
+                        return decision_id, "trade_monitor.get_decision_id_by_asset", attempted_sources
             except Exception:
                 logger.debug(
                     "Failed trade-monitor decision recovery for closed outcome %s",
@@ -2839,7 +2854,11 @@ class TradingLoopAgent:
                     exc_info=True,
                 )
 
-        return None
+        return None, "no-hit", attempted_sources
+
+    def _recover_decision_id_for_closed_outcome(self, outcome: Dict[str, Any]) -> Optional[str]:
+        decision_id, _lineage_source, _attempted_sources = self._recover_decision_lineage_for_closed_outcome(outcome)
+        return decision_id
 
     def _sync_trade_outcome_recorder(self, current_positions: list[dict[str, Any]]) -> None:
         """Sync the outcome recorder with live positions and forward closes into learning."""
@@ -2865,18 +2884,21 @@ class TradingLoopAgent:
             decision_id = outcome.get("decision_id")
             product = outcome.get("product") or "UNKNOWN"
             if not decision_id:
-                decision_id = self._recover_decision_id_for_closed_outcome(outcome)
+                decision_id, lineage_source, attempted_sources = self._recover_decision_lineage_for_closed_outcome(outcome)
                 if decision_id:
                     outcome["decision_id"] = decision_id
                     logger.info(
-                        "Recovered decision_id %s for closed position %s",
+                        "Recovered decision_id %s for closed position %s | lineage_source=%s | attempted_sources=%s",
                         decision_id,
                         product,
+                        lineage_source,
+                        attempted_sources,
                     )
                 else:
                     logger.warning(
-                        "Closed position %s missing decision_id; durable artifact recorded but learning update skipped",
+                        "Closed position %s missing decision_id; durable artifact recorded but learning update skipped | attempted_sources=%s",
                         product,
+                        attempted_sources,
                     )
                     continue
 
@@ -3461,7 +3483,7 @@ class TradingLoopAgent:
                 margin_usage_effective = initial_margin / total_balance
 
             logger.info(
-                "%s | managed_positions=%d | managed_assets=%s | sides=%s | total_balance=$%.2f | buying_power=$%.2f | unrealized_pnl=$%.2f | initial_margin=$%.2f | margin_usage=%s | managed_asset_scope=%s | raw_products=%s",
+                "%s | asset_scoped_open_positions=%d | asset_scoped_pairs=%s | sides=%s | total_balance=$%.2f | buying_power=$%.2f | unrealized_pnl=$%.2f | initial_margin=$%.2f | margin_usage=%s | global_managed_pairs=%s | platform_products=%s",
                 label,
                 positions_count,
                 sorted(derived_assets),
