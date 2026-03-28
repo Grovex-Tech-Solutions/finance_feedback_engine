@@ -2886,11 +2886,80 @@ class TradingLoopAgent:
         decision_id, _lineage_source, _attempted_sources = self._recover_decision_lineage_for_closed_outcome(outcome)
         return decision_id
 
+    def _annotate_positions_with_decision_ids(self, current_positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Best-effort enrichment so recorder state preserves decision lineage while positions remain open."""
+        if not current_positions:
+            return []
+
+        def _normalize_lineage_candidate(value: Any) -> Optional[str]:
+            raw_value = value
+            if isinstance(raw_value, (tuple, list)):
+                raw_value = raw_value[0] if raw_value else None
+            if raw_value is None:
+                return None
+            if isinstance(raw_value, str):
+                normalized = raw_value.strip()
+                return normalized or None
+            if isinstance(raw_value, (int, float)):
+                return str(raw_value)
+            return None
+
+        recorder = getattr(self.engine, "trade_outcome_recorder", None)
+        trade_monitor = getattr(self, "trade_monitor", None)
+        enriched_positions: list[dict[str, Any]] = []
+
+        for raw_position in current_positions:
+            position = dict(raw_position)
+            existing_decision_id = _normalize_lineage_candidate(position.get("decision_id"))
+            if existing_decision_id:
+                position["decision_id"] = existing_decision_id
+                enriched_positions.append(position)
+                continue
+
+            product_id = position.get("product_id") or position.get("product") or position.get("instrument")
+            side = position.get("side")
+            decision_id = None
+
+            if recorder and product_id and side:
+                try:
+                    pos_key = f"{product_id}_{side}"
+                    open_positions = getattr(recorder, "open_positions", None)
+                    if isinstance(open_positions, dict):
+                        existing = open_positions.get(pos_key) or {}
+                        decision_id = _normalize_lineage_candidate(existing.get("decision_id"))
+                except Exception:
+                    logger.debug(
+                        "Failed recorder-state lookup while annotating active position %s",
+                        product_id,
+                        exc_info=True,
+                    )
+
+            if not decision_id and trade_monitor and product_id:
+                getter = getattr(trade_monitor, "get_decision_id_by_asset", None)
+                if callable(getter):
+                    try:
+                        decision_id = _normalize_lineage_candidate(getter(product_id))
+                    except Exception:
+                        logger.debug(
+                            "Failed trade-monitor lookup while annotating active position %s",
+                            product_id,
+                            exc_info=True,
+                        )
+
+            if decision_id:
+                position["decision_id"] = decision_id
+
+            enriched_positions.append(position)
+
+        return enriched_positions
+
     def _sync_trade_outcome_recorder(self, current_positions: list[dict[str, Any]]) -> None:
         """Sync the outcome recorder with live positions and forward closes into learning."""
         recorder = getattr(self.engine, "trade_outcome_recorder", None)
         if recorder is None:
             return
+
+        current_positions = self._annotate_positions_with_decision_ids(current_positions or [])
 
         try:
             outcomes = recorder.update_positions(current_positions or [])

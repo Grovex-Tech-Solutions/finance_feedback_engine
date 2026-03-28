@@ -115,6 +115,30 @@ def test_sync_trade_outcome_recorder_forwards_closed_positions_into_learning(tra
     )
 
 
+def test_sync_trade_outcome_recorder_annotates_active_positions_with_decision_id_from_trade_monitor(trading_agent, mock_dependencies):
+    recorder = MagicMock()
+    recorder.update_positions.return_value = []
+    recorder.open_positions = {}
+    mock_dependencies["engine"].trade_outcome_recorder = recorder
+    mock_dependencies["trade_monitor"].get_decision_id_by_asset.return_value = "decision-btc-1"
+
+    trading_agent._sync_trade_outcome_recorder([
+        {
+            "platform": "coinbase",
+            "product_id": "BTC-USD",
+            "side": "SHORT",
+            "size": 1.0,
+            "entry_price": 50000.0,
+            "current_price": 49900.0,
+            "unrealized_pnl": 100.0,
+            "opened_at": "2026-03-28T09:00:00Z",
+        }
+    ])
+
+    recorder.update_positions.assert_called_once()
+    synced_positions = recorder.update_positions.call_args.args[0]
+    assert synced_positions[0]["decision_id"] == "decision-btc-1"
+
 
 @pytest.mark.asyncio
 async def test_perception_uses_fresh_default_crypto_context_even_with_stale_pulse(trading_agent, mock_dependencies):
