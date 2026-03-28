@@ -356,11 +356,12 @@ class TradeOutcomeRecorder:
                 continue
 
             entry_price = pos_data.get("entry_price")
-            if exit_price_source == "state:last_price" and entry_price is not None and exit_price == entry_price:
+            if entry_price is not None and exit_price == entry_price:
                 logger.warning(
-                    "Skipping closed position outcome for %s: fallback exit_price equals entry_price (%s)",
+                    "Skipping closed position outcome for %s: exit_price equals entry_price (%s) | exit_price_source=%s | suspected_stale_or_flat",
                     pos_key,
                     exit_price,
+                    exit_price_source,
                 )
                 del self.open_positions[pos_key]
                 continue

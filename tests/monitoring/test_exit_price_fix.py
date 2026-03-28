@@ -332,5 +332,64 @@ class TestExitPriceFix:
         assert any("consecutive flat closures" in record.message for record in caplog.records)
 
 
+def test_provider_price_equal_to_entry_price_skips_outcome(tmp_path):
+    """When unified_provider returns a price equal to entry_price, the outcome is skipped."""
+    mock_provider = MagicMock()
+    mock_provider.get_current_price.return_value = {
+        "price": "2000.00",
+        "provider": "alpha_vantage",
+    }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        recorder = TradeOutcomeRecorder(data_dir=temp_dir, unified_provider=mock_provider)
+        entry_price = Decimal("2000.00")
+        recorder.open_positions = {
+            "ETH-USD_LONG": {
+                "trade_id": "flat-provider-1",
+                "product": "ETH-USD",
+                "side": "LONG",
+                "entry_price": entry_price,
+                "entry_size": Decimal("1.0"),
+                "entry_time": "2024-01-01T00:00:00+00:00",
+                "last_price": None,
+                "decision_id": "dec-test-1",
+            }
+        }
+
+        outcomes = recorder.update_positions([])
+
+        assert outcomes == [], "Expected no outcome when provider price equals entry price"
+
+
+def test_provider_price_different_from_entry_price_records_outcome(tmp_path):
+    """When unified_provider returns a price different from entry_price, the outcome is recorded normally."""
+    mock_provider = MagicMock()
+    mock_provider.get_current_price.return_value = {
+        "price": "2100.00",
+        "provider": "alpha_vantage",
+    }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        recorder = TradeOutcomeRecorder(data_dir=temp_dir, unified_provider=mock_provider)
+        entry_price = Decimal("2000.00")
+        recorder.open_positions = {
+            "ETH-USD_LONG": {
+                "trade_id": "flat-provider-2",
+                "product": "ETH-USD",
+                "side": "LONG",
+                "entry_price": entry_price,
+                "entry_size": Decimal("1.0"),
+                "entry_time": "2024-01-01T00:00:00+00:00",
+                "last_price": None,
+                "decision_id": "dec-test-2",
+            }
+        }
+
+        outcomes = recorder.update_positions([])
+
+        assert len(outcomes) == 1, "Expected one outcome for genuine price movement"
+        assert float(outcomes[0]["realized_pnl"]) > 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
