@@ -243,6 +243,18 @@ Before treating PR-4 as the active implementation section, finish the remaining 
 - keep the new attempted-source logs as the audit spine for those failures
 - only then treat adaptation proof as a clean next-stage target
 
+#### Regression classification
+The remaining live `missing_decision_id` close-path skip is now explicitly classified as a **Track 0 regression**.
+
+Regression rule for Track 0 and future feature work:
+- when a new feature or verification effort exposes a live regression, that regression becomes **priority #1** ahead of further feature expansion on that seam
+- do not continue deeper into a new feature section while a newly exposed live regression undermines the reliability of the chain being proved
+- for this Track 0 phase, lineage-loss regressions outrank adaptation-proof feature work until the learning path is boring and dependable
+
+Working interpretation:
+- PR-4 remains the next conceptual feature section
+- but any live regression uncovered while pursuing PR-4 (especially lineage drops, skipped learning updates, or broken durable-state mutations) should preempt feature progress and be handled first
+
 ---
 
 ## Track A — Observability clarity
