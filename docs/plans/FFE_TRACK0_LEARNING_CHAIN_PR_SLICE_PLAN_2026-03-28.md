@@ -195,12 +195,12 @@ If a slice cannot produce new proof artifacts, it is probably too fuzzy and need
 
 ## Audit checklist to update as work lands
 
-- [ ] PR-1 landed
-- [ ] PR-1 live-verified
-- [ ] PR-2 landed
-- [ ] PR-2 live-verified
-- [ ] PR-3 landed
-- [ ] PR-3 live-verified
+- [x] PR-1 landed
+- [ ] PR-1 live-verified cleanly end-to-end without fresh lineage regressions over a longer soak window
+- [x] PR-2 landed
+- [x] PR-2 live-verified
+- [x] PR-3 landed
+- [x] PR-3 live-verified (while also surfacing a new autosave regression that was then prioritized)
 - [ ] PR-4 landed
 - [ ] PR-4 live-verified
 - [ ] PR-5 landed

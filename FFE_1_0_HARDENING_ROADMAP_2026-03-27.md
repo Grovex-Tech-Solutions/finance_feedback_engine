@@ -293,86 +293,6 @@ Working interpretation:
 ## Track A — Observability clarity
 **Priority:** Very high
 
-## Track B — Repository hygiene and architecture debt reduction
-**Priority:** High, but subordinate to live Track 0 regressions
-
-### Why
-A broader repository audit on 2026-03-28 found that FFE’s root layout and module boundaries have accumulated a meaningful amount of clutter and duplication. This is not the same problem as Track 0, but it does affect maintainability, auditability, and the ability to reason clearly about which code paths are active vs stale.
-
-This track exists so we can improve repo legibility **without** derailing live learning-chain reliability work.
-
-### Audit notes — 2026-03-28 broader repo audit
-Scope reported by audit:
-- ~515 Python files
-- ~69K lines of code
-
-#### High-confidence repo issues called out
-- root directory sprawl:
-  - ~115 root-level `.md` files
-  - 13 root-level `test_*.py` files outside `tests/`
-  - assorted debug / verify / demo scripts at root
-  - committed result artifacts (`.csv`, `.json`, `.patch`) not fully covered by `.gitignore`
-- likely stale or confusing duplicates:
-  - root `core.py` vs `finance_feedback_engine/core.py`
-  - `backtest/` vs `backtesting/`
-  - `monitoring/` vs `observability/`
-  - `coinbase_data.py` vs `coinbase_data_refactored.py`
-  - `decision_validation.py` vs `decision_validator.py`
-- config/tooling inconsistency:
-  - `pyproject.toml` requires Python `>=3.13`
-  - mypy config still targets `3.12`
-  - multiple stale `.pre-commit-config*.yaml` variants
-- dependency policy risk:
-  - many `>=` requirements without upper bounds
-- test coverage gap:
-  - audit reported ~42.3% line coverage / ~30.85% branch coverage versus a nominal 70% CI gate
-
-#### Interpretation
-This audit does **not** replace Track 0. It creates a second workstream.
-
-Track 0 asks:
-- is the learning chain real, boring, and dependable?
-
-Track B asks:
-- is the repo legible enough that we can trust what code and docs are actually active?
-
-These are related, but not identical.
-
-### Initial prioritized remediation from audit
-#### P0 / safe-and-small
-- align mypy `python_version` with the actual required Python version (`3.13`)
-- extend `.gitignore` for currently tracked/result-style artifacts:
-  - `*.csv`
-  - `*.patch`
-  - `bandit_report*.json`
-  - `coverage.json`
-  - `*_results.json`
-
-#### P1 / likely-safe cleanup after verification
-- move orphan root `test_*.py` files into `tests/`
-- verify whether root `core.py` is stale and remove it if confirmed dead
-- delete stale `.pre-commit-config-*.yaml` variants if not referenced
-- relocate/archive root conversation-artifact markdown files into a dedicated archival docs area
-
-#### P2 / deeper architecture consolidation
-- consolidate or clearly delineate:
-  - `backtest/` vs `backtesting/`
-  - `monitoring/` vs `observability/`
-- resolve incomplete/deprecated duplicate module pairs
-- revisit dependency bounding strategy
-- enable or intentionally defer flake8/pre-commit expansion with an explicit reason
-
-### Guardrails for this track
-- do not let repo hygiene work outrank a newly exposed **live learning-chain regression**
-- do not delete duplicate-looking files/modules without verifying import reachability and runtime/reference status
-- prefer archival moves over destructive deletion for root markdown/report clutter until provenance is clear
-- use this track to reduce ambiguity, not to create cleanup theater
-
-### Working priority rule
-- live Track 0 regressions remain priority #1
-- Track B becomes the default next cleanup stream when Track 0 is in a waiting/verification posture
-
-
 ### Why
 Misleading logs waste time and destroy trust.
 A technically true but operationally confusing log line is still a product bug.
@@ -395,6 +315,57 @@ A technically true but operationally confusing log line is still a product bug.
   - what positions exist for the asset under analysis
   - why a close lineage was recovered or missed
   - whether a pending order was completed or aged out
+
+---
+
+## Track G — Repository hygiene and architecture debt reduction
+**Priority:** High when Track 0 is in a waiting/verification posture; subordinate to live Track 0 regressions
+
+### Why
+A broader repository audit on 2026-03-28 found that FFE’s root layout and module boundaries have accumulated a meaningful amount of clutter and duplication. This is not the same problem as Track 0, but it does affect maintainability, auditability, and the ability to reason clearly about which code paths are active vs stale.
+
+### Audit reference
+Detailed audit notes now live here:
+- `docs/audits/FFE_REPO_AUDIT_2026-03-28.md`
+
+### Working interpretation
+Track 0 asks:
+- is the learning chain real, boring, and dependable?
+
+Track G asks:
+- is the repo legible enough that we can trust what code, docs, and modules are actually active?
+
+These are related, but not identical.
+
+### Initial prioritized remediation
+#### P0 / safe-and-small
+- align mypy `python_version` with the actual required Python version (`3.13`)
+- extend `.gitignore` for result/report artifacts
+- clarify test-coverage / CI-gate semantics instead of leaving the 42%-vs-70% mismatch implicit
+
+#### P1 / likely-safe cleanup after verification
+- move orphan root `test_*.py` files into `tests/`
+- verify whether root `core.py` is stale and remove it if confirmed dead
+- delete/archive stale `.pre-commit-config-*.yaml` variants if not referenced
+- relocate/archive root conversation-artifact markdown files into a dedicated archival docs area
+
+#### P2 / deeper architecture consolidation
+- consolidate or clearly delineate:
+  - `backtest/` vs `backtesting/`
+  - `monitoring/` vs `observability/`
+- resolve incomplete/deprecated duplicate module pairs
+- revisit dependency bounding strategy
+- enable or intentionally defer flake8/pre-commit expansion with an explicit reason
+
+### Guardrails
+- do not let repo hygiene work outrank a newly exposed **live learning-chain regression**
+- do not delete duplicate-looking files/modules without verifying import reachability and runtime/reference status
+- prefer archival moves over destructive deletion until provenance is clear
+- use this track to reduce ambiguity, not to create cleanup theater
+
+### Working priority rule
+- live Track 0 regressions remain priority #1
+- Track G becomes the default cleanup stream when Track 0 is in a waiting/verification posture
 
 ---
 
@@ -545,30 +516,93 @@ The recent disk-pressure incident proved that.
 
 ## Suggested sequencing
 
+### Track 0 runs above the rest
+Track 0 is the immediate top-priority stream and runs **ahead of / in parallel with** the rest of the roadmap.
+
+Working rule:
+- do not treat Phases 1–4 below as permission to ignore a newly exposed live Track 0 regression
+- when Track 0 is in active regression-fix mode, it outranks all other tracks
+- when Track 0 is in a waiting/verification posture, Track G and the remaining structural tracks become the default next work
+
+### Phase 0 — Make the learning chain boring
+1. finish live verification of Track 0 regression fixes
+2. eliminate newly exposed live learning-chain regressions before deeper feature proof
+3. only treat PR-4 / adaptation proof as active once lineage, handoff, and durable saves are dependable
+
 ### Phase 1 — Make the system legible
-1. Observability clarity
-2. Warning/log taxonomy
-3. Shared fixture realism for known bad seams
+4. Observability clarity
+5. Warning/log taxonomy
+6. Shared fixture realism for known bad seams
 
 ### Phase 2 — Remove repeated shape bugs
-4. Wrapper/shape normalization helpers
-5. Canonical Coinbase product-ID handling
+7. Wrapper/shape normalization helpers
+8. Canonical Coinbase product-ID handling
 
 ### Phase 3 — Tighten delicate state seams
-6. Incremental recovery-path cleanup
-7. Additional regression coverage around pending orders / closes / lineage
+9. Incremental recovery-path cleanup outside Track 0’s immediate learning-chain seam
+10. Additional regression coverage around pending orders / closes / lineage
 
 ### Phase 4 — Lock down operator confidence
-8. Ops hygiene documentation
-9. Maintenance checklist
-10. Clean-loop evidence spec for release confidence
+11. Ops hygiene documentation
+12. Maintenance checklist
+13. Clean-loop evidence spec for release confidence
+14. Repository hygiene / architecture debt reduction work from Track G when Track 0 is quiet
 
 This order is intentional:
-- first make behavior easier to see
+- first make the learning chain trustworthy
+- then make behavior easier to see
 - then reduce repeated data-shape brittleness
-- then simplify the hardest seam on top of that
+- then simplify the hardest remaining seams on top of that
 
 ---
+
+## Milestone gates / re-evaluation markers
+
+These are intentionally rough gates, not fake-precise deadlines.
+
+### Gate 1 — Track 0 boring-enough threshold
+Treat this as the first major gate before resuming deeper adaptation-proof work:
+- no fresh live lineage-loss regressions in normal closes over a meaningful soak window
+- no fresh live durable-memory save regressions in the same window
+- live handoff logs remain explicit and interpretable
+- operators can verify the learning chain from runtime evidence without ad hoc spelunking
+
+### Gate 2 — Structural hardening window
+Once Gate 1 is satisfied, active work can expand across Tracks A–F/G more normally:
+- observability wording/log taxonomy becomes cleaner
+- repeated shape bugs continue shrinking
+- recovery seams outside Track 0’s immediate learning chain get simplified
+- repo hygiene work can proceed without competing with urgent live learning regressions
+
+### Gate 3 — 1.0 release-candidate judgment
+A 1.0 call should only be considered when:
+- Track 0 acceptance criteria are satisfied
+- the system survives longer quiet/healthy soak windows without mystery regressions
+- operators can explain runtime state from logs and artifacts quickly
+- rollback / halt posture is documented and usable
+
+## Rollback / incident posture
+
+A trading system roadmap should say what happens when a good-looking deploy is wrong.
+
+Minimum 1.0 operational posture should include:
+- a documented rollback path for backend deploys
+- a documented trading halt / safe-stop procedure
+- explicit note on which circuit breakers or flags can disable harmful behavior quickly
+- operator guidance for when to stop proving adaptation and revert to safety-first runtime posture
+
+This does not need to become a giant incident-management program now, but it must stop being implicit.
+
+## Coverage / CI-gate note
+
+The broader repo audit reported approximately 42% line coverage against an apparent 70% gate.
+That mismatch needs explicit interpretation, not hand-waving.
+
+Open question to resolve under Track G:
+- is the 70% figure enforced, partially scoped, aspirational, or silently bypassed?
+
+Do not use coverage theater as a success signal.
+Use this note to force clarity on what the gate actually means.
 
 ## What to defer until after 1.0 hardening
 
