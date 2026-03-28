@@ -293,6 +293,86 @@ Working interpretation:
 ## Track A — Observability clarity
 **Priority:** Very high
 
+## Track B — Repository hygiene and architecture debt reduction
+**Priority:** High, but subordinate to live Track 0 regressions
+
+### Why
+A broader repository audit on 2026-03-28 found that FFE’s root layout and module boundaries have accumulated a meaningful amount of clutter and duplication. This is not the same problem as Track 0, but it does affect maintainability, auditability, and the ability to reason clearly about which code paths are active vs stale.
+
+This track exists so we can improve repo legibility **without** derailing live learning-chain reliability work.
+
+### Audit notes — 2026-03-28 broader repo audit
+Scope reported by audit:
+- ~515 Python files
+- ~69K lines of code
+
+#### High-confidence repo issues called out
+- root directory sprawl:
+  - ~115 root-level `.md` files
+  - 13 root-level `test_*.py` files outside `tests/`
+  - assorted debug / verify / demo scripts at root
+  - committed result artifacts (`.csv`, `.json`, `.patch`) not fully covered by `.gitignore`
+- likely stale or confusing duplicates:
+  - root `core.py` vs `finance_feedback_engine/core.py`
+  - `backtest/` vs `backtesting/`
+  - `monitoring/` vs `observability/`
+  - `coinbase_data.py` vs `coinbase_data_refactored.py`
+  - `decision_validation.py` vs `decision_validator.py`
+- config/tooling inconsistency:
+  - `pyproject.toml` requires Python `>=3.13`
+  - mypy config still targets `3.12`
+  - multiple stale `.pre-commit-config*.yaml` variants
+- dependency policy risk:
+  - many `>=` requirements without upper bounds
+- test coverage gap:
+  - audit reported ~42.3% line coverage / ~30.85% branch coverage versus a nominal 70% CI gate
+
+#### Interpretation
+This audit does **not** replace Track 0. It creates a second workstream.
+
+Track 0 asks:
+- is the learning chain real, boring, and dependable?
+
+Track B asks:
+- is the repo legible enough that we can trust what code and docs are actually active?
+
+These are related, but not identical.
+
+### Initial prioritized remediation from audit
+#### P0 / safe-and-small
+- align mypy `python_version` with the actual required Python version (`3.13`)
+- extend `.gitignore` for currently tracked/result-style artifacts:
+  - `*.csv`
+  - `*.patch`
+  - `bandit_report*.json`
+  - `coverage.json`
+  - `*_results.json`
+
+#### P1 / likely-safe cleanup after verification
+- move orphan root `test_*.py` files into `tests/`
+- verify whether root `core.py` is stale and remove it if confirmed dead
+- delete stale `.pre-commit-config-*.yaml` variants if not referenced
+- relocate/archive root conversation-artifact markdown files into a dedicated archival docs area
+
+#### P2 / deeper architecture consolidation
+- consolidate or clearly delineate:
+  - `backtest/` vs `backtesting/`
+  - `monitoring/` vs `observability/`
+- resolve incomplete/deprecated duplicate module pairs
+- revisit dependency bounding strategy
+- enable or intentionally defer flake8/pre-commit expansion with an explicit reason
+
+### Guardrails for this track
+- do not let repo hygiene work outrank a newly exposed **live learning-chain regression**
+- do not delete duplicate-looking files/modules without verifying import reachability and runtime/reference status
+- prefer archival moves over destructive deletion for root markdown/report clutter until provenance is clear
+- use this track to reduce ambiguity, not to create cleanup theater
+
+### Working priority rule
+- live Track 0 regressions remain priority #1
+- Track B becomes the default next cleanup stream when Track 0 is in a waiting/verification posture
+
+
 ### Why
 Misleading logs waste time and destroy trust.
 A technically true but operationally confusing log line is still a product bug.
