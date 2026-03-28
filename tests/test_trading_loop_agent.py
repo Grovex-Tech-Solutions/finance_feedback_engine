@@ -212,6 +212,91 @@ def test_recover_decision_lineage_for_closed_outcome_falls_back_to_decision_stor
 
 
 @pytest.mark.asyncio
+async def test_handle_learning_state_skips_when_decision_id_unrecoverable(trading_agent, caplog):
+    """handle_learning_state logs SKIPPED and does not call record_trade_outcome when decision_id is absent and all recovery sources fail."""
+    trade_outcome = {
+        "trade_id": "t-missing",
+        "product_id": "ETH-USD",
+        "side": "LONG",
+        "realized_pnl": 50.0,
+        "was_profitable": True,
+    }
+    trading_agent.state = AgentState.LEARNING
+    trading_agent._transition_to = AsyncMock()
+    trading_agent.trade_monitor.get_closed_trades = Mock(return_value=[trade_outcome])
+    trading_agent.trade_monitor.expected_trades = {}
+    trading_agent.trade_monitor.active_trackers = {}
+    trading_agent.trade_monitor.get_decision_id_by_asset = Mock(return_value=None)
+    trading_agent.trade_monitor.closed_trades_queue = MagicMock()
+    trading_agent.trade_monitor.closed_trades_queue.queue = []
+    trading_agent.engine.decision_store = MagicMock()
+    trading_agent.engine.decision_store.get_recent_decisions = Mock(return_value=[])
+    trading_agent.engine.trade_outcome_recorder = MagicMock()
+    trading_agent.engine.trade_outcome_recorder.open_positions = {}
+
+    with caplog.at_level(logging.WARNING, logger="finance_feedback_engine"):
+        await trading_agent.handle_learning_state()
+
+    trading_agent.engine.record_trade_outcome.assert_not_called()
+    assert "Learning handoff SKIPPED for monitor-closed trade ETH-USD | trade_id=t-missing | reason=missing_decision_id" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_handle_learning_state_uses_recovered_decision_id(trading_agent, caplog):
+    """handle_learning_state logs ACCEPTED and calls record_trade_outcome when decision_id is absent but recovery succeeds via get_decision_id_by_asset."""
+    trade_outcome = {
+        "trade_id": "t-recover",
+        "product_id": "ETH-USD",
+        "side": "LONG",
+        "realized_pnl": 80.0,
+        "was_profitable": True,
+    }
+    trading_agent.state = AgentState.LEARNING
+    trading_agent._transition_to = AsyncMock()
+    trading_agent.trade_monitor.get_closed_trades = Mock(return_value=[trade_outcome])
+    trading_agent.trade_monitor.expected_trades = {}
+    trading_agent.trade_monitor.active_trackers = {}
+    trading_agent.trade_monitor.get_decision_id_by_asset = Mock(return_value="dec-recovered")
+    trading_agent.trade_monitor.closed_trades_queue = MagicMock()
+    trading_agent.trade_monitor.closed_trades_queue.queue = []
+    trading_agent.engine.trade_outcome_recorder = MagicMock()
+    trading_agent.engine.trade_outcome_recorder.open_positions = {}
+    trading_agent.engine.record_trade_outcome = Mock(return_value=MagicMock(realized_pnl=80.0))
+
+    with caplog.at_level(logging.INFO, logger="finance_feedback_engine"):
+        await trading_agent.handle_learning_state()
+
+    trading_agent.engine.record_trade_outcome.assert_called_once()
+    assert "Learning handoff ACCEPTED for monitor-closed trade ETH-USD | trade_id=t-recover | decision_id=dec-recovered" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_handle_learning_state_uses_existing_decision_id_without_recovery(trading_agent, caplog):
+    """handle_learning_state does not invoke recovery when decision_id is already present."""
+    trade_outcome = {
+        "trade_id": "t-has-id",
+        "product_id": "ETH-USD",
+        "decision_id": "dec-already-set",
+        "side": "LONG",
+        "realized_pnl": 30.0,
+        "was_profitable": True,
+    }
+    trading_agent.state = AgentState.LEARNING
+    trading_agent._transition_to = AsyncMock()
+    trading_agent.trade_monitor.get_closed_trades = Mock(return_value=[trade_outcome])
+    trading_agent.engine.record_trade_outcome = Mock(return_value=MagicMock(realized_pnl=30.0))
+    original_recovery = trading_agent._recover_decision_lineage_for_closed_outcome
+    trading_agent._recover_decision_lineage_for_closed_outcome = Mock(side_effect=AssertionError("recovery should not be called"))
+
+    with caplog.at_level(logging.INFO, logger="finance_feedback_engine"):
+        await trading_agent.handle_learning_state()
+
+    trading_agent.engine.record_trade_outcome.assert_called_once()
+    assert "Learning handoff SKIPPED" not in caplog.text
+    trading_agent._recover_decision_lineage_for_closed_outcome = original_recovery
+
+
+@pytest.mark.asyncio
 async def test_perception_uses_fresh_default_crypto_context_even_with_stale_pulse(trading_agent, mock_dependencies):
     stale_context = {
         "latest_market_data_timestamp": "2024-01-01T00:00:00Z",

@@ -3107,13 +3107,61 @@ class TradingLoopAgent:
         else:
             logger.info(f"Processing {len(closed_trades)} closed trades...")
             for trade_outcome in closed_trades:
+                if "product" not in trade_outcome and "product_id" in trade_outcome:
+                    trade_outcome = {**trade_outcome, "product": trade_outcome["product_id"]}
+
+                decision_id = trade_outcome.get("decision_id")
+                product = trade_outcome.get("product") or trade_outcome.get("product_id") or "UNKNOWN"
+                trade_id = trade_outcome.get("trade_id") or trade_outcome.get("id") or "UNKNOWN"
+                lineage_source = "outcome"
+                attempted_sources: list[str] = []
+
+                if not decision_id:
+                    decision_id, lineage_source, attempted_sources = self._recover_decision_lineage_for_closed_outcome(trade_outcome)
+                    if decision_id:
+                        trade_outcome = {**trade_outcome, "decision_id": decision_id}
+                        logger.info(
+                            "Recovered decision_id %s for monitor-closed trade %s | lineage_source=%s | attempted_sources=%s",
+                            decision_id,
+                            product,
+                            lineage_source,
+                            attempted_sources,
+                        )
+                    else:
+                        logger.warning(
+                            "Learning handoff SKIPPED for monitor-closed trade %s | trade_id=%s | reason=missing_decision_id | attempted_sources=%s",
+                            product,
+                            trade_id,
+                            attempted_sources,
+                        )
+                        continue
+
+                logger.info(
+                    "Learning handoff ATTEMPT for monitor-closed trade %s | trade_id=%s | decision_id=%s | lineage_source=%s",
+                    product,
+                    trade_id,
+                    decision_id,
+                    lineage_source,
+                )
+
                 try:
                     self.engine.record_trade_outcome(trade_outcome)
-                    # Update performance metrics based on trade outcome
                     self._update_performance_metrics(trade_outcome)
-                    logger.info(f"Recorded outcome for trade {trade_outcome.get('id')}")
+                    logger.info(
+                        "Learning handoff ACCEPTED for monitor-closed trade %s | trade_id=%s | decision_id=%s",
+                        product,
+                        trade_id,
+                        decision_id,
+                    )
                 except Exception as e:
-                    logger.error(f"Error recording trade outcome: {e}", exc_info=True)
+                    logger.error(
+                        "Learning handoff FAILED for monitor-closed trade %s | trade_id=%s | decision_id=%s | error=%s",
+                        product,
+                        trade_id,
+                        decision_id,
+                        e,
+                        exc_info=True,
+                    )
 
         # After processing, end this cycle cleanly; the next process_cycle() call will start PERCEPTION
         await self._transition_to(AgentState.IDLE)
