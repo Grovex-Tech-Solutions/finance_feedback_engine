@@ -140,6 +140,48 @@ def test_sync_trade_outcome_recorder_annotates_active_positions_with_decision_id
     assert synced_positions[0]["decision_id"] == "decision-btc-1"
 
 
+def test_sync_trade_outcome_recorder_logs_learning_handoff_acceptance(trading_agent, mock_dependencies, caplog):
+    recorder = MagicMock()
+    recorder.update_positions.return_value = [
+        {
+            "decision_id": "decision-123",
+            "product": "ETH-USD",
+            "order_id": "order-123",
+            "exit_price": "2100.5",
+            "exit_time": "2026-03-23T20:00:00Z",
+            "realized_pnl": "42.0",
+        }
+    ]
+    mock_dependencies["engine"].trade_outcome_recorder = recorder
+    mock_dependencies["engine"].record_trade_outcome.return_value = MagicMock(realized_pnl=42.0)
+
+    with caplog.at_level(logging.INFO):
+        trading_agent._sync_trade_outcome_recorder([])
+
+    assert "Learning handoff ATTEMPT for closed position ETH-USD | order_id=order-123 | decision_id=decision-123 | lineage_source=outcome" in caplog.text
+    assert "Learning handoff ACCEPTED for closed position ETH-USD | order_id=order-123 | decision_id=decision-123 | realized_pnl=42.0" in caplog.text
+
+
+def test_sync_trade_outcome_recorder_logs_learning_handoff_skip(trading_agent, mock_dependencies, caplog):
+    recorder = MagicMock()
+    recorder.update_positions.return_value = [
+        {
+            "product": "ETH-USD",
+            "order_id": "order-456",
+            "exit_price": "2100.5",
+            "exit_time": "2026-03-23T20:00:00Z",
+            "realized_pnl": "42.0",
+        }
+    ]
+    mock_dependencies["engine"].trade_outcome_recorder = recorder
+    trading_agent._recover_decision_lineage_for_closed_outcome = MagicMock(return_value=(None, "no-hit", ["trade_monitor.expected_trades"]))
+
+    with caplog.at_level(logging.WARNING):
+        trading_agent._sync_trade_outcome_recorder([])
+
+    assert "Learning handoff SKIPPED for closed position ETH-USD | order_id=order-456 | reason=missing_decision_id | attempted_sources=['trade_monitor.expected_trades']" in caplog.text
+
+
 @pytest.mark.asyncio
 async def test_perception_uses_fresh_default_crypto_context_even_with_stale_pulse(trading_agent, mock_dependencies):
     stale_context = {

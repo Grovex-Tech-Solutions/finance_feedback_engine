@@ -2978,6 +2978,9 @@ class TradingLoopAgent:
         for outcome in outcomes:
             decision_id = outcome.get("decision_id")
             product = outcome.get("product") or "UNKNOWN"
+            order_id = outcome.get("order_id") or outcome.get("trade_id") or "UNKNOWN"
+            lineage_source = "outcome"
+            attempted_sources: list[str] = []
             if not decision_id:
                 decision_id, lineage_source, attempted_sources = self._recover_decision_lineage_for_closed_outcome(outcome)
                 if decision_id:
@@ -2991,11 +2994,25 @@ class TradingLoopAgent:
                     )
                 else:
                     logger.warning(
+                        "Learning handoff SKIPPED for closed position %s | order_id=%s | reason=missing_decision_id | attempted_sources=%s",
+                        product,
+                        order_id,
+                        attempted_sources,
+                    )
+                    logger.warning(
                         "Closed position %s missing decision_id; durable artifact recorded but learning update skipped | attempted_sources=%s",
                         product,
                         attempted_sources,
                     )
                     continue
+
+            logger.info(
+                "Learning handoff ATTEMPT for closed position %s | order_id=%s | decision_id=%s | lineage_source=%s",
+                product,
+                order_id,
+                decision_id,
+                lineage_source,
+            )
 
             try:
                 memory_outcome = self.engine.record_trade_outcome(
@@ -3014,11 +3031,26 @@ class TradingLoopAgent:
                     }
                 )
                 logger.info(
+                    "Learning handoff ACCEPTED for closed position %s | order_id=%s | decision_id=%s | realized_pnl=%s",
+                    product,
+                    order_id,
+                    decision_id,
+                    pnl_value,
+                )
+                logger.info(
                     "Recorded learning outcome for decision %s from closed position %s",
                     decision_id,
                     product,
                 )
             except Exception as e:
+                logger.error(
+                    "Learning handoff FAILED for closed position %s | order_id=%s | decision_id=%s | error=%s",
+                    product,
+                    order_id,
+                    decision_id,
+                    e,
+                    exc_info=True,
+                )
                 logger.error(
                     "Failed to forward closed position %s into learning for decision %s: %s",
                     product,
