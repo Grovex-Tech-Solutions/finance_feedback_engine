@@ -4,6 +4,8 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from finance_feedback_engine.utils.shape_normalization import extract_portfolio_positions
 from typing import Any, Dict, List, Optional
 
 from finance_feedback_engine.decision_engine.policy_actions import (
@@ -393,21 +395,7 @@ class MonitoringContextProvider:
 
     def _extract_active_positions_from_portfolio(self, portfolio: Dict[str, Any]) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Extract active futures/spot positions from either flat or platform_breakdowns shapes."""
-        if not isinstance(portfolio, dict):
-            return [], []
-
-        futures_positions = list(portfolio.get("futures_positions", []) or [])
-        holdings = list(portfolio.get("holdings", []) or [])
-
-        platform_breakdowns = portfolio.get("platform_breakdowns") or {}
-        for _, pdata in platform_breakdowns.items():
-            if not isinstance(pdata, dict):
-                continue
-            futures_positions.extend(list(pdata.get("futures_positions", []) or []))
-            futures_positions.extend(list(pdata.get("positions", []) or []))
-            holdings.extend(list(pdata.get("holdings", []) or []))
-
-        return futures_positions, holdings
+        return extract_portfolio_positions(portfolio)
 
     def _filter_positions_by_asset(
         self, positions: List[Dict[str, Any]], asset_pair: str

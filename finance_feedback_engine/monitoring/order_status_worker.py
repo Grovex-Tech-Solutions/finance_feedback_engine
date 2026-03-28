@@ -19,6 +19,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import threading
 
+from finance_feedback_engine.utils.shape_normalization import (
+    merge_nested_payload,
+    resolve_platform_client,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -349,32 +354,7 @@ class OrderStatusWorker:
 
     def _resolve_coinbase_client(self) -> tuple[Optional[Any], str]:
         """Resolve Coinbase client and report the lookup path for observability."""
-        platform_candidates = [(self.platform, "platform")]
-        nested_platforms = getattr(self.platform, "platforms", None)
-        if isinstance(nested_platforms, dict):
-            for key in ("coinbase", "coinbase_advanced"):
-                nested = nested_platforms.get(key)
-                if nested is not None:
-                    platform_candidates.append((nested, f"platforms[{key}]"))
-
-        for platform_candidate, source in platform_candidates:
-            if platform_candidate is None:
-                continue
-            if hasattr(platform_candidate, "rest_client"):
-                return platform_candidate.rest_client, f"{source}.rest_client"
-            if hasattr(platform_candidate, "_get_client"):
-                client = platform_candidate._get_client()
-                if client is not None:
-                    return client, f"{source}._get_client()"
-            if hasattr(platform_candidate, "_client"):
-                client = platform_candidate._client
-                if client is not None:
-                    return client, f"{source}._client"
-            if hasattr(platform_candidate, "client"):
-                client = platform_candidate.client
-                if client is not None:
-                    return client, f"{source}.client"
-        return None, "unresolved"
+        return resolve_platform_client(self.platform, nested_keys=("coinbase", "coinbase_advanced"))
 
     def _get_coinbase_order_status(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Get Coinbase order status using the available Coinbase client."""
@@ -407,14 +387,7 @@ class OrderStatusWorker:
 
     def _normalize_order_status(self, order_status: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize provider-specific order payloads into a flat dict."""
-        if not isinstance(order_status, dict):
-            return order_status
-        nested = order_status.get("order")
-        if isinstance(nested, dict):
-            merged = dict(order_status)
-            merged.update(nested)
-            return merged
-        return order_status
+        return merge_nested_payload(order_status, nested_key="order")
 
     def _is_order_complete(self, order_status: Dict[str, Any]) -> bool:
         """

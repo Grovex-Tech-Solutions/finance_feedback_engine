@@ -10,6 +10,7 @@ from requests.exceptions import RequestException
 
 from ..exceptions import APIConnectionError, APIRateLimitError
 from ..observability.context import get_trace_headers
+from ..utils.shape_normalization import extract_portfolio_positions
 from .base_platform import BaseTradingPlatform, PositionInfo
 from .retry_handler import platform_retry, get_timeout_config, standardize_platform_error
 from finance_feedback_engine.decision_engine.policy_actions import (
@@ -2014,14 +2015,7 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
         """
         logger.info("Fetching active positions from Coinbase")
         portfolio = self.get_portfolio_breakdown()
-        positions: List[Dict[str, Any]] = list(portfolio.get("futures_positions", []) or [])
-
-        if not positions:
-            for breakdown in (portfolio.get("platform_breakdowns") or {}).values():
-                nested = (breakdown or {}).get("futures_positions") or (breakdown or {}).get("positions") or []
-                if nested:
-                    positions.extend(nested)
-
+        positions, _holdings = extract_portfolio_positions(portfolio)
         return {"positions": positions}
 
     def get_account_info(self) -> Dict[str, Any]:

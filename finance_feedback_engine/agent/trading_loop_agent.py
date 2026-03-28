@@ -46,6 +46,7 @@ from finance_feedback_engine.trading_platforms.base_platform import BaseTradingP
 from finance_feedback_engine.utils.environment import is_development, is_production
 from finance_feedback_engine.utils import validate_data_freshness
 from finance_feedback_engine.utils.retry import exponential_backoff_retry, RetryConfig
+from finance_feedback_engine.utils.shape_normalization import asset_key_candidates, normalize_scalar_id
 from finance_feedback_engine.utils.validation import standardize_asset_pair
 
 logger = logging.getLogger(__name__)
@@ -947,6 +948,7 @@ class TradingLoopAgent:
         import uuid as uuid_module
 
         from finance_feedback_engine.memory.portfolio_memory import TradeOutcome
+        from finance_feedback_engine.utils.shape_normalization import asset_key_candidates, normalize_scalar_id
         from finance_feedback_engine.utils.validation import standardize_asset_pair
 
         logger.info("State: RECOVERING - Checking for existing positions...")
@@ -2810,16 +2812,7 @@ class TradingLoopAgent:
         except Exception:
             asset_pair = None
 
-        candidate_asset_pairs: list[str] = []
-        if asset_pair:
-            candidate_asset_pairs.append(asset_pair)
-        raw_upper = str(product or "").upper()
-        if raw_upper.startswith(("ETP", "ET", "ETH")) and "ETHUSD" not in candidate_asset_pairs:
-            candidate_asset_pairs.append("ETHUSD")
-        if raw_upper.startswith(("BIP", "BIT", "BTC")) and "BTCUSD" not in candidate_asset_pairs:
-            candidate_asset_pairs.append("BTCUSD")
-        if raw_upper.startswith(("SLP", "SOL")) and "SOLUSD" not in candidate_asset_pairs:
-            candidate_asset_pairs.append("SOLUSD")
+        candidate_asset_pairs = asset_key_candidates(product)
 
         trade_monitor = getattr(self, "trade_monitor", None)
         if trade_monitor and candidate_asset_pairs:
@@ -2829,12 +2822,9 @@ class TradingLoopAgent:
                 if isinstance(expected, dict):
                     for candidate_asset_pair in candidate_asset_pairs:
                         association = expected.get(candidate_asset_pair)
-                        if isinstance(association, tuple) and association:
-                            decision_id = association[0]
-                            if decision_id:
-                                return decision_id, "trade_monitor.expected_trades", attempted_sources
-                        elif association:
-                            return association, "trade_monitor.expected_trades", attempted_sources
+                        decision_id = normalize_scalar_id(association)
+                        if decision_id:
+                            return decision_id, "trade_monitor.expected_trades", attempted_sources
 
                 active_trackers = getattr(trade_monitor, "active_trackers", None)
                 attempted_sources.append("trade_monitor.active_trackers")
@@ -2843,22 +2833,9 @@ class TradingLoopAgent:
                         raw_product = getattr(tracker, "product_id", None)
                         if not raw_product:
                             continue
-                        try:
-                            tracker_pair = standardize_asset_pair(raw_product)
-                        except Exception:
-                            tracker_pair = None
-                        tracker_raw_upper = str(raw_product or "").upper()
-                        tracker_candidates = [tracker_pair] if tracker_pair else []
-                        if tracker_raw_upper.startswith(("ETP", "ET", "ETH")):
-                            tracker_candidates.append("ETHUSD")
-                        if tracker_raw_upper.startswith(("BIP", "BIT", "BTC")):
-                            tracker_candidates.append("BTCUSD")
-                        if tracker_raw_upper.startswith(("SLP", "SOL")):
-                            tracker_candidates.append("SOLUSD")
+                        tracker_candidates = asset_key_candidates(raw_product)
                         if any(candidate in tracker_candidates for candidate in candidate_asset_pairs):
-                            decision_id = getattr(tracker, "decision_id", None)
-                            if isinstance(decision_id, tuple) and decision_id:
-                                decision_id = decision_id[0]
+                            decision_id = normalize_scalar_id(getattr(tracker, "decision_id", None))
                             if decision_id:
                                 return decision_id, "trade_monitor.active_trackers", attempted_sources
 
@@ -2866,9 +2843,7 @@ class TradingLoopAgent:
                 attempted_sources.append("trade_monitor.get_decision_id_by_asset")
                 if callable(getter):
                     for candidate_asset_pair in candidate_asset_pairs:
-                        decision_id = getter(candidate_asset_pair)
-                        if isinstance(decision_id, tuple) and decision_id:
-                            decision_id = decision_id[0]
+                        decision_id = normalize_scalar_id(getter(candidate_asset_pair))
                         if decision_id:
                             return decision_id, "trade_monitor.get_decision_id_by_asset", attempted_sources
 

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from .metrics_collector import TradeMetricsCollector
 from .trade_tracker import TradeTrackerThread
 from finance_feedback_engine.observability.context import ContextPropagatingExecutor
+from finance_feedback_engine.utils.shape_normalization import asset_key_candidates, normalize_scalar_id
 
 logger = logging.getLogger(__name__)
 
@@ -604,41 +605,22 @@ class TradeMonitor:
 
     def get_decision_id_by_asset(self, asset_pair: str) -> Optional[str]:
         """Best-effort lookup of a decision id by asset across expected trades and active trackers."""
-        from ..utils.validation import standardize_asset_pair
-
-        try:
-            standardized_pair = standardize_asset_pair(asset_pair)
-        except Exception:
-            standardized_pair = str(asset_pair or "").replace("-", "").upper()
+        candidate_keys = asset_key_candidates(asset_pair)
 
         with self._expected_trades_lock:
-            association = self.expected_trades.get(standardized_pair)
-            if isinstance(association, tuple) and association:
-                decision_id = association[0]
+            for candidate_key in candidate_keys:
+                association = self.expected_trades.get(candidate_key)
+                decision_id = normalize_scalar_id(association)
                 if decision_id:
                     return decision_id
-            elif association:
-                return association
 
         for tracker in self.active_trackers.values():
             product_id = getattr(tracker, "product_id", None)
             if not product_id:
                 continue
-            try:
-                tracker_pair = standardize_asset_pair(product_id)
-            except Exception:
-                tracker_pair = str(product_id or "").replace("-", "").upper()
-
-            raw_upper = str(product_id or "").upper()
-            if standardized_pair == "BTCUSD" and raw_upper.startswith(("BIP", "BIT", "BTC")):
-                tracker_pair = "BTCUSD"
-            elif standardized_pair == "ETHUSD" and raw_upper.startswith(("ETP", "ET", "ETH")):
-                tracker_pair = "ETHUSD"
-
-            if tracker_pair == standardized_pair:
-                decision_id = getattr(tracker, "decision_id", None)
-                if isinstance(decision_id, tuple) and decision_id:
-                    decision_id = decision_id[0]
+            tracker_candidates = asset_key_candidates(product_id)
+            if any(candidate in tracker_candidates for candidate in candidate_keys):
+                decision_id = normalize_scalar_id(getattr(tracker, "decision_id", None))
                 if decision_id:
                     return decision_id
         return None
