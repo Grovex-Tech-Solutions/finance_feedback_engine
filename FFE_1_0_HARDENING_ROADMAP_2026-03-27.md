@@ -185,6 +185,64 @@ Audit rule:
 - do not mark Track 0 complete based on logs that merely show outcome recording
 - completion requires evidence for the full chain from execution through adaptive effect
 
+### Live audit notes — 2026-03-28
+Track 0 now has real live evidence after backend redeploy on `asus-rog-old-laptop`.
+
+#### What is now proved live
+- durable outcome recording is real (`data/trade_outcomes/2026-03-28.jsonl`)
+- learning handoff instrumentation is live and firing
+- durable portfolio-memory mutation is live and firing
+- at least one close path successfully completed:
+  - outcome saved
+  - learning handoff ATTEMPT logged
+  - portfolio memory updated
+  - learning handoff ACCEPTED logged
+  - learning outcome recorded
+
+Concrete observed success case:
+- `2026-03-28 13:06:51 UTC`
+- closed position: `BIP-20DEC30-CDE`
+- order id: `be381020-a9ff-433f-a804-146604601a9f`
+- decision id: `45cffede-96a6-42db-b9f9-ed3ca65f2b20`
+- provider memory update logged with:
+  - `provider=recovery`
+  - `provider_total_trades=1`
+  - `provider_total_pnl=-95.0`
+
+#### What is still failing live
+A later close still skipped learning because decision lineage was missing:
+- `2026-03-28 14:32:14 UTC`
+- closed position: `BIP-20DEC30-CDE`
+- order id: `0736f0b7-c7a7-4c75-a866-1d0bd5dc0bbd`
+- `Learning handoff SKIPPED ... reason=missing_decision_id`
+- attempted sources logged:
+  - `recorder.open_positions`
+  - `trade_monitor.expected_trades`
+  - `trade_monitor.active_trackers`
+  - `trade_monitor.get_decision_id_by_asset`
+  - `trade_monitor.closed_trades_queue`
+
+#### Sequencing correction from live evidence
+The roadmap still conceptually points next to **PR-4** (prove adaptation), but the live data shows Track 0 is not ready to move cleanly into PR-4 as the immediate engineering focus.
+
+Operationally, there is now a **PR-1b / lineage-reliability** subphase blocking PR-4:
+- PR-1 is improved enough to prove the learning chain can succeed
+- PR-2 and PR-3 are now validated live
+- but PR-1 is not yet boring/reliable enough, because normal closes can still fall off the learning path due to missing `decision_id`
+
+#### Audit interpretation
+As of 2026-03-28:
+- PR-2 = live-proved
+- PR-3 = live-proved
+- PR-1 = partially live-proved, but not complete
+- PR-4 = still the next conceptual section, but blocked in practice by remaining lineage inconsistency
+
+#### Immediate next focus
+Before treating PR-4 as the active implementation section, finish the remaining lineage boring-ification work:
+- eliminate or materially reduce normal close-path `missing_decision_id` skips
+- keep the new attempted-source logs as the audit spine for those failures
+- only then treat adaptation proof as a clean next-stage target
+
 ---
 
 ## Track A — Observability clarity
