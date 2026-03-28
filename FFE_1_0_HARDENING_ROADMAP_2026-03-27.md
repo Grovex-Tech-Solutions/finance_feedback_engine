@@ -209,8 +209,8 @@ Concrete observed success case:
   - `provider_total_trades=1`
   - `provider_total_pnl=-95.0`
 
-#### What is still failing live
-A later close still skipped learning because decision lineage was missing:
+#### What was failing live
+A later close initially skipped learning because decision lineage was missing:
 - `2026-03-28 14:32:14 UTC`
 - closed position: `BIP-20DEC30-CDE`
 - order id: `0736f0b7-c7a7-4c75-a866-1d0bd5dc0bbd`
@@ -222,34 +222,67 @@ A later close still skipped learning because decision lineage was missing:
   - `trade_monitor.get_decision_id_by_asset`
   - `trade_monitor.closed_trades_queue`
 
-#### Sequencing correction from live evidence
-The roadmap still conceptually points next to **PR-4** (prove adaptation), but the live data shows Track 0 is not ready to move cleanly into PR-4 as the immediate engineering focus.
+A `PR-1b` fix was then implemented to add a durable fallback via recent decisions keyed by `recovery_metadata.product_id`.
+- commit: `914371d` — `fix: recover close lineage from decision store`
 
-Operationally, there is now a **PR-1b / lineage-reliability** subphase blocking PR-4:
-- PR-1 is improved enough to prove the learning chain can succeed
-- PR-2 and PR-3 are now validated live
-- but PR-1 is not yet boring/reliable enough, because normal closes can still fall off the learning path due to missing `decision_id`
+#### New live evidence after PR-1b
+After redeploy, a fresh BIP close no longer skipped:
+- `2026-03-28 15:48:57 UTC`
+- closed position: `BIP-20DEC30-CDE`
+- order id: `d48977f2-1bee-43e0-8fa4-c2f3c948e1e6`
+- `Learning handoff ATTEMPT ...`
+- `Learning handoff ACCEPTED ...`
+- `Recorded learning outcome ...`
+
+This is strong evidence that the lineage regression improved materially, but it should still be treated as recently-fixed until more live runtime confirms the skip pattern is gone.
+
+#### Newly exposed live regression
+Once the chain progressed farther, a new reliability failure surfaced in durable memory autosave:
+- `Failed to auto-save portfolio memory: 'dict' object has no attribute 'to_dict'`
+- observed live at least at:
+  - `2026-03-28 15:22:43 UTC`
+  - `2026-03-28 15:48:57 UTC`
+
+Root cause:
+- `PortfolioMemoryEngine.save_to_disk()` assumed every entry in `trade_outcomes` and `experience_buffer` had `.to_dict()`
+- live runtime can contain mixed `TradeOutcome` objects and plain `dict` entries
+
+Fix applied:
+- tolerant mixed-entry serialization for portfolio memory saves
+- regression coverage added for dict-backed entries in memory buffers
+- commit: `115dc12` — `fix: tolerate dict entries in portfolio memory saves`
+- deployed live after tests passed; awaiting live post-fix confirmation that the warning is gone
+
+#### Sequencing correction from live evidence
+The roadmap still conceptually points next to **PR-4** (prove adaptation), but live evidence continues to show that Track 0 must follow a regression-first discipline before deeper feature proof.
+
+Operationally:
+- PR-2 is live-proved
+- PR-3 is live-proved in the sense that durable memory mutation is observable
+- PR-1b improved the lineage path and may have resolved the observed skip, but it remains under live verification
+- the autosave serialization regression is now the newest **priority #1** blocker until verified fixed in production behavior
 
 #### Audit interpretation
 As of 2026-03-28:
 - PR-2 = live-proved
-- PR-3 = live-proved
-- PR-1 = partially live-proved, but not complete
-- PR-4 = still the next conceptual section, but blocked in practice by remaining lineage inconsistency
+- PR-3 = live-proved, but exposed an autosave reliability bug under live conditions
+- PR-1 = substantially improved; PR-1b deployed; awaiting more live confirmation that missing-lineage skips have stopped
+- PR-4 = still the next conceptual section, but blocked in practice by newly surfaced live regressions on the same seam
 
 #### Immediate next focus
-Before treating PR-4 as the active implementation section, finish the remaining lineage boring-ification work:
-- eliminate or materially reduce normal close-path `missing_decision_id` skips
-- keep the new attempted-source logs as the audit spine for those failures
+Before treating PR-4 as the active implementation section, keep boring-ifying the learning chain under live conditions:
+- confirm the `missing_decision_id` regression stays gone after PR-1b
+- confirm the portfolio-memory autosave warning disappears after `115dc12`
+- keep using the new attempted-source / handoff / memory-update logs as the audit spine
 - only then treat adaptation proof as a clean next-stage target
 
 #### Regression classification
-The remaining live `missing_decision_id` close-path skip is now explicitly classified as a **Track 0 regression**.
+Live reliability regressions on the learning chain are explicit **Track 0 regressions**.
 
 Regression rule for Track 0 and future feature work:
 - when a new feature or verification effort exposes a live regression, that regression becomes **priority #1** ahead of further feature expansion on that seam
 - do not continue deeper into a new feature section while a newly exposed live regression undermines the reliability of the chain being proved
-- for this Track 0 phase, lineage-loss regressions outrank adaptation-proof feature work until the learning path is boring and dependable
+- for this Track 0 phase, lineage-loss regressions, skipped learning updates, and broken durable-state saves all outrank adaptation-proof feature work until the chain is boring and dependable
 
 Working interpretation:
 - PR-4 remains the next conceptual feature section
