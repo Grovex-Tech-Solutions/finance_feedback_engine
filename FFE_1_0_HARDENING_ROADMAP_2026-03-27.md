@@ -596,13 +596,25 @@ This does not need to become a giant incident-management program now, but it mus
 ## Coverage / CI-gate note
 
 The broader repo audit reported approximately 42% line coverage against an apparent 70% gate.
-That mismatch needs explicit interpretation, not hand-waving.
+That mismatch needed explicit interpretation rather than hand-waving.
 
-Open question to resolve under Track G:
-- is the 70% figure enforced, partially scoped, aspirational, or silently bypassed?
+Clarification from repo inspection on 2026-03-28:
+- the 70% threshold is **real and enforced in CI**
+- `.github/workflows/ci.yml` runs:
+  - `pytest --full-suite ... --cov=finance_feedback_engine --cov-fail-under=70`
+- CI uses Python 3.13 in the `backend-quality` job
+- local audit measurements therefore likely differ because of scope, marker selection, environment, or run-shape differences rather than because the threshold is imaginary
+
+Open follow-up under Track G:
+- explain why the audit saw ~42% while CI claims a passing 70%-gated run
+- document whether that is due to:
+  - different selected tests,
+  - different measured subset,
+  - different coverage configuration,
+  - or some other reporting mismatch
 
 Do not use coverage theater as a success signal.
-Use this note to force clarity on what the gate actually means.
+Use this note to force clarity on what the gate actually means in practice.
 
 ## What to defer until after 1.0 hardening
 
