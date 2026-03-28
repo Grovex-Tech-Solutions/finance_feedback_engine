@@ -364,6 +364,38 @@ class TestLoadFromDisk:
         assert loaded_engine.trade_outcomes[0].decision_id == "legacy-dec-1"
         assert loaded_engine.experience_buffer[0].decision_id == "legacy-dec-2"
 
+    def test_load_wrapped_experience_buffer_outcome_payload(self, tmp_path):
+        filepath = tmp_path / "wrapped_memory.json"
+        payload = {
+            "version": "1.0",
+            "trade_history": [],
+            "provider_performance": {},
+            "experience_buffer": [
+                {
+                    "decision": None,
+                    "outcome": {
+                        "decision_id": "wrapped-dec-1",
+                        "asset_pair": "BTCUSD",
+                        "action": "SELL",
+                        "entry_timestamp": "2024-12-04T10:00:00Z",
+                        "exit_timestamp": "2024-12-04T12:00:00Z",
+                        "entry_price": 50000.0,
+                        "exit_price": 49000.0,
+                        "position_size": 1.0,
+                        "realized_pnl": 1000.0,
+                        "was_profitable": True,
+                    },
+                    "timestamp": "2024-12-04T12:00:00Z",
+                }
+            ],
+        }
+        filepath.write_text(json.dumps(payload))
+
+        loaded_engine = PortfolioMemoryEngine.load_from_disk(str(filepath))
+
+        assert loaded_engine.experience_buffer[0].decision_id == "wrapped-dec-1"
+        assert loaded_engine.experience_buffer[0].asset_pair == "BTCUSD"
+
 
 class TestAutoSave:
     """Test auto-save functionality."""

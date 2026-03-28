@@ -443,10 +443,20 @@ class PortfolioMemoryEngine:
     def _normalize_loaded_outcome_dict(outcome_data: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize legacy persisted outcome payloads to the current TradeOutcome shape."""
         normalized = dict(outcome_data)
+
+        nested_outcome = normalized.get("outcome")
+        if isinstance(nested_outcome, dict):
+            merged = dict(nested_outcome)
+            merged.setdefault("timestamp", normalized.get("timestamp"))
+            normalized = merged
+
         if "decision_id" not in normalized and normalized.get("decision") is not None:
             normalized["decision_id"] = normalized.pop("decision")
         else:
             normalized.pop("decision", None)
+
+        normalized.pop("outcome", None)
+        normalized.pop("timestamp", None)
         return normalized
 
     def save_to_disk(self, filepath: Optional[str] = None) -> None:
