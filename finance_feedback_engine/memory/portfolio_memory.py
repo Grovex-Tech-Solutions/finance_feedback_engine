@@ -149,6 +149,7 @@ class PortfolioMemoryEngine:
         storage_path = config.get("persistence", {}).get("storage_path", "data")
         self.storage_path = Path(storage_path) / "memory"
         self.storage_path.mkdir(parents=True, exist_ok=True)
+        self.memory_snapshot_path = self.storage_path / "portfolio_memory.json"
 
         self.max_memory_size = int(memory_config.get("max_memory_size", 1000))
         self.learning_rate = float(memory_config.get("learning_rate", 0.1))
@@ -398,6 +399,7 @@ class PortfolioMemoryEngine:
         if not self._readonly:
             # Store in history
             self.trade_outcomes.append(outcome)
+            self._save_outcome(outcome)
 
             # Update provider performance
             self._update_provider_performance(outcome, decision)
@@ -412,18 +414,28 @@ class PortfolioMemoryEngine:
             # Auto-save to disk after recording
             try:
                 self.save_to_disk()
+                provider_stats = self.provider_performance.get(ai_provider, {}) if ai_provider else {}
+                logger.info(
+                    "Portfolio memory state updated for decision %s | snapshot=%s | provider=%s | provider_total_trades=%s | provider_total_pnl=%s",
+                    decision_id,
+                    self.memory_snapshot_path,
+                    ai_provider,
+                    provider_stats.get("total_trades"),
+                    provider_stats.get("total_pnl"),
+                )
             except Exception as e:
                 logger.warning(f"Failed to auto-save portfolio memory: {e}")
 
         return outcome
 
-    def save_to_disk(self, filepath: str = "data/memory/portfolio_memory.json") -> None:
+    def save_to_disk(self, filepath: Optional[str] = None) -> None:
         """
         Save portfolio memory to disk with atomic writes and file locking.
 
         Args:
-            filepath: Path to save the memory file
+            filepath: Optional explicit path; defaults to configured memory snapshot path
         """
+        filepath = filepath or str(self.memory_snapshot_path)
         import os
         import tempfile
 

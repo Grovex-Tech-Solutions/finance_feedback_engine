@@ -1,6 +1,7 @@
 """Tests for PortfolioMemoryEngine persistence (save/load/atomic writes)."""
 
 import json
+import logging
 from unittest.mock import patch
 
 import pytest
@@ -222,6 +223,36 @@ class TestSaveToDisk:
             data = json.load(f)
 
         assert len(data["trade_history"]) == 3
+
+    def test_record_trade_outcome_persists_configured_memory_snapshot(self, memory_engine, sample_decision, tmp_path):
+        sample_decision["id"] = "decision-123"
+        outcome = memory_engine.record_trade_outcome(
+            sample_decision, exit_price=52000.0, exit_timestamp="2024-12-04T12:00:00Z"
+        )
+
+        snapshot_path = tmp_path / "memory" / "portfolio_memory.json"
+        outcome_path = tmp_path / "memory" / f"outcome_{outcome.decision_id}.json"
+
+        assert snapshot_path.exists()
+        assert outcome_path.exists()
+
+        with open(snapshot_path) as f:
+            data = json.load(f)
+
+        assert len(data["trade_history"]) == 1
+        assert data["trade_history"][0]["decision_id"] == outcome.decision_id
+        assert data["provider_performance"]["local"]["total_trades"] == 1
+        assert data["provider_performance"]["local"]["total_pnl"] == pytest.approx(200.0, rel=0.01)
+
+    def test_record_trade_outcome_logs_memory_state_update(self, memory_engine, sample_decision, caplog, tmp_path):
+        sample_decision["id"] = "decision-123"
+        with caplog.at_level(logging.INFO):
+            outcome = memory_engine.record_trade_outcome(
+                sample_decision, exit_price=52000.0, exit_timestamp="2024-12-04T12:00:00Z"
+            )
+
+        expected_path = tmp_path / "memory" / "portfolio_memory.json"
+        assert f"Portfolio memory state updated for decision {outcome.decision_id} | snapshot={expected_path} | provider=local | provider_total_trades=1 | provider_total_pnl=200.0" in caplog.text
 
 
 class TestLoadFromDisk:
