@@ -439,6 +439,16 @@ class PortfolioMemoryEngine:
             return dict(entry.__dict__)
         raise TypeError(f"Unsupported memory entry type for serialization: {type(entry)!r}")
 
+    @staticmethod
+    def _normalize_loaded_outcome_dict(outcome_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize legacy persisted outcome payloads to the current TradeOutcome shape."""
+        normalized = dict(outcome_data)
+        if "decision_id" not in normalized and normalized.get("decision") is not None:
+            normalized["decision_id"] = normalized.pop("decision")
+        else:
+            normalized.pop("decision", None)
+        return normalized
+
     def save_to_disk(self, filepath: Optional[str] = None) -> None:
         """
         Save portfolio memory to disk with atomic writes and file locking.
@@ -541,7 +551,7 @@ class PortfolioMemoryEngine:
 
             # Restore trade history
             for trade_dict in data.get("trade_history", []):
-                outcome = TradeOutcome(**trade_dict)
+                outcome = TradeOutcome(**instance._normalize_loaded_outcome_dict(trade_dict))
                 instance.trade_outcomes.append(outcome)
 
             # Restore provider performance (convert to defaultdict)
@@ -565,7 +575,7 @@ class PortfolioMemoryEngine:
 
             # Restore experience buffer
             for exp_dict in data.get("experience_buffer", []):
-                outcome = TradeOutcome(**exp_dict)
+                outcome = TradeOutcome(**instance._normalize_loaded_outcome_dict(exp_dict))
                 instance.experience_buffer.append(outcome)
 
             logger.info(
@@ -1800,7 +1810,7 @@ class PortfolioMemoryEngine:
             try:
                 with open(filepath, "r") as f:
                     outcome_data = json.load(f)
-                outcome = TradeOutcome(**outcome_data)
+                outcome = TradeOutcome(**self._normalize_loaded_outcome_dict(outcome_data))
                 self.trade_outcomes.append(outcome)
 
                 # Rebuild experience buffer (simplified - no original decision)

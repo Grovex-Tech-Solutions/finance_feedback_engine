@@ -323,6 +323,47 @@ class TestLoadFromDisk:
             # Also acceptable to raise error
             pass
 
+    def test_load_legacy_decision_field_maps_to_decision_id(self, tmp_path):
+        filepath = tmp_path / "legacy_memory.json"
+        payload = {
+            "version": "1.0",
+            "trade_history": [
+                {
+                    "decision": "legacy-dec-1",
+                    "asset_pair": "BTCUSD",
+                    "action": "BUY",
+                    "entry_timestamp": "2024-12-04T10:00:00Z",
+                    "exit_timestamp": "2024-12-04T12:00:00Z",
+                    "entry_price": 50000.0,
+                    "exit_price": 51000.0,
+                    "position_size": 1.0,
+                    "realized_pnl": 1000.0,
+                    "was_profitable": True,
+                }
+            ],
+            "provider_performance": {},
+            "experience_buffer": [
+                {
+                    "decision": "legacy-dec-2",
+                    "asset_pair": "ETHUSD",
+                    "action": "SELL",
+                    "entry_timestamp": "2024-12-04T10:00:00Z",
+                    "exit_timestamp": "2024-12-04T12:00:00Z",
+                    "entry_price": 2000.0,
+                    "exit_price": 1900.0,
+                    "position_size": 1.0,
+                    "realized_pnl": 100.0,
+                    "was_profitable": True,
+                }
+            ],
+        }
+        filepath.write_text(json.dumps(payload))
+
+        loaded_engine = PortfolioMemoryEngine.load_from_disk(str(filepath))
+
+        assert loaded_engine.trade_outcomes[0].decision_id == "legacy-dec-1"
+        assert loaded_engine.experience_buffer[0].decision_id == "legacy-dec-2"
+
 
 class TestAutoSave:
     """Test auto-save functionality."""
