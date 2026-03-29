@@ -211,3 +211,295 @@ If a slice cannot produce new proof artifacts, it is probably too fuzzy and need
 - Track 0 is now the immediate top-priority roadmap item because reliable learning/adaptation is the differentiator.
 - A boring runtime is now a feature; the next work is about subtlety, lineage, memory, and proof.
 - If the chain cannot be proved, FFE remains a competent but expensive state-processing machine rather than an adaptive system.
+
+---
+
+## Track 0 verification spine — immediate surgical next steps
+
+This section is the operational spine for the next session(s).
+It is intentionally narrower than the roadmap language.
+Do not start broad PR-4 implementation from vibes.
+Use this spine to verify that the recent Track 0 fixes are actually boring under live conditions.
+
+Working rule:
+- if any item below fails, treat that failure as the active Track 0 task
+- do not advance to adaptation-proof work while a lower-link verification item is still failing
+- prefer one sharply-proved seam over three half-proved ones
+
+### Step 1 — Resolve the `pending_outcomes.json` ambiguity
+
+#### Why this is first
+The overnight check showed real executions and repeated `Registered executed order ... for outcome tracking` logs, while `data/pending_outcomes.json` was still `{}`.
+That is exactly the kind of ambiguity Track 0 is supposed to eliminate.
+
+#### Questions to answer
+- What code path emits `Registered executed order ... for outcome tracking`?
+- After that log line, what durable artifact is supposed to exist?
+- Is `data/pending_outcomes.json` still the canonical queue/state file?
+- If not, what replaced it?
+- If yes, why can registration be logged while the file remains empty?
+
+#### Surgical inspection plan
+1. locate the exact emitter(s) of the registration log line
+2. trace the immediate downstream persistence write(s)
+3. identify the canonical durable state location for pending/registered outcomes
+4. compare implementation reality vs operator assumption
+5. classify the empty-file observation as one of:
+   - expected queue drain
+   - storage location moved
+   - stale/misleading log line
+   - true persistence failure
+
+#### Required proof artifact
+For one real registration event, record:
+- timestamp
+- asset/product
+- order id
+- log line text
+- code path/module
+- canonical durable artifact path
+- evidence that the artifact was or was not updated
+
+#### Pass / fail box
+- [ ] PASS: one real registration event can be tied to a canonical durable artifact, or the lack of an artifact is explicitly proved to be expected
+- [ ] FAIL: registration is logged but durable state is absent, ambiguous, or only inferable from code spelunking
+
+#### If fail
+- fix the persistence seam or stale log wording first
+- add a focused regression test for "registration claimed but durable pending-state proof missing"
+- do not move to PR-4 work until this ambiguity is removed
+
+---
+
+### Step 2 — Re-soak close-path lineage after PR-1b
+
+#### Why this is second
+A missing `decision_id` at close time invalidates every downstream learning/adaptation claim.
+PR-1b appears to have improved this, but the roadmap explicitly says it still needs soak verification.
+
+#### Questions to answer
+- Are any normal closes still producing `Learning handoff SKIPPED ... reason=missing_decision_id`?
+- When lineage is recovered, which source actually wins?
+- Is the recent decision-store fallback only a rescue path, or is it masking earlier preservation failure?
+
+#### Surgical inspection plan
+1. gather a fresh soak window of close events after commit `914371d`
+2. search for:
+   - `Learning handoff ATTEMPT`
+   - `Learning handoff ACCEPTED`
+   - `Learning handoff FAILED`
+   - `Learning handoff SKIPPED`
+   - `reason=missing_decision_id`
+3. build a tiny per-close classification table:
+   - close timestamp
+   - product/asset
+   - order id
+   - decision id present or absent
+   - lineage source used
+   - final handoff outcome
+4. for any skip, capture attempted lineage sources in order
+5. decide whether the failure is:
+   - a preservation bug while position is still open
+   - a recovery ordering bug
+   - an edge case outside the current intended seam
+
+#### Required proof artifact
+A small soak summary covering all closes in the window with explicit handoff status and lineage source.
+
+#### Pass / fail box
+- [ ] PASS: no fresh normal close in the verification window ends with `missing_decision_id`
+- [ ] FAIL: at least one fresh normal close still skips learning because decision lineage was lost
+
+#### If fail
+- patch the earliest preservation point possible, not the broadest fallback layer
+- add one narrow regression test for the exact failed lifecycle
+- repeat Step 2 before touching adaptation proof work
+
+---
+
+### Step 3 — Re-soak portfolio-memory autosave after `115dc12`
+
+#### Why this is third
+The autosave serialization failure was explicitly elevated to priority #1 once it was discovered live.
+A learning chain that mutates memory but cannot save it durably is not boring enough.
+
+#### Questions to answer
+- Did the `'dict' object has no attribute 'to_dict'` warning actually disappear after deploy?
+- Do mixed object/dict entries now round-trip through save/load safely?
+- Is the persisted memory artifact still readable after fresh learning events?
+
+#### Surgical inspection plan
+1. gather logs after commit `115dc12` deploy window
+2. search for:
+   - `Failed to auto-save portfolio memory`
+   - `'dict' object has no attribute 'to_dict'`
+   - portfolio memory update success markers
+3. correlate a fresh learning event with:
+   - handoff accepted
+   - memory update logged
+   - autosave path completing without warning
+4. inspect the resulting durable memory artifact
+5. confirm the artifact can be reloaded without compatibility errors
+
+#### Required proof artifact
+For one fresh learning event, record:
+- timestamp
+- order id
+- decision id
+- memory update log evidence
+- autosave status evidence
+- durable file/store path
+- load/read confirmation
+
+#### Pass / fail box
+- [ ] PASS: no fresh autosave warning appears and the saved memory artifact remains readable after the learning event
+- [ ] FAIL: autosave warnings persist, or save/load compatibility remains uncertain
+
+#### If fail
+- patch serialization/load compatibility before any adaptation work
+- add a regression test that round-trips mixed dict/object entries through save and load
+- repeat Step 3 until the seam is boring
+
+---
+
+### Step 4 — Build a one-trade audit trace record
+
+#### Why this is fourth
+This converts the new instrumentation into operator-proof evidence instead of scattered greps.
+It is also the seed for PR-5, but should be built now while Track 0 is being soaked.
+
+#### Record template
+For one real closed trade, capture in one place:
+- close timestamp
+- asset / product id
+- order id
+- decision id
+- lineage source used
+- durable outcome artifact path and record locator
+- learning handoff status
+- memory/performance mutation evidence
+- pending outcome registration/persistence evidence
+- adaptive-state evidence (if any)
+- open questions / anomalies
+
+#### Surgical inspection plan
+1. pick one clean close from the recent live window
+2. trace it forward from close detection to outcome recording
+3. trace it through learning handoff
+4. trace it into memory/performance mutation
+5. note whether adaptation evidence exists yet or remains unproved
+
+#### Required proof artifact
+A single compact audit note that proves the chain for one trade without re-reading broad runtime history.
+
+#### Pass / fail box
+- [ ] PASS: one real trade can be traced end-to-end through outcome, lineage, handoff, and memory evidence with no ad hoc spelunking
+- [ ] FAIL: proving one trade still requires broad manual reconstruction from logs and code
+
+#### If fail
+- add the missing instrumentation or documentation at the narrowest missing link
+- do not compensate with a bigger runbook yet; fix the missing seam evidence first
+
+---
+
+### Step 5 — Only after Steps 1–4 pass: scope PR-4 narrowly
+
+#### Rule
+Do not begin with "prove adaptation" as an abstract goal.
+Pick one adaptive mechanism and prove that one mechanism changes because of outcomes and is later used.
+
+#### Candidate mechanisms
+- provider weights
+- performance tracker
+- debate / ensemble selector
+- reward / feedback analyzer state
+
+#### Surgical inspection plan
+1. identify the single true adaptive state holder to target first
+2. map:
+   - update trigger
+   - durable state location
+   - later read/use site
+3. instrument before/after state around one learning-triggering event
+4. prove the later selector/weighting path actually read the changed state
+
+#### Required proof artifact
+A before/after record showing:
+- learning-triggering outcome identifiers
+- adaptive state before
+- adaptive state after
+- later runtime read/use evidence
+- distinction between runtime learning update vs config normalization
+
+#### Pass / fail box
+- [ ] PASS: one adaptive mechanism is shown to change because of a real/near-live outcome and later influence runtime behavior
+- [ ] FAIL: only memory/performance stats changed, with no proved downstream adaptive effect
+
+#### If fail
+- narrow the mechanism further
+- instrument the later read/use site
+- do not broaden to multiple adaptive paths until one is fully proved
+
+---
+
+## Session-start execution checklist
+
+Use this as the literal next-session checklist.
+Proceed top to bottom.
+Do not skip a failing box just because a later item sounds more interesting.
+
+### A. Pending outcome persistence seam
+- [ ] locate `Registered executed order ... for outcome tracking` emitter
+- [ ] identify canonical pending outcome durable state location
+- [ ] verify one real registration event against that state
+- [ ] classify `{}` in `data/pending_outcomes.json` as expected or broken
+- [ ] if broken, patch seam or log wording and add regression test
+
+### B. Close-path lineage soak
+- [ ] collect fresh close events after `914371d`
+- [ ] classify each close as ACCEPTED / FAILED / SKIPPED
+- [ ] verify no fresh `reason=missing_decision_id` on normal closes
+- [ ] capture lineage source for each close in sample window
+- [ ] if broken, patch earliest preservation point and retest
+
+### C. Portfolio-memory autosave soak
+- [ ] collect fresh post-`115dc12` learning events
+- [ ] verify no `'dict' object has no attribute 'to_dict'` warnings
+- [ ] verify memory update followed by quiet durable save
+- [ ] inspect saved memory artifact
+- [ ] confirm load/read compatibility after save
+
+### D. One-trade audit note
+- [ ] choose one real closed trade
+- [ ] capture outcome artifact evidence
+- [ ] capture lineage evidence
+- [ ] capture handoff evidence
+- [ ] capture memory/performance mutation evidence
+- [ ] capture pending-state evidence
+- [ ] note whether adaptation evidence exists yet
+
+### E. PR-4 narrow scoping (only if A-D pass)
+- [ ] choose exactly one adaptive mechanism
+- [ ] map update trigger, durable state, and later read site
+- [ ] instrument before/after state
+- [ ] prove later runtime use of changed state
+- [ ] document result as adaptation proof or not-yet-proved
+
+## Stop conditions
+
+Stop forward progress and treat the discovered issue as the active task if any of the following occur:
+- a fresh normal close still skips with `missing_decision_id`
+- outcome registration still cannot be tied to a durable artifact
+- autosave warnings persist or saved memory cannot be read back
+- proving one trade still requires broad manual reconstruction
+
+## Advancement rule
+
+PR-4 becomes the active implementation stream only when:
+- Step 1 passes
+- Step 2 passes
+- Step 3 passes
+- Step 4 passes
+
+Until then, the correct move is not broader cleverness.
+It is making the lower links boring enough to trust.
