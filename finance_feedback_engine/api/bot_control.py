@@ -856,8 +856,12 @@ async def _get_agent_status_internal(
                     # Get daily PnL if available
                     if hasattr(trade_monitor, "get_daily_pnl"):
                         daily_pnl = trade_monitor.get_daily_pnl()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning(
+                        "Status payload degraded: failed to fetch trade monitor metrics: %s",
+                        exc,
+                        exc_info=True,
+                    )
 
         # Prefer live runtime agent config when available; fallback to engine config.
         if (
@@ -1108,7 +1112,11 @@ async def agent_websocket(
                 stop_event.set()
                 return
             except Exception as exc:  # noqa: BLE001
-                logger.debug("WebSocket receive error: %s", exc, exc_info=True)
+                logger.error(
+                    "WebSocket receiver stopping after unexpected receive error: %s",
+                    exc,
+                    exc_info=True,
+                )
                 stop_event.set()
                 return
 
@@ -1668,7 +1676,11 @@ async def portfolio_stream_websocket(
             except WebSocketDisconnect:
                 stop_event.set()
             except Exception as exc:
-                logger.debug("Portfolio WebSocket sender error: %s", exc)
+                logger.error(
+                    "Portfolio WebSocket sender stopping after unexpected error: %s",
+                    exc,
+                    exc_info=True,
+                )
                 stop_event.set()
 
             await asyncio.sleep(2)  # Send updates every 2 seconds

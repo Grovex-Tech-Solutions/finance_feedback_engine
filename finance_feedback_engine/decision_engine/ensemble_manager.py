@@ -420,7 +420,7 @@ class EnsembleDecisionManager:
             ensemble_cfg["enabled_providers"] = list(self.enabled_providers)
             ensemble_cfg["provider_weights"] = dict(self.base_weights)
         except Exception:
-            logger.debug("Failed to sync ensemble config during failover", exc_info=True)
+            logger.error("Failed to sync ensemble config during failover", exc_info=True)
 
         return {
             "enabled_providers": list(self.enabled_providers),

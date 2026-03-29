@@ -503,3 +503,82 @@ PR-4 becomes the active implementation stream only when:
 
 Until then, the correct move is not broader cleverness.
 It is making the lower links boring enough to trust.
+
+---
+
+## Deep audit infusion — decision serialization trail (2026-03-29)
+
+This audit should shape all future Track 0 work.
+It explains why lineage bugs keep recurring even after targeted read-path fixes.
+
+### Architecture reality
+
+Decisions are still plain dicts with 70+ fields.
+There is no dataclass, no Pydantic model for the canonical runtime shape, and no `_schema_version` field.
+That means every write path and every recovery/read path must independently tolerate:
+- field aliases
+- partial shapes
+- missing optionals
+- format drift across older persisted decisions
+
+### Serialization surfaces to remember
+
+#### Write paths
+1. `persistence/decision_store.py` — full decision dict → JSON
+2. `backtesting/decision_cache.py` — full decision dict → SQLite JSON
+3. `agent/trading_loop_agent.py` recovery synthesis — manually constructed partial decision dict
+4. `api/routes.py` — 5-field Pydantic response subset
+5. `memory/portfolio_memory.py` — `TradeOutcome` with decision reference only
+
+#### Read / recovery paths
+1. decision-store JSON load
+2. backtest-cache JSON load
+3. recovery decision lookup by product/side/platform/price
+4. 6-source lineage recovery fallback chain
+5. portfolio-memory load with backward-compat mapping
+
+### Canonical field-drift findings
+
+#### High-risk alias families
+- decision id aliases: `id` vs `decision_id` vs legacy `decision`
+- traded-asset aliases: `asset_pair` vs `product_id` vs `product` vs `asset`
+- semantic action aliases: `action` vs `side` vs `direction`
+
+Normalization helpers exist, but they are not consistently enforced at write boundaries.
+That is the root architecture for the recurring lineage bug class.
+
+### Important conclusions for Track 0
+
+1. The recurring bug pattern is still **schema drift + inconsistent normalization boundaries**, not one single read-path mistake.
+2. Recovery decisions are structurally smaller than validator-created decisions, so all readers still need to tolerate multiple decision shapes.
+3. The 6-source lineage recovery chain is still order-dependent; ephemeral stores can drift before durable lookup rescues the close path.
+4. `df791cc` removed two active alias bugs from the close path:
+   - canonical `side` now survives pending-order tracking instead of degrading to `action`
+   - trade outcomes now normalize `product` and `product_id` both ways before lineage and learning handoff logic
+
+### Audit-informed remediation plan
+
+#### Immediate remediation batch (do now, small + high-signal)
+- [x] `order_status_worker.py` canonical side preservation (`df791cc`)
+- [x] `trading_loop_agent.py` product/product_id alias normalization (`df791cc`)
+- [x] `api/bot_control.py` log degraded status payload when `get_daily_pnl()` fails instead of silently swallowing it
+- [x] `api/bot_control.py` log unexpected WebSocket receiver death before stopping the stream
+- [x] `api/bot_control.py` log unexpected portfolio WebSocket sender death before stopping the stream
+- [x] `decision_engine/ensemble_manager.py` raise failover config-sync visibility from debug to error
+
+#### Next structural prevention batch (not same as one-line bugfixes)
+- [ ] add `_schema_version` to newly persisted decisions
+- [ ] add round-trip serialization tests for canonical decision fields
+- [ ] add one single decision-id normalizer for `id` / `decision_id` / `decision`
+- [ ] document whether `flake8` is intentionally deferred
+- [ ] bound critical runtime dependency majors in `pyproject.toml`
+
+### How this changes PR-4 work
+
+Before claiming provider/model adaptation proof, decision artifacts need to be treated as first-class evidence.
+That means PR-4 should now explicitly verify:
+- persisted decision shape at write time
+- persisted ensemble metadata completeness
+- whether adaptation uses a full decision artifact or a degraded/recovery-only subset
+
+If adaptation is unproved, inspect the decision artifact first before adding more downstream fallbacks.
