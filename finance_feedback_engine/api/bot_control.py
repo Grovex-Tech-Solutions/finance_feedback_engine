@@ -1787,7 +1787,12 @@ async def positions_stream_websocket(
             except asyncio.TimeoutError:
                 pass  # Timeout is acceptable, just skip this update
             except Exception as exc:
-                logger.debug("Positions WebSocket sender error: %s", exc)
+                logger.error(
+                    "Positions WebSocket sender stopping after unexpected error: %s",
+                    exc,
+                    exc_info=True,
+                )
+                stop_event.set()
 
             await asyncio.sleep(2)  # Send updates every 2 seconds
 
@@ -1802,7 +1807,12 @@ async def positions_stream_websocket(
                 continue
             except WebSocketDisconnect:
                 stop_event.set()
-            except Exception:
+            except Exception as exc:
+                logger.error(
+                    "Positions WebSocket receiver stopping after unexpected receive error: %s",
+                    exc,
+                    exc_info=True,
+                )
                 stop_event.set()
     finally:
         stop_event.set()
@@ -1884,7 +1894,12 @@ async def decisions_stream_websocket(
             except WebSocketDisconnect:
                 stop_event.set()
             except Exception as exc:
-                logger.debug("Decisions WebSocket sender error: %s", exc)
+                logger.error(
+                    "Decisions WebSocket sender stopping after unexpected error: %s",
+                    exc,
+                    exc_info=True,
+                )
+                stop_event.set()
 
             await asyncio.sleep(1)  # Check for new decisions every second
 
@@ -1899,7 +1914,12 @@ async def decisions_stream_websocket(
                 continue
             except WebSocketDisconnect:
                 stop_event.set()
-            except Exception:
+            except Exception as exc:
+                logger.error(
+                    "Decisions WebSocket receiver stopping after unexpected receive error: %s",
+                    exc,
+                    exc_info=True,
+                )
                 stop_event.set()
     finally:
         stop_event.set()
