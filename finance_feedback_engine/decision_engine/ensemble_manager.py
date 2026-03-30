@@ -1690,9 +1690,9 @@ class EnsembleDecisionManager:
         )
         self.base_weights = new_weights
 
-        history_path = getattr(self.performance_tracker, "history_file", None)
+        history_path = getattr(self.performance_tracker, "history_path", None)
         logger.info(
-            "Adaptive weights updated | actual_outcome=%s | performance_metric=%s | provider_decisions=%s | weights_before=%s | weights_after=%s | history_file=%s",
+            "Adaptive weights updated | actual_outcome=%s | performance_metric=%s | provider_decisions=%s | weights_before=%s | weights_after=%s | history_path=%s",
             actual_outcome,
             performance_metric,
             sorted(provider_decisions.keys()),

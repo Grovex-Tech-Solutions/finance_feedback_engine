@@ -85,5 +85,5 @@ def test_update_base_weights_logs_before_after_packet(tmp_path, caplog):
     assert (
         "Adaptive weights updated | actual_outcome=BUY | performance_metric=10.0 | "
         "provider_decisions=['local', 'qwen'] | weights_before={'local': 0.5, 'qwen': 0.5} | "
-        "weights_after={'local': 1.0, 'qwen': 0.0} | history_file="
+        "weights_after={'local': 1.0, 'qwen': 0.0} | history_path="
     ) in caplog.text
