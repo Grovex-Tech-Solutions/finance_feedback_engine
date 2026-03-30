@@ -9,6 +9,49 @@ from finance_feedback_engine.utils.file_io import FileIOManager, FileIOError
 
 logger = logging.getLogger(__name__)
 
+DECISION_SCHEMA_VERSION = 1
+
+
+def normalize_decision_id(candidate: Any) -> Optional[str]:
+    """Return one canonical decision id from legacy shapes.
+
+    Supports direct ids, dicts with `id` / `decision_id`, and wrapper payloads where
+    `decision` is either a nested dict or the id value itself.
+    """
+    if candidate is None:
+        return None
+
+    if isinstance(candidate, dict):
+        for key in ("id", "decision_id"):
+            value = candidate.get(key)
+            if value not in (None, ""):
+                return str(value)
+
+        nested = candidate.get("decision")
+        if nested is not None:
+            return normalize_decision_id(nested)
+
+        return None
+
+    if isinstance(candidate, str):
+        value = candidate.strip()
+        return value or None
+
+    return str(candidate)
+
+
+def normalize_decision_record(decision: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize persisted decision records to one canonical write/read shape."""
+    normalized = dict(decision or {})
+    decision_id = normalize_decision_id(normalized)
+    if decision_id:
+        normalized["id"] = decision_id
+        normalized["decision_id"] = decision_id
+
+    normalized.setdefault("_schema_version", DECISION_SCHEMA_VERSION)
+    normalized.setdefault("timestamp", datetime.now(UTC).isoformat())
+    return normalized
+
 
 class DecisionStore:
     """
@@ -45,20 +88,21 @@ class DecisionStore:
         Args:
             decision: Decision dictionary to save
         """
-        decision_id = decision.get("id")
+        normalized_decision = normalize_decision_record(decision)
+        decision_id = normalized_decision.get("id")
         if not decision_id:
             logger.error("Cannot save decision without ID")
             return
 
         # Create filename from decision ID and timestamp
-        timestamp = decision.get("timestamp", datetime.now(UTC).isoformat())
+        timestamp = normalized_decision.get("timestamp", datetime.now(UTC).isoformat())
         date_str = timestamp.split("T")[0]
         filename = f"{date_str}_{decision_id}.json"
 
         try:
             self.file_io.write_json(
                 filename,
-                decision,
+                normalized_decision,
                 atomic=True,
                 backup=False,  # No backup for new decisions
                 create_dirs=False  # Directory already created in __init__
@@ -82,7 +126,7 @@ class DecisionStore:
             try:
                 # Read using FileIOManager with relative path
                 relative_path = filepath.relative_to(self.storage_path)
-                return self.file_io.read_json(relative_path)
+                return normalize_decision_record(self.file_io.read_json(relative_path))
             except FileIOError as e:
                 logger.error(f"Error loading decision from {filepath}: {e}")
 
@@ -118,7 +162,7 @@ class DecisionStore:
             try:
                 # Read using FileIOManager
                 relative_path = filepath.relative_to(self.storage_path)
-                decision = self.file_io.read_json(relative_path)
+                decision = normalize_decision_record(self.file_io.read_json(relative_path))
 
                 # Filter by asset pair if specified
                 if asset_pair and decision.get("asset_pair") != asset_pair:
@@ -210,7 +254,8 @@ class DecisionStore:
         Args:
             decision: Updated decision dictionary
         """
-        decision_id = decision.get("id")
+        normalized_decision = normalize_decision_record(decision)
+        decision_id = normalized_decision.get("id")
         if not decision_id:
             logger.error("Cannot update decision without ID")
             return
@@ -222,7 +267,7 @@ class DecisionStore:
                 relative_path = filepath.relative_to(self.storage_path)
                 self.file_io.write_json(
                     relative_path,
-                    decision,
+                    normalized_decision,
                     atomic=True,
                     backup=True,  # Backup existing decision before update
                     create_dirs=False

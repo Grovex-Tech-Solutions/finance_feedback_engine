@@ -2,7 +2,12 @@
 
 import uuid
 
-from finance_feedback_engine.persistence.decision_store import DecisionStore
+from finance_feedback_engine.persistence.decision_store import (
+    DECISION_SCHEMA_VERSION,
+    DecisionStore,
+    normalize_decision_id,
+    normalize_decision_record,
+)
 
 
 class TestDecisionStore:
@@ -184,6 +189,164 @@ class TestDecisionStoreEdgeCases:
         retrieved = store.get_decision_by_id(decision_id)
         assert retrieved["extra_field"] == "extra_value"
         assert retrieved["nested"]["key"] == "value"
+        assert retrieved["_schema_version"] == DECISION_SCHEMA_VERSION
+        assert retrieved["decision_id"] == decision_id
+
+    def test_save_decision_with_legacy_decision_id_alias(self, tmp_path):
+        """Legacy decision_id-only payloads should be normalized at write/read time."""
+        config = {"storage_path": str(tmp_path / "decisions")}
+        store = DecisionStore(config=config)
+
+        decision_id = str(uuid.uuid4())
+        decision = {
+            "decision_id": decision_id,
+            "asset_pair": "BTCUSD",
+            "action": "BUY",
+            "confidence": 75,
+        }
+
+        store.save_decision(decision)
+        retrieved = store.get_decision_by_id(decision_id)
+
+        assert retrieved is not None
+        assert retrieved["id"] == decision_id
+        assert retrieved["decision_id"] == decision_id
+        assert retrieved["_schema_version"] == DECISION_SCHEMA_VERSION
+
+    def test_save_decision_with_nested_decision_wrapper_alias(self, tmp_path):
+        """Wrapper payloads with nested decision.id should normalize to canonical id fields."""
+        config = {"storage_path": str(tmp_path / "decisions")}
+        store = DecisionStore(config=config)
+
+        decision_id = str(uuid.uuid4())
+        decision = {
+            "decision": {"id": decision_id},
+            "asset_pair": "ETHUSD",
+            "action": "SELL",
+            "confidence": 65,
+        }
+
+        store.save_decision(decision)
+        retrieved = store.get_decision_by_id(decision_id)
+
+        assert retrieved is not None
+        assert retrieved["id"] == decision_id
+        assert retrieved["decision_id"] == decision_id
+        assert retrieved["_schema_version"] == DECISION_SCHEMA_VERSION
+
+    def test_round_trip_preserves_nested_debate_ensemble_metadata(self, tmp_path):
+        """Debate-mode ensemble metadata should survive save/load unchanged."""
+        config = {"storage_path": str(tmp_path / "decisions")}
+        store = DecisionStore(config=config)
+
+        decision_id = str(uuid.uuid4())
+        decision = {
+            "id": decision_id,
+            "asset_pair": "BTCUSD",
+            "action": "HOLD",
+            "confidence": 55,
+            "ai_provider": "ensemble",
+            "ensemble_metadata": {
+                "voting_strategy": "debate",
+                "original_weights": {},
+                "adjusted_weights": {},
+                "provider_decisions": {
+                    "deepseek-r1:8b": {"action": "HOLD", "confidence": 70}
+                },
+                "role_decisions": {
+                    "bull": {"provider": "gemma2:9b", "action": "HOLD"},
+                    "bear": {"provider": "llama3.1:8b", "action": "REDUCE_SHORT"},
+                    "judge": {"provider": "deepseek-r1:8b", "action": "HOLD"},
+                },
+                "debate_seats": {
+                    "bull": "gemma2:9b",
+                    "bear": "llama3.1:8b",
+                    "judge": "deepseek-r1:8b",
+                },
+            },
+        }
+
+        store.save_decision(decision)
+        retrieved = store.get_decision_by_id(decision_id)
+
+        assert retrieved is not None
+        assert retrieved["ensemble_metadata"] == decision["ensemble_metadata"]
+        assert retrieved.get("original_weights") is None
+        assert retrieved.get("adjusted_weights") is None
+        assert retrieved.get("provider_decisions") is None
+
+    def test_round_trip_preserves_nested_weighted_ensemble_metadata(self, tmp_path):
+        """Weighted-mode ensemble metadata should survive save/load unchanged."""
+        config = {"storage_path": str(tmp_path / "decisions")}
+        store = DecisionStore(config=config)
+
+        decision_id = str(uuid.uuid4())
+        decision = {
+            "id": decision_id,
+            "asset_pair": "ETHUSD",
+            "action": "OPEN_SMALL_SHORT",
+            "confidence": 80,
+            "ai_provider": "ensemble",
+            "ensemble_metadata": {
+                "voting_strategy": "weighted",
+                "original_weights": {
+                    "gemma2:9b": 0.25,
+                    "llama3.1:8b": 0.25,
+                    "deepseek-r1:8b": 0.25,
+                    "gemma3:4b": 0.25,
+                },
+                "adjusted_weights": {
+                    "gemma2:9b": 0.20,
+                    "llama3.1:8b": 0.35,
+                    "deepseek-r1:8b": 0.30,
+                    "gemma3:4b": 0.15,
+                },
+                "provider_decisions": {
+                    "gemma2:9b": {"action": "HOLD", "confidence": 35},
+                    "llama3.1:8b": {"action": "OPEN_SMALL_SHORT", "confidence": 80},
+                    "deepseek-r1:8b": {"action": "OPEN_SMALL_SHORT", "confidence": 70},
+                },
+                "providers_used": ["gemma2:9b", "llama3.1:8b", "deepseek-r1:8b"],
+                "providers_failed": ["gemma3:4b"],
+                "fallback_tier": "weighted",
+            },
+        }
+
+        store.save_decision(decision)
+        retrieved = store.get_decision_by_id(decision_id)
+
+        assert retrieved is not None
+        assert retrieved["ensemble_metadata"] == decision["ensemble_metadata"]
+        assert retrieved["ensemble_metadata"]["original_weights"]["llama3.1:8b"] == 0.25
+        assert retrieved["ensemble_metadata"]["adjusted_weights"]["llama3.1:8b"] == 0.35
+        assert retrieved["ensemble_metadata"]["provider_decisions"]["deepseek-r1:8b"]["action"] == "OPEN_SMALL_SHORT"
+
+
+class TestDecisionStoreNormalizationHelpers:
+    def test_normalize_decision_id_accepts_multiple_alias_shapes(self):
+        decision_id = str(uuid.uuid4())
+
+        assert normalize_decision_id(decision_id) == decision_id
+        assert normalize_decision_id({"id": decision_id}) == decision_id
+        assert normalize_decision_id({"decision_id": decision_id}) == decision_id
+        assert normalize_decision_id({"decision": decision_id}) == decision_id
+        assert normalize_decision_id({"decision": {"id": decision_id}}) == decision_id
+
+    def test_normalize_decision_record_adds_schema_and_canonical_id_fields(self):
+        decision_id = str(uuid.uuid4())
+        normalized = normalize_decision_record(
+            {
+                "decision_id": decision_id,
+                "asset_pair": "BTCUSD",
+                "action": "BUY",
+                "confidence": 55,
+            }
+        )
+
+        assert normalized["id"] == decision_id
+        assert normalized["decision_id"] == decision_id
+        assert normalized["_schema_version"] == DECISION_SCHEMA_VERSION
+        assert normalized["timestamp"]
 
     def test_wipe_all_decisions(self, tmp_path):
         """Test wiping all decisions."""
