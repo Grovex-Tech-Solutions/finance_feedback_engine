@@ -1,8 +1,11 @@
 import copy
+import json
 import uuid
+from pathlib import Path
 
 import pytest
 
+from finance_feedback_engine.decision_engine.performance_tracker import PerformanceTracker
 from finance_feedback_engine.persistence.decision_store import (
     DECISION_SCHEMA_VERSION,
     DecisionStore,
@@ -254,3 +257,59 @@ def test_recovery_shape_keeps_recovery_metadata_and_canonical_id_fields(tmp_path
     assert loaded["ai_provider"] == "recovery"
     assert loaded["recovery_metadata"] == decision["recovery_metadata"]
     assert loaded["asset_pair"] == "ETP20DEC30CDE"
+
+
+def test_load_legacy_pre_schema_decision_file_normalizes_on_read(tmp_path):
+    storage = tmp_path / "decisions"
+    storage.mkdir(parents=True, exist_ok=True)
+    decision_id = str(uuid.uuid4())
+    legacy = {
+        "decision_id": decision_id,
+        "timestamp": "2026-03-29T23:59:00+00:00",
+        "asset_pair": "BTCUSD",
+        "action": "BUY",
+        "confidence": 70,
+        "ai_provider": "recovery",
+        "recovery_metadata": {"product_id": "BIP-20DEC30-CDE"},
+    }
+    (storage / f"2026-03-29_{decision_id}.json").write_text(json.dumps(legacy))
+
+    store = _make_store(tmp_path)
+    loaded = store.get_decision_by_id(decision_id)
+
+    assert loaded is not None
+    assert loaded["id"] == decision_id
+    assert loaded["decision_id"] == decision_id
+    assert loaded["_schema_version"] == DECISION_SCHEMA_VERSION
+    assert loaded["recovery_metadata"] == legacy["recovery_metadata"]
+
+
+def test_persisted_weighted_decision_is_readable_by_adaptation_path(tmp_path):
+    store = _make_store(tmp_path)
+    decision = _weighted_fixture()
+    store.save_decision(copy.deepcopy(decision))
+    loaded = store.get_decision_by_id(decision["id"])
+
+    assert loaded is not None
+    metadata = loaded["ensemble_metadata"]
+    provider_decisions = metadata["provider_decisions"]
+    original_weights = metadata["original_weights"]
+
+    tracker = PerformanceTracker(
+        config={"persistence": {"storage_path": str(tmp_path / "adaptive")}},
+        learning_rate=1.0,
+    )
+    tracker.update_provider_performance(
+        provider_decisions=provider_decisions,
+        actual_outcome="OPEN_SMALL_SHORT",
+        performance_metric=5.0,
+        enabled_providers=list(provider_decisions.keys()),
+    )
+    adaptive_weights = tracker.calculate_adaptive_weights(
+        enabled_providers=list(provider_decisions.keys()),
+        base_weights=original_weights,
+    )
+
+    assert adaptive_weights["llama3.1:8b"] > adaptive_weights["gemma2:9b"]
+    assert adaptive_weights["deepseek-r1:8b"] > adaptive_weights["gemma2:9b"]
+    assert pytest.approx(sum(adaptive_weights.values()), rel=1e-6) == 1.0

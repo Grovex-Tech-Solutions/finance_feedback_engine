@@ -298,6 +298,47 @@ def test_policy_action_helper_contract_matrix(
     assert get_position_side(action) == expected_position_side
 
 
+@pytest.mark.parametrize(
+    "action,expected_adapter_side,expected_position_side,expected_directional_side",
+    [
+        ("OPEN_SMALL_LONG", "BUY", "LONG", "bull"),
+        ("OPEN_SMALL_SHORT", "SELL", "SHORT", "bear"),
+        ("HOLD", "HOLD", None, None),
+    ],
+)
+def test_action_side_direction_alias_family_contract_for_canonical_policy_actions(
+    action, expected_adapter_side, expected_position_side, expected_directional_side
+):
+    from finance_feedback_engine.decision_engine.debate_manager import _directional_side
+
+    assert to_adapter_side(action) == expected_adapter_side
+    assert get_position_side(action) == expected_position_side
+    assert _directional_side(action) == expected_directional_side
+
+
+@pytest.mark.xfail(
+    reason="Legacy directional/execution aliases are not yet unified at one normalization boundary",
+    strict=False,
+)
+@pytest.mark.parametrize(
+    "action,expected_adapter_side,expected_position_side,expected_directional_side",
+    [
+        ("BUY", "BUY", "LONG", "bull"),
+        ("SELL", "SELL", "SHORT", "bear"),
+        ("CLOSE_SHORT", "BUY", "SHORT", "bull"),
+        ("REDUCE_LONG", "SELL", "LONG", "bear"),
+    ],
+)
+def test_action_side_direction_alias_family_contract_for_legacy_and_exit_actions(
+    action, expected_adapter_side, expected_position_side, expected_directional_side
+):
+    from finance_feedback_engine.decision_engine.debate_manager import _directional_side
+
+    assert to_adapter_side(action) == expected_adapter_side
+    assert get_position_side(action) == expected_position_side
+    assert _directional_side(action) == expected_directional_side
+
+
 def test_structural_legality_for_flat_position():
     legal = legal_actions_for_position_state("flat")
     assert PolicyAction.OPEN_SMALL_LONG in legal

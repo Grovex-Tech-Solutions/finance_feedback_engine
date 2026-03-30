@@ -242,6 +242,49 @@ def test_recover_decision_lineage_for_closed_outcome_falls_back_to_decision_stor
     assert "decision_store.recovery_metadata_product" in attempted_sources
 
 
+def test_recover_decision_lineage_for_closed_outcome_reads_real_store_normalized_legacy_record(
+    trading_agent, mock_dependencies, tmp_path
+):
+    from finance_feedback_engine.persistence.decision_store import DecisionStore
+
+    store = DecisionStore({"storage_path": str(tmp_path / "decisions")})
+    store.save_decision(
+        {
+            "decision_id": "decision-recovery-legacy-btc",
+            "timestamp": "2026-03-30T04:00:00+00:00",
+            "asset_pair": "BIP20DEC30CDE",
+            "action": "SELL",
+            "confidence": 70,
+            "ai_provider": "recovery",
+            "recovery_metadata": {
+                "product_id": "BIP-20DEC30-CDE",
+                "platform": "coinbase",
+            },
+        }
+    )
+
+    mock_dependencies["engine"].trade_outcome_recorder = MagicMock(open_positions={})
+    mock_dependencies["trade_monitor"].expected_trades = {}
+    mock_dependencies["trade_monitor"].active_trackers = {}
+    mock_dependencies["trade_monitor"].closed_trades_queue = MagicMock(queue=[])
+    mock_dependencies["trade_monitor"].get_decision_id_by_asset.return_value = None
+    mock_dependencies["engine"].decision_store = store
+
+    decision_id, lineage_source, attempted_sources = (
+        trading_agent._recover_decision_lineage_for_closed_outcome(
+            {
+                "product": "BIP-20DEC30-CDE",
+                "side": "SHORT",
+                "order_id": "order-btc-close-legacy",
+            }
+        )
+    )
+
+    assert decision_id == "decision-recovery-legacy-btc"
+    assert lineage_source == "decision_store.recovery_metadata_product"
+    assert "decision_store.recovery_metadata_product" in attempted_sources
+
+
 @pytest.mark.asyncio
 async def test_handle_learning_state_skips_when_decision_id_unrecoverable(trading_agent, caplog):
     """handle_learning_state logs SKIPPED and does not call record_trade_outcome when decision_id is absent and all recovery sources fail."""
