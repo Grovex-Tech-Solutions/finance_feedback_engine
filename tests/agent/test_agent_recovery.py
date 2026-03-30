@@ -563,6 +563,53 @@ async def test_recovery_decision_persistence_in_memory(agent, mock_engine, mock_
 
 
 @pytest.mark.asyncio
+async def test_recovery_preserves_original_attribution_when_shadowing_existing_position(
+    agent, mock_engine
+):
+    mock_engine.get_portfolio_breakdown_async.return_value = {
+        "futures_positions": [
+            {
+                "product_id": "BIP-20DEC30-CDE",
+                "side": "SHORT",
+                "contracts": 1.0,
+                "units": 1.0,
+                "entry_price": 67580.0,
+                "current_price": 67600.0,
+                "unrealized_pnl": -20.0,
+                "opened_at": "2026-03-30T05:17:30Z",
+            }
+        ]
+    }
+    mock_engine.decision_store.find_equivalent_recovery_decision.return_value = None
+    mock_engine.decision_store.find_recent_decision_for_position.return_value = {
+        "id": "ensemble-open-bip-1",
+        "ai_provider": "ensemble",
+        "decision_source": "debate",
+        "ensemble_metadata": {
+            "voting_strategy": "debate",
+            "providers_used": ["gemma2:9b", "llama3.1:8b", "deepseek-r1:8b"],
+            "provider_decisions": {"deepseek-r1:8b": {"action": "SELL"}},
+            "role_decisions": {
+                "bull": {"provider": "gemma2:9b", "action": "HOLD"},
+                "bear": {"provider": "llama3.1:8b", "action": "OPEN_SMALL_SHORT"},
+                "judge": {"provider": "deepseek-r1:8b", "action": "OPEN_SMALL_SHORT"},
+            },
+        },
+        "policy_trace": {"decision_metadata": {"decision_id": "ensemble-open-bip-1"}},
+    }
+
+    await agent.handle_recovering_state()
+
+    saved = mock_engine.decision_store.save_decision.call_args.args[0]
+    assert saved["ai_provider"] == "ensemble"
+    assert saved["decision_source"] == "debate"
+    assert saved["ensemble_metadata"]["voting_strategy"] == "debate"
+    assert saved["policy_trace"]["decision_metadata"]["decision_id"] == "ensemble-open-bip-1"
+    assert saved["recovery_metadata"]["shadowed_from_decision_id"] == "ensemble-open-bip-1"
+    assert saved["recovery_metadata"]["shadowed_from_provider"] == "ensemble"
+
+
+@pytest.mark.asyncio
 async def test_recovery_trade_monitor_association(agent, mock_engine, mock_trade_monitor):
     """Test that recovered positions are associated with trade monitor."""
     # Setup

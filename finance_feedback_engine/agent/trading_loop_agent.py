@@ -1268,6 +1268,19 @@ class TradingLoopAgent:
                             platform=pos["platform"],
                             product_id=pos["product_id"],
                         )
+                        attribution_source = None
+                        finder = getattr(
+                            self.engine.decision_store,
+                            "find_recent_decision_for_position",
+                            None,
+                        )
+                        if callable(finder):
+                            attribution_source = finder(
+                                asset_pair=asset_pair,
+                                action=action,
+                                entry_price=entry_price,
+                                position_size=pos["size"],
+                            )
 
                         if (
                             recovery_key in self._recovered_position_keys
@@ -1303,6 +1316,38 @@ class TradingLoopAgent:
                             # Generate standard UUID for decision
                             decision_id = str(uuid_module.uuid4())
 
+                            inherited_ai_provider = (
+                                attribution_source.get("ai_provider")
+                                if isinstance(attribution_source, dict)
+                                else None
+                            ) or "recovery"
+                            inherited_ensemble_metadata = None
+                            inherited_policy_trace = None
+                            inherited_decision_source = None
+                            shadowed_from_decision_id = None
+                            if isinstance(attribution_source, dict):
+                                shadowed_from_decision_id = attribution_source.get("id")
+                                ensemble_metadata = attribution_source.get(
+                                    "ensemble_metadata"
+                                )
+                                if isinstance(ensemble_metadata, dict):
+                                    inherited_ensemble_metadata = dict(ensemble_metadata)
+                                policy_trace = attribution_source.get("policy_trace")
+                                if isinstance(policy_trace, dict):
+                                    inherited_policy_trace = dict(policy_trace)
+                                inherited_decision_source = attribution_source.get(
+                                    "decision_source"
+                                )
+
+                            effective_recovery_metadata = dict(recovery_metadata)
+                            if shadowed_from_decision_id:
+                                effective_recovery_metadata[
+                                    "shadowed_from_decision_id"
+                                ] = shadowed_from_decision_id
+                                effective_recovery_metadata[
+                                    "shadowed_from_provider"
+                                ] = inherited_ai_provider
+
                             # Create decision record (same as newly-created positions)
                             decision = {
                                 "id": decision_id,
@@ -1318,8 +1363,8 @@ class TradingLoopAgent:
                                 "take_profit_pct": 0.05,
                                 "reasoning": f"Recovered existing {pos['side']} position from {pos['platform']} platform",
                                 "market_regime": "unknown",
-                                "ai_provider": "recovery",
-                                "ensemble_metadata": {
+                                "ai_provider": inherited_ai_provider,
+                                "ensemble_metadata": inherited_ensemble_metadata or {
                                     "providers_used": ["recovery"],
                                     "providers_failed": [],
                                     "active_weights": {"recovery": 1.0},
@@ -1332,8 +1377,12 @@ class TradingLoopAgent:
                                     "concentration_check": "OK",
                                     "correlation_check": "PASS",
                                 },
-                                "recovery_metadata": recovery_metadata,
+                                "recovery_metadata": effective_recovery_metadata,
                             }
+                            if inherited_policy_trace is not None:
+                                decision["policy_trace"] = inherited_policy_trace
+                            if inherited_decision_source is not None:
+                                decision["decision_source"] = inherited_decision_source
 
                             # Persist decision to decision store once per live position fingerprint.
                             self.engine.decision_store.save_decision(decision)

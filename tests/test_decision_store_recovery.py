@@ -58,3 +58,34 @@ def test_find_equivalent_recovery_decision_ignores_non_recovery(tmp_path):
     )
 
     assert match is None
+
+
+def test_find_recent_decision_for_position_matches_non_recovery_attribution_source(tmp_path):
+    store = DecisionStore({"storage_path": str(tmp_path)})
+    store.save_decision(
+        {
+            "id": "dec-3",
+            "asset_pair": "BTCUSD",
+            "timestamp": "2026-03-10T16:19:30.565027Z",
+            "action": "OPEN_SMALL_SHORT",
+            "confidence": 82,
+            "recommended_position_size": 1.0,
+            "entry_price": 67580.0,
+            "ai_provider": "ensemble",
+            "ensemble_metadata": {
+                "voting_strategy": "debate",
+                "providers_used": ["gemma2:9b", "llama3.1:8b", "deepseek-r1:8b"],
+            },
+        }
+    )
+
+    match = store.find_recent_decision_for_position(
+        asset_pair="BTCUSD",
+        action="OPEN_SMALL_SHORT",
+        entry_price=67580.0,
+        position_size=1.0,
+    )
+
+    assert match is not None
+    assert match["id"] == "dec-3"
+    assert match["ai_provider"] == "ensemble"

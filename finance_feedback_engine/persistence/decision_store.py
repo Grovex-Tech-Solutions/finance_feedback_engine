@@ -247,6 +247,49 @@ class DecisionStore:
 
         return None
 
+    def find_recent_decision_for_position(
+        self,
+        *,
+        asset_pair: str,
+        action: str,
+        entry_price: float,
+        position_size: float,
+        lookback: int = 250,
+    ) -> Optional[Dict[str, Any]]:
+        """Return the most recent stored decision matching a live position fingerprint.
+
+        This is used by startup recovery to preserve original attribution fields when
+        wrapping an already-open position in a synthetic recovery decision.
+        """
+
+        normalized_asset_pair = (asset_pair or "").upper()
+        normalized_action = (action or "").upper()
+
+        for decision in self.get_decisions(asset_pair=asset_pair, limit=lookback):
+            if str(decision.get("action", "")).upper() != normalized_action:
+                continue
+
+            try:
+                existing_entry = float(decision.get("entry_price", 0.0) or 0.0)
+                existing_size = float(
+                    decision.get("recommended_position_size", 0.0) or 0.0
+                )
+            except (TypeError, ValueError):
+                continue
+
+            if abs(existing_entry - float(entry_price)) > 1e-9:
+                continue
+            if abs(existing_size - float(position_size)) > 1e-9:
+                continue
+
+            existing_asset_pair = str(decision.get("asset_pair") or "").upper()
+            if existing_asset_pair != normalized_asset_pair:
+                continue
+
+            return decision
+
+        return None
+
     def update_decision(self, decision: Dict[str, Any]) -> None:
         """
         Update an existing decision.
