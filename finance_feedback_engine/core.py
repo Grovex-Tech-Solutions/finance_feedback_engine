@@ -723,6 +723,19 @@ class FinanceFeedbackEngine:
                 performance_metric = getattr(outcome, "pnl_percentage", None)
                 if performance_metric is None:
                     performance_metric = getattr(outcome, "realized_pnl", 0.0)
+                recovery_metadata = decision.get("recovery_metadata") or {}
+                shadowed_from_decision_id = recovery_metadata.get(
+                    "shadowed_from_decision_id"
+                )
+                logger.info(
+                    "Adaptive learning handoff | decision_id=%s | ai_provider=%s | shadowed_from_decision_id=%s | provider_decisions=%s | actual_outcome=%s | performance_metric=%s",
+                    getattr(outcome, "decision_id", decision.get("id", "unknown")),
+                    decision.get("ai_provider"),
+                    shadowed_from_decision_id,
+                    sorted(provider_decisions.keys()),
+                    str(getattr(outcome, "action", decision.get("action", "HOLD"))).upper(),
+                    float(performance_metric or 0.0),
+                )
                 ensemble_manager.update_base_weights(
                     provider_decisions,
                     str(getattr(outcome, "action", decision.get("action", "HOLD"))).upper(),
@@ -1729,4 +1742,3 @@ class FinanceFeedbackEngine:
             pass
 
         return decision
-

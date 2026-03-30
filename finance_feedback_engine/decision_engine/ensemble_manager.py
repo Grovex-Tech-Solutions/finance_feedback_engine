@@ -1674,6 +1674,8 @@ class EnsembleDecisionManager:
         if not self.adaptive_learning:
             return
 
+        base_weights_before = dict(self.base_weights)
+
         # Use the PerformanceTracker component
         self.performance_tracker.update_provider_performance(
             provider_decisions,
@@ -1687,6 +1689,17 @@ class EnsembleDecisionManager:
             self.enabled_providers, self.base_weights
         )
         self.base_weights = new_weights
+
+        history_path = getattr(self.performance_tracker, "history_file", None)
+        logger.info(
+            "Adaptive weights updated | actual_outcome=%s | performance_metric=%s | provider_decisions=%s | weights_before=%s | weights_after=%s | history_file=%s",
+            actual_outcome,
+            performance_metric,
+            sorted(provider_decisions.keys()),
+            base_weights_before,
+            self.base_weights,
+            history_path,
+        )
 
     def _recalculate_weights(self) -> None:
         """Recalculate provider weights based on historical accuracy."""

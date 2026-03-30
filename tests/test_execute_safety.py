@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 from freezegun import freeze_time
@@ -171,3 +172,50 @@ def test_learning_loop_calls_ensemble_update(tmp_path, monkeypatch):
     # performance metric should be numeric
     perf = stub.last_args[2]
     assert isinstance(perf, (int, float))
+
+
+@freeze_time("2025-01-01T00:00:01Z")
+def test_learning_loop_logs_adaptive_handoff_packet(tmp_path, caplog):
+    cfg = make_config(storage_path=str(tmp_path / "decisions"))
+    cfg["portfolio_memory"] = {"enabled": True}
+    engine = FinanceFeedbackEngine(cfg)
+
+    class StubEnsemble:
+        def update_base_weights(self, provider_decisions, actual_outcome, perf_metric):
+            return None
+
+    engine.decision_engine.ensemble_manager = StubEnsemble()
+
+    decision = {
+        "id": "test-learn-log",
+        "asset_pair": "ETHUSD",
+        "signal_only": False,
+        "action": "BUY",
+        "confidence": 80,
+        "amount": 0.1,
+        "timestamp": "2025-01-01T00:00:01Z",
+        "entry_price": 100.0,
+        "recommended_position_size": 1.0,
+        "ai_provider": "ensemble",
+        "ensemble_metadata": {
+            "provider_decisions": {
+                "gemma2:9b": {"action": "BUY"},
+                "llama3.1:8b": {"action": "SELL"},
+            },
+            "providers_used": ["gemma2:9b", "llama3.1:8b"],
+        },
+        "recovery_metadata": {
+            "shadowed_from_decision_id": "shadowed-open-1",
+        },
+        "market_data": {"close": 100.0},
+    }
+    engine.decision_store.save_decision(decision)
+
+    with caplog.at_level(logging.INFO):
+        engine.record_trade_outcome("test-learn-log", exit_price=110.0)
+
+    assert (
+        "Adaptive learning handoff | decision_id=test-learn-log | ai_provider=ensemble | "
+        "shadowed_from_decision_id=shadowed-open-1 | provider_decisions=['gemma2:9b', 'llama3.1:8b'] | "
+        "actual_outcome=BUY | performance_metric=10.0"
+    ) in caplog.text
