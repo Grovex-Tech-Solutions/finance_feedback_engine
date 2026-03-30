@@ -1282,6 +1282,38 @@ class TradingLoopAgent:
                                 position_size=pos["size"],
                             )
 
+                        inherited_ai_provider = (
+                            attribution_source.get("ai_provider")
+                            if isinstance(attribution_source, dict)
+                            else None
+                        ) or "recovery"
+                        inherited_ensemble_metadata = None
+                        inherited_policy_trace = None
+                        inherited_decision_source = None
+                        shadowed_from_decision_id = None
+                        if isinstance(attribution_source, dict):
+                            shadowed_from_decision_id = attribution_source.get("id")
+                            ensemble_metadata = attribution_source.get(
+                                "ensemble_metadata"
+                            )
+                            if isinstance(ensemble_metadata, dict):
+                                inherited_ensemble_metadata = dict(ensemble_metadata)
+                            policy_trace = attribution_source.get("policy_trace")
+                            if isinstance(policy_trace, dict):
+                                inherited_policy_trace = dict(policy_trace)
+                            inherited_decision_source = attribution_source.get(
+                                "decision_source"
+                            )
+
+                        effective_recovery_metadata = dict(recovery_metadata)
+                        if shadowed_from_decision_id:
+                            effective_recovery_metadata[
+                                "shadowed_from_decision_id"
+                            ] = shadowed_from_decision_id
+                            effective_recovery_metadata[
+                                "shadowed_from_provider"
+                            ] = inherited_ai_provider
+
                         if (
                             recovery_key in self._recovered_position_keys
                             and existing_recovery
@@ -1295,15 +1327,57 @@ class TradingLoopAgent:
                             )
                         elif existing_recovery:
                             decision_id = existing_recovery["id"]
-                            if not existing_recovery.get("recovery_metadata"):
-                                existing_recovery["recovery_metadata"] = (
-                                    recovery_metadata
-                                )
+                            upgraded = False
+                            existing_recovery_metadata = dict(
+                                existing_recovery.get("recovery_metadata") or {}
+                            )
+                            if not existing_recovery_metadata:
+                                existing_recovery_metadata = dict(recovery_metadata)
+                                upgraded = True
+
+                            for key, value in effective_recovery_metadata.items():
+                                if existing_recovery_metadata.get(key) != value:
+                                    existing_recovery_metadata[key] = value
+                                    upgraded = True
+
+                            if (
+                                inherited_ai_provider != "recovery"
+                                and existing_recovery.get("ai_provider") != inherited_ai_provider
+                            ):
+                                existing_recovery["ai_provider"] = inherited_ai_provider
+                                upgraded = True
+
+                            if (
+                                inherited_ensemble_metadata is not None
+                                and existing_recovery.get("ensemble_metadata") != inherited_ensemble_metadata
+                            ):
+                                existing_recovery["ensemble_metadata"] = inherited_ensemble_metadata
+                                upgraded = True
+
+                            if (
+                                inherited_policy_trace is not None
+                                and existing_recovery.get("policy_trace") != inherited_policy_trace
+                            ):
+                                existing_recovery["policy_trace"] = inherited_policy_trace
+                                upgraded = True
+
+                            if (
+                                inherited_decision_source is not None
+                                and existing_recovery.get("decision_source") != inherited_decision_source
+                            ):
+                                existing_recovery["decision_source"] = inherited_decision_source
+                                upgraded = True
+
+                            existing_recovery["recovery_metadata"] = (
+                                existing_recovery_metadata
+                            )
+
+                            if upgraded:
                                 self.engine.decision_store.update_decision(
                                     existing_recovery
                                 )
                                 logger.info(
-                                    "↺ Backfilled recovery metadata for existing decision %s",
+                                    "↺ Upgraded existing recovery decision %s with preserved attribution",
                                     decision_id,
                                 )
                             logger.info(
@@ -1315,38 +1389,6 @@ class TradingLoopAgent:
                         else:
                             # Generate standard UUID for decision
                             decision_id = str(uuid_module.uuid4())
-
-                            inherited_ai_provider = (
-                                attribution_source.get("ai_provider")
-                                if isinstance(attribution_source, dict)
-                                else None
-                            ) or "recovery"
-                            inherited_ensemble_metadata = None
-                            inherited_policy_trace = None
-                            inherited_decision_source = None
-                            shadowed_from_decision_id = None
-                            if isinstance(attribution_source, dict):
-                                shadowed_from_decision_id = attribution_source.get("id")
-                                ensemble_metadata = attribution_source.get(
-                                    "ensemble_metadata"
-                                )
-                                if isinstance(ensemble_metadata, dict):
-                                    inherited_ensemble_metadata = dict(ensemble_metadata)
-                                policy_trace = attribution_source.get("policy_trace")
-                                if isinstance(policy_trace, dict):
-                                    inherited_policy_trace = dict(policy_trace)
-                                inherited_decision_source = attribution_source.get(
-                                    "decision_source"
-                                )
-
-                            effective_recovery_metadata = dict(recovery_metadata)
-                            if shadowed_from_decision_id:
-                                effective_recovery_metadata[
-                                    "shadowed_from_decision_id"
-                                ] = shadowed_from_decision_id
-                                effective_recovery_metadata[
-                                    "shadowed_from_provider"
-                                ] = inherited_ai_provider
 
                             # Create decision record (same as newly-created positions)
                             decision = {
