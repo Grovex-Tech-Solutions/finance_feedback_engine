@@ -189,3 +189,60 @@ def test_calculate_adaptive_weights_uses_avg_performance_as_secondary_signal(tmp
 
     assert adaptive_weights["local"] > adaptive_weights["qwen"]
     assert abs(sum(adaptive_weights.values()) - 1.0) < 1e-9
+
+
+def test_adaptive_weight_formula_uses_config_blend_constants(tmp_path):
+    manager = EnsembleDecisionManager(
+        {
+            "persistence": {"storage_path": str(tmp_path)},
+            "ensemble": {
+                "enabled_providers": ["local", "qwen"],
+                "provider_weights": {"local": 0.5, "qwen": 0.5},
+                "voting_strategy": "weighted",
+                "adaptive_learning": True,
+                "learning_rate": 0.5,
+                "debate_mode": False,
+                "adaptive_accuracy_weight": 0.5,
+                "adaptive_performance_weight": 0.5,
+                "adaptive_performance_scale": 2.0,
+            },
+        }
+    )
+
+    manager.performance_tracker.performance_history = {
+        "local": {"correct": 1, "total": 2, "avg_performance": 8.0},
+        "qwen": {"correct": 1, "total": 2, "avg_performance": -8.0},
+    }
+
+    weights = manager.performance_tracker.calculate_adaptive_weights(
+        manager.enabled_providers,
+        manager.base_weights,
+    )
+
+    assert weights["local"] > weights["qwen"]
+    spread = weights["local"] - weights["qwen"]
+
+    manager2 = EnsembleDecisionManager(
+        {
+            "persistence": {"storage_path": str(tmp_path / "default")},
+            "ensemble": {
+                "enabled_providers": ["local", "qwen"],
+                "provider_weights": {"local": 0.5, "qwen": 0.5},
+                "voting_strategy": "weighted",
+                "adaptive_learning": True,
+                "learning_rate": 0.5,
+                "debate_mode": False,
+            },
+        }
+    )
+    manager2.performance_tracker.performance_history = dict(manager.performance_tracker.performance_history)
+    weights2 = manager2.performance_tracker.calculate_adaptive_weights(
+        manager2.enabled_providers,
+        manager2.base_weights,
+    )
+    default_spread = weights2["local"] - weights2["qwen"]
+
+    assert spread > default_spread, (
+        f"Custom blend (perf_weight=0.5, scale=2.0) should produce wider spread than default. "
+        f"Got spread={spread:.6f} vs default_spread={default_spread:.6f}"
+    )

@@ -41,6 +41,12 @@ class PerformanceTracker:
         storage_path = self.config.get("persistence", {}).get("storage_path", "data/decisions")
         self.history_path = Path(storage_path) / "ensemble_history.json"
 
+        # Adaptive blend constants (configurable via ensemble config)
+        ensemble_cfg = self.config.get("ensemble", {})
+        self.accuracy_weight = float(ensemble_cfg.get("adaptive_accuracy_weight", 0.75))
+        self.performance_weight = float(ensemble_cfg.get("adaptive_performance_weight", 0.25))
+        self.performance_scale = float(ensemble_cfg.get("adaptive_performance_scale", 5.0))
+
         self.performance_history = self._load_performance_history()
 
     def update_provider_performance(
@@ -101,9 +107,9 @@ class PerformanceTracker:
         """
         base_weights = base_weights or {}
         provider_scores = {}
-        accuracy_weight = 0.75
-        performance_weight = 0.25
-        performance_scale = 5.0
+        accuracy_weight = self.accuracy_weight
+        performance_weight = self.performance_weight
+        performance_scale = self.performance_scale
 
         for provider in enabled_providers:
             if provider in self.performance_history:
