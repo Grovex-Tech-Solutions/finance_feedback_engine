@@ -2412,7 +2412,10 @@ class TradingLoopAgent:
                             "message": "Hold decision - maintain current position",
                         }
                     if getattr(self.engine, "decision_store", None):
-                        self.engine.decision_store.save_decision(decision)
+                        if decision.get("_persisted_to_store"):
+                            self.engine.decision_store.update_decision(decision)
+                        else:
+                            self.engine.decision_store.save_decision(decision)
                 except Exception as e:
                     logger.warning(
                         "Failed to persist HOLD decision for %s: %s",

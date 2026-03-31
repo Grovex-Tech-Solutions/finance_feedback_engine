@@ -1748,8 +1748,11 @@ class FinanceFeedbackEngine:
             # Metrics should never break the flow
             pass
 
-        # Persist decision
+        # Persist decision. Mark the in-memory object so downstream agent stages can
+        # update the same artifact instead of saving a duplicate file/log entry.
         self.decision_store.save_decision(decision)
+        if isinstance(decision, dict):
+            decision["_persisted_to_store"] = True
 
         # Record metrics: decision created
         action = decision.get("action", "UNKNOWN")

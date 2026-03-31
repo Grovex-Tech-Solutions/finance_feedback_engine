@@ -874,6 +874,29 @@ async def test_hold_decision_preserves_ensemble_metadata_and_logs_council_summar
     assert "judge=mistral:HOLD/64" in caplog.text
 
 
+@pytest.mark.asyncio
+async def test_hold_decision_already_persisted_upstream_updates_instead_of_saving_again(trading_agent, mock_dependencies):
+    decision = {
+        "id": "decision-hold-already-persisted",
+        "action": "HOLD",
+        "confidence": 64,
+        "asset_pair": "BTCUSD",
+        "reasoning": "Judge sees conflicting signals.",
+        "_persisted_to_store": True,
+    }
+    mock_dependencies["engine"].analyze_asset_async = AsyncMock(return_value=decision)
+    trading_agent.is_running = True
+
+    await trading_agent.process_cycle()
+
+    mock_dependencies["engine"].decision_store.update_decision.assert_called_once()
+    mock_dependencies["engine"].decision_store.save_decision.assert_not_called()
+    updated_decision = mock_dependencies["engine"].decision_store.update_decision.call_args[0][0]
+    assert updated_decision["id"] == "decision-hold-already-persisted"
+    assert updated_decision["execution_status"] == "hold"
+    assert updated_decision["executed"] is False
+
+
 
 def test_log_portfolio_risk_snapshot_summarizes_positions_and_balance(trading_agent, caplog):
     snapshot = {
