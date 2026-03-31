@@ -174,14 +174,11 @@ ensemble:
   - llama3.1:8b
   - deepseek-r1:8b
   - gemma2:9b
-  - gemma2:9b
-  - gemma3:4b
   learning_rate: 0.1
   provider_weights:
-    deepseek-r1:8b: 0.2
-    gemma2:9b: 0.2
-    gemma3:4b: 0.2
-    llama3.1:8b: 0.2
+    llama3.1:8b: 0.34
+    deepseek-r1:8b: 0.33
+    gemma2:9b: 0.33
   two_phase:
     asset_routing:
       codex_as_tiebreaker: true
