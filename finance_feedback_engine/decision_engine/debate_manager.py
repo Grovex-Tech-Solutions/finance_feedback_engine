@@ -238,8 +238,18 @@ class DebateManager:
             }
             debate_seats["judge"] = self.debate_providers["judge"]
         
-        # Legacy field for backward compatibility (use judge provider as primary)
-        provider_decisions = {self.debate_providers.get("judge", "local"): judge_decision} if judge_decision else {}
+        # Provider-keyed view for downstream consumers that still read provider_decisions.
+        # Debate seats remain the canonical role-aware structure when roles matter.
+        provider_decisions = {}
+        for role_name, role_decision in role_decisions.items():
+            provider_name = role_decision.get("provider")
+            if not provider_name:
+                continue
+            provider_decisions[provider_name] = {
+                key: value
+                for key, value in role_decision.items()
+                if key != "role"
+            }
 
         final_decision["ensemble_metadata"] = {
             "providers_used": providers_used,

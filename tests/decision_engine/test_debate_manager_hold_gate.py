@@ -52,3 +52,17 @@ def test_does_not_override_non_hold_judge_action():
     assert out["action"] == "OPEN_SMALL_SHORT"
     assert out["confidence"] == 70
     assert out["ensemble_metadata"]["judge_hold_override_applied"] is False
+
+
+def test_debate_manager_provider_decisions_include_all_debate_providers():
+    mgr = _manager()
+    out = mgr.synthesize_debate_decision(
+        {"action": "OPEN_SMALL_LONG", "confidence": 82, "reasoning": "bull case"},
+        {"action": "OPEN_SMALL_SHORT", "confidence": 85, "reasoning": "bear case"},
+        {"action": "HOLD", "confidence": 50, "reasoning": "judge hold"},
+    )
+    provider_decisions = out["ensemble_metadata"]["provider_decisions"]
+    assert sorted(provider_decisions.keys()) == ["bear-model", "bull-model", "judge-model"]
+    assert provider_decisions["bull-model"]["action"] == "OPEN_SMALL_LONG"
+    assert provider_decisions["bear-model"]["action"] == "OPEN_SMALL_SHORT"
+    assert provider_decisions["judge-model"]["action"] == "HOLD"
