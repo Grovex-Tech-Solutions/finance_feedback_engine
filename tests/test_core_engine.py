@@ -683,6 +683,103 @@ class TestDecisionPersistence:
         assert saved_decision["id"] == mock_decision["id"]
         assert saved_decision["action"] == "BUY"
 
+    @pytest.mark.asyncio
+    @patch("finance_feedback_engine.core.ensure_models_installed")
+    @patch("finance_feedback_engine.core.validate_at_startup")
+    async def test_analyze_asset_persists_debate_metadata_without_contraction(
+        self, mock_validate, mock_models, minimal_config
+    ):
+        engine = FinanceFeedbackEngine(minimal_config)
+
+        engine.data_provider.get_comprehensive_market_data = AsyncMock(
+            return_value={"current_price": 50000.0, "type": "crypto"}
+        )
+        mock_decision = {
+            "id": str(uuid.uuid4()),
+            "action": "HOLD",
+            "confidence": 50,
+            "reasoning": "Judge says hold.",
+            "asset_pair": "BTCUSD",
+            "timestamp": datetime.now().isoformat(),
+            "ai_provider": "ensemble",
+            "ensemble_metadata": {
+                "voting_strategy": "debate",
+                "debate_mode": True,
+                "original_weights": {},
+                "adjusted_weights": {},
+                "provider_decisions": {
+                    "deepseek-r1:8b": {
+                        "action": "HOLD",
+                        "confidence": 50,
+                        "reasoning": "judge",
+                    }
+                },
+                "role_decisions": {
+                    "bull": {"provider": "gemma2:9b", "action": "BUY"},
+                    "bear": {"provider": "llama3.1:8b", "action": "SELL"},
+                    "judge": {"provider": "deepseek-r1:8b", "action": "HOLD"},
+                },
+                "debate_seats": {
+                    "bull": "gemma2:9b",
+                    "bear": "llama3.1:8b",
+                    "judge": "deepseek-r1:8b",
+                },
+            },
+        }
+        engine.decision_engine.generate_decision = AsyncMock(return_value=mock_decision)
+        engine.decision_store.save_decision = Mock()
+
+        result = await engine.analyze_asset_async("BTCUSD")
+
+        saved_decision = engine.decision_store.save_decision.call_args[0][0]
+        assert result["ensemble_metadata"] == mock_decision["ensemble_metadata"]
+        assert saved_decision["ensemble_metadata"] == mock_decision["ensemble_metadata"]
+        assert saved_decision["ensemble_metadata"]["role_decisions"]["judge"]["action"] == "HOLD"
+        assert saved_decision["ensemble_metadata"]["debate_seats"]["judge"] == "deepseek-r1:8b"
+
+    @pytest.mark.asyncio
+    @patch("finance_feedback_engine.core.ensure_models_installed")
+    @patch("finance_feedback_engine.core.validate_at_startup")
+    async def test_analyze_asset_persists_weighted_metadata_without_contraction(
+        self, mock_validate, mock_models, minimal_config
+    ):
+        engine = FinanceFeedbackEngine(minimal_config)
+
+        engine.data_provider.get_comprehensive_market_data = AsyncMock(
+            return_value={"current_price": 50000.0, "type": "crypto"}
+        )
+        mock_decision = {
+            "id": str(uuid.uuid4()),
+            "action": "SELL",
+            "confidence": 78,
+            "reasoning": "Weighted short consensus.",
+            "asset_pair": "BTCUSD",
+            "timestamp": datetime.now().isoformat(),
+            "ai_provider": "ensemble",
+            "ensemble_metadata": {
+                "voting_strategy": "weighted",
+                "original_weights": {"local": 0.5, "qwen": 0.5},
+                "adjusted_weights": {"local": 0.65, "qwen": 0.35},
+                "provider_decisions": {
+                    "local": {"action": "SELL", "confidence": 80},
+                    "qwen": {"action": "HOLD", "confidence": 40},
+                },
+                "providers_used": ["local", "qwen"],
+                "providers_failed": [],
+                "fallback_tier": "weighted",
+            },
+        }
+        engine.decision_engine.generate_decision = AsyncMock(return_value=mock_decision)
+        engine.decision_store.save_decision = Mock()
+
+        result = await engine.analyze_asset_async("BTCUSD")
+
+        saved_decision = engine.decision_store.save_decision.call_args[0][0]
+        assert result["ensemble_metadata"] == mock_decision["ensemble_metadata"]
+        assert saved_decision["ensemble_metadata"] == mock_decision["ensemble_metadata"]
+        assert saved_decision["ensemble_metadata"]["adjusted_weights"]["local"] == 0.65
+        assert saved_decision["ensemble_metadata"]["provider_decisions"]["local"]["action"] == "SELL"
+
 
 class TestSyncWrapper:
     """Test the synchronous analyze_asset() wrapper."""
