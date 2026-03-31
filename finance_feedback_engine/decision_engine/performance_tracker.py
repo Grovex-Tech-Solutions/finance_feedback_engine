@@ -8,6 +8,7 @@ Implements functionality for:
 """
 
 import json
+import math
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -37,7 +38,7 @@ class PerformanceTracker:
         self.file_io = FileIOManager()
 
         # Set up history path
-        storage_path = self.config.get("persistence", {}).get("storage_path", "data")
+        storage_path = self.config.get("persistence", {}).get("storage_path", "data/decisions")
         self.history_path = Path(storage_path) / "ensemble_history.json"
 
         self.performance_history = self._load_performance_history()
@@ -99,31 +100,45 @@ class PerformanceTracker:
             Dictionary of updated provider weights
         """
         base_weights = base_weights or {}
-        accuracies = {}
+        provider_scores = {}
+        accuracy_weight = 0.75
+        performance_weight = 0.25
+        performance_scale = 5.0
 
         for provider in enabled_providers:
             if provider in self.performance_history:
                 history = self.performance_history[provider]
                 if history["total"] > 0:
                     accuracy = history["correct"] / history["total"]
-                    accuracies[provider] = accuracy
                 else:
-                    accuracies[provider] = 0.5  # Default
+                    accuracy = 0.5  # Default neutral prior
+                avg_performance = float(history.get("avg_performance", 0.0) or 0.0)
+                performance_signal = 0.5 + 0.5 * math.tanh(
+                    avg_performance / performance_scale
+                )
+                provider_scores[provider] = (
+                    accuracy_weight * accuracy
+                    + performance_weight * performance_signal
+                )
             else:
                 # Use base weight if available, otherwise default
-                accuracies[provider] = base_weights.get(provider, 0.5)
+                provider_scores[provider] = base_weights.get(provider, 0.5)
 
         # Normalize to weights
-        total_accuracy = sum(accuracies.values())
-        if total_accuracy > 0:
+        total_score = sum(provider_scores.values())
+        if total_score > 0:
             adaptive_weights = {
-                p: acc / total_accuracy for p, acc in accuracies.items()
+                p: score / total_score for p, score in provider_scores.items()
             }
         else:
             # If no historical data, use base weights
             adaptive_weights = base_weights.copy()
 
-        logger.info(f"Updated adaptive weights: {adaptive_weights}")
+        logger.info(
+            "Calculated adaptive weights | providers=%s | weights=%s",
+            sorted(adaptive_weights.keys()),
+            adaptive_weights,
+        )
 
         return adaptive_weights
 

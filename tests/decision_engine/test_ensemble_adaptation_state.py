@@ -1,6 +1,8 @@
 import json
 import logging
 
+import pytest
+
 from finance_feedback_engine.decision_engine.ensemble_manager import EnsembleDecisionManager
 
 
@@ -43,7 +45,10 @@ def test_update_base_weights_mutates_state_and_persists_history(tmp_path):
         "total": 1,
         "avg_performance": 10.0,
     }
-    assert manager.base_weights == {"local": 1.0, "qwen": 0.0}
+    assert manager.base_weights["local"] > manager.base_weights["qwen"]
+    assert abs(sum(manager.base_weights.values()) - 1.0) < 1e-9
+    assert manager.base_weights["local"] == pytest.approx(0.8021739859022077)
+    assert manager.base_weights["qwen"] == pytest.approx(0.19782601409779235)
 
     history_path = tmp_path / "ensemble_history.json"
     assert history_path.exists()
@@ -83,7 +88,104 @@ def test_update_base_weights_logs_before_after_packet(tmp_path, caplog):
         )
 
     assert (
-        "Adaptive weights updated | actual_outcome=BUY | performance_metric=10.0 | "
+        "Adaptive weights evaluated | actual_outcome=BUY | performance_metric=10.0 | "
         "provider_decisions=['local', 'qwen'] | weights_before={'local': 0.5, 'qwen': 0.5} | "
-        "weights_after={'local': 1.0, 'qwen': 0.0} | history_path="
+        "weights_after={'local': 0.8021739859022077, 'qwen': 0.19782601409779235} | changed=True | changed_keys=['local', 'qwen'] | history_path="
     ) in caplog.text
+
+
+def test_update_base_weights_defaults_history_under_data_decisions_when_persistence_missing(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    manager = EnsembleDecisionManager(
+        {
+            "ensemble": {
+                "enabled_providers": ["local", "qwen"],
+                "provider_weights": {"local": 0.5, "qwen": 0.5},
+                "voting_strategy": "weighted",
+                "adaptive_learning": True,
+                "learning_rate": 1.0,
+                "debate_mode": False,
+            },
+        }
+    )
+
+    manager.update_base_weights(
+        provider_decisions={
+            "local": {"action": "BUY", "confidence": 80},
+            "qwen": {"action": "SELL", "confidence": 75},
+        },
+        actual_outcome="BUY",
+        performance_metric=10.0,
+    )
+
+    assert manager.performance_tracker.history_path.resolve() == (tmp_path / "data" / "decisions" / "ensemble_history.json").resolve()
+    assert (tmp_path / "data" / "decisions" / "ensemble_history.json").exists()
+    assert not (tmp_path / "data" / "ensemble_history.json").exists()
+
+
+def test_update_base_weights_logs_no_change_packet(tmp_path, caplog):
+    stable_weights = {"local": 0.8021739859022077, "qwen": 0.19782601409779235}
+    manager = EnsembleDecisionManager(
+        {
+            "persistence": {"storage_path": str(tmp_path)},
+            "ensemble": {
+                "enabled_providers": ["local", "qwen"],
+                "provider_weights": stable_weights,
+                "voting_strategy": "weighted",
+                "adaptive_learning": True,
+                "learning_rate": 1.0,
+                "debate_mode": False,
+            },
+        }
+    )
+
+    manager.performance_tracker.performance_history = {
+        "local": {"correct": 1, "total": 1, "avg_performance": 10.0},
+        "qwen": {"correct": 0, "total": 1, "avg_performance": 10.0},
+    }
+
+    with caplog.at_level(logging.INFO):
+        manager.update_base_weights(
+            provider_decisions={
+                "local": {"action": "BUY", "confidence": 80},
+                "qwen": {"action": "SELL", "confidence": 75},
+            },
+            actual_outcome="BUY",
+            performance_metric=10.0,
+        )
+
+    assert (
+        "Adaptive weights evaluated | actual_outcome=BUY | performance_metric=10.0 | "
+        "provider_decisions=['local', 'qwen'] | weights_before={'local': 0.8021739859022077, 'qwen': 0.19782601409779235} | "
+        "weights_after={'local': 0.8021739859022077, 'qwen': 0.19782601409779235} | changed=False | changed_keys=[] | history_path="
+    ) in caplog.text
+
+
+def test_calculate_adaptive_weights_uses_avg_performance_as_secondary_signal(tmp_path):
+    manager = EnsembleDecisionManager(
+        {
+            "persistence": {"storage_path": str(tmp_path)},
+            "ensemble": {
+                "enabled_providers": ["local", "qwen"],
+                "provider_weights": {"local": 0.5, "qwen": 0.5},
+                "voting_strategy": "weighted",
+                "adaptive_learning": True,
+                "learning_rate": 0.5,
+                "debate_mode": False,
+            },
+        }
+    )
+
+    manager.performance_tracker.performance_history = {
+        "local": {"correct": 1, "total": 2, "avg_performance": 8.0},
+        "qwen": {"correct": 1, "total": 2, "avg_performance": -8.0},
+    }
+
+    adaptive_weights = manager.performance_tracker.calculate_adaptive_weights(
+        manager.enabled_providers,
+        manager.base_weights,
+    )
+
+    assert adaptive_weights["local"] > adaptive_weights["qwen"]
+    assert abs(sum(adaptive_weights.values()) - 1.0) < 1e-9

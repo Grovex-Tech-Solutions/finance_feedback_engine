@@ -219,3 +219,131 @@ def test_learning_loop_logs_adaptive_handoff_packet(tmp_path, caplog):
         "shadowed_from_decision_id=shadowed-open-1 | provider_decisions=['gemma2:9b', 'llama3.1:8b'] | "
         "actual_outcome=BUY | performance_metric=10.0"
     ) in caplog.text
+
+
+
+@freeze_time("2025-01-01T00:00:01Z")
+def test_learning_loop_uses_role_decisions_for_debate_adaptation(tmp_path):
+    cfg = make_config(storage_path=str(tmp_path / "decisions"))
+    cfg["portfolio_memory"] = {"enabled": True}
+    engine = FinanceFeedbackEngine(cfg)
+
+    class StubEnsemble:
+        def __init__(self):
+            self.called = False
+            self.last_args = None
+
+        def update_base_weights(self, provider_decisions, actual_outcome, perf_metric):
+            self.called = True
+            self.last_args = (provider_decisions, actual_outcome, perf_metric)
+
+    stub = StubEnsemble()
+    engine.decision_engine.ensemble_manager = stub
+
+    decision = {
+        "id": "test-debate-learn",
+        "asset_pair": "ETHUSD",
+        "signal_only": False,
+        "action": "OPEN_SMALL_SHORT",
+        "confidence": 85,
+        "amount": 0.02,
+        "timestamp": "2025-01-01T00:00:01Z",
+        "entry_price": 100.0,
+        "recommended_position_size": 1.0,
+        "ai_provider": "ensemble",
+        "ensemble_metadata": {
+            "voting_strategy": "debate",
+            "provider_decisions": {
+                "deepseek-r1:8b": {"action": "HOLD"}
+            },
+            "role_decisions": {
+                "bull": {"action": "OPEN_SMALL_LONG", "provider": "gemma2:9b"},
+                "bear": {"action": "OPEN_SMALL_SHORT", "provider": "llama3.1:8b"},
+                "judge": {"action": "HOLD", "provider": "deepseek-r1:8b"},
+            },
+            "debate_seats": {
+                "bull": "gemma2:9b",
+                "bear": "llama3.1:8b",
+                "judge": "deepseek-r1:8b",
+            },
+            "providers_used": ["gemma2:9b", "llama3.1:8b", "deepseek-r1:8b"],
+        },
+        "market_data": {"close": 100.0},
+    }
+    engine.decision_store.save_decision(decision)
+
+    engine.record_trade_outcome("test-debate-learn", exit_price=90.0)
+
+    assert stub.called is True
+    provider_decisions, actual_outcome, perf_metric = stub.last_args
+    assert sorted(provider_decisions.keys()) == ["deepseek-r1:8b", "gemma2:9b", "llama3.1:8b"]
+    assert provider_decisions["gemma2:9b"]["action"] == "OPEN_SMALL_LONG"
+    assert provider_decisions["llama3.1:8b"]["action"] == "OPEN_SMALL_SHORT"
+    assert provider_decisions["deepseek-r1:8b"]["action"] == "HOLD"
+    assert actual_outcome == "OPEN_SMALL_SHORT"
+    assert isinstance(perf_metric, (int, float))
+
+
+@freeze_time("2025-01-01T00:00:01Z")
+def test_learning_loop_recovery_shadow_uses_preserved_debate_attribution(tmp_path):
+    cfg = make_config(storage_path=str(tmp_path / "decisions"))
+    cfg["portfolio_memory"] = {"enabled": True}
+    engine = FinanceFeedbackEngine(cfg)
+
+    class StubEnsemble:
+        def __init__(self):
+            self.called = False
+            self.last_args = None
+
+        def update_base_weights(self, provider_decisions, actual_outcome, perf_metric):
+            self.called = True
+            self.last_args = (provider_decisions, actual_outcome, perf_metric)
+
+    stub = StubEnsemble()
+    engine.decision_engine.ensemble_manager = stub
+
+    decision = {
+        "id": "test-recovery-shadow",
+        "asset_pair": "ETP20DEC30CDE",
+        "signal_only": False,
+        "action": "SELL",
+        "confidence": 75,
+        "amount": 1.0,
+        "timestamp": "2025-01-01T00:00:01Z",
+        "entry_price": 100.0,
+        "recommended_position_size": 1.0,
+        "ai_provider": "ensemble",
+        "recovery_metadata": {
+            "product_id": "ETP-20DEC30-CDE",
+            "shadowed_from_decision_id": "shadow-source-1",
+            "shadowed_from_provider": "ensemble",
+        },
+        "ensemble_metadata": {
+            "voting_strategy": "debate",
+            "provider_decisions": {
+                "deepseek-r1:8b": {"action": "HOLD"}
+            },
+            "role_decisions": {
+                "bull": {"action": "OPEN_SMALL_LONG", "provider": "gemma2:9b"},
+                "bear": {"action": "OPEN_SMALL_SHORT", "provider": "llama3.1:8b"},
+                "judge": {"action": "HOLD", "provider": "deepseek-r1:8b"},
+            },
+            "debate_seats": {
+                "bull": "gemma2:9b",
+                "bear": "llama3.1:8b",
+                "judge": "deepseek-r1:8b",
+            },
+        },
+        "market_data": {"close": 100.0},
+    }
+    engine.decision_store.save_decision(decision)
+
+    engine.record_trade_outcome("test-recovery-shadow", exit_price=90.0)
+
+    assert stub.called is True
+    provider_decisions, actual_outcome, perf_metric = stub.last_args
+    assert sorted(provider_decisions.keys()) == ["deepseek-r1:8b", "gemma2:9b", "llama3.1:8b"]
+    assert provider_decisions["llama3.1:8b"]["action"] == "OPEN_SMALL_SHORT"
+    assert provider_decisions["deepseek-r1:8b"]["action"] == "HOLD"
+    assert actual_outcome == "SELL"
+    assert isinstance(perf_metric, (int, float))
