@@ -2534,6 +2534,60 @@ class TradingLoopAgent:
         if current_price > 0:
             decision["suggested_amount"] = current_position_size * current_price
 
+    async def _hydrate_derisking_monitoring_context(
+        self, decision: Dict[str, Any], monitoring_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Backfill active positions for CLOSE_/REDUCE_ decisions when monitoring context is sparse."""
+        normalized_action = str(
+            decision.get("policy_action") or decision.get("action") or ""
+        ).upper()
+        if not normalized_action.startswith(("CLOSE_", "REDUCE_")):
+            return monitoring_context
+
+        active_positions = (
+            (monitoring_context or {}).get("active_positions") or {}
+        ).get("futures") or []
+        if active_positions:
+            return monitoring_context
+
+        portfolio_snapshot = None
+        get_portfolio_async = getattr(self.engine, "get_portfolio_breakdown_async", None)
+        get_portfolio_sync = getattr(self.engine, "get_portfolio_breakdown", None)
+
+        try:
+            if callable(get_portfolio_async):
+                portfolio_snapshot = await get_portfolio_async()
+            elif callable(get_portfolio_sync):
+                portfolio_snapshot = get_portfolio_sync()
+        except Exception as e:
+            logger.debug(
+                "Failed to hydrate derisking monitoring context from portfolio snapshot for %s: %s",
+                decision.get("asset_pair"),
+                e,
+            )
+            return monitoring_context
+
+        candidate_positions = []
+        if isinstance(portfolio_snapshot, dict):
+            if "platform_breakdowns" in portfolio_snapshot:
+                for pdata in (portfolio_snapshot.get("platform_breakdowns") or {}).values():
+                    if not isinstance(pdata, dict):
+                        continue
+                    candidate_positions.extend(pdata.get("futures_positions", []) or [])
+                    candidate_positions.extend(pdata.get("positions", []) or [])
+            else:
+                candidate_positions.extend(portfolio_snapshot.get("futures_positions", []) or [])
+                candidate_positions.extend(portfolio_snapshot.get("positions", []) or [])
+
+        if not candidate_positions:
+            return monitoring_context
+
+        hydrated_context = dict(monitoring_context or {})
+        active_positions_map = dict(hydrated_context.get("active_positions") or {})
+        active_positions_map["futures"] = candidate_positions
+        hydrated_context["active_positions"] = active_positions_map
+        return hydrated_context
+
     async def handle_risk_check_state(self):
         """
         RISK_CHECK: Running the RiskGatekeeper for all collected decisions.
@@ -2564,6 +2618,9 @@ class TradingLoopAgent:
             try:
                 monitoring_context = self.trade_monitor.monitoring_context_provider.get_monitoring_context(
                     asset_pair=asset_pair
+                )
+                monitoring_context = await self._hydrate_derisking_monitoring_context(
+                    decision, monitoring_context
                 )
                 safety_config = self.engine.config.get("safety", {})
                 monitoring_context["max_leverage"] = safety_config.get(
