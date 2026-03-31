@@ -285,6 +285,60 @@ def test_recover_decision_lineage_for_closed_outcome_reads_real_store_normalized
     assert "decision_store.recovery_metadata_product" in attempted_sources
 
 
+def test_recover_decision_lineage_for_closed_outcome_should_prefer_enriched_recovery_wrapper_over_plain_anchor(
+    trading_agent, mock_dependencies
+):
+    mock_dependencies["engine"].trade_outcome_recorder = MagicMock(open_positions={})
+    mock_dependencies["trade_monitor"].expected_trades = {}
+    mock_dependencies["trade_monitor"].active_trackers = {}
+    mock_dependencies["trade_monitor"].closed_trades_queue = MagicMock(queue=[])
+    mock_dependencies["trade_monitor"].get_decision_id_by_asset.return_value = None
+    mock_dependencies["engine"].decision_store.get_recent_decisions.return_value = [
+        {
+            "id": "old-plain-recovery-anchor",
+            "asset_pair": "BIP20DEC30CDE",
+            "action": "SELL",
+            "ai_provider": "recovery",
+            "recovery_metadata": {
+                "product_id": "BIP-20DEC30-CDE",
+            },
+            "ensemble_metadata": {
+                "providers_used": ["recovery"],
+            },
+        },
+        {
+            "id": "new-enriched-recovery-wrapper",
+            "asset_pair": "BIP20DEC30CDE",
+            "action": "SELL",
+            "ai_provider": "ensemble",
+            "recovery_metadata": {
+                "product_id": "BIP-20DEC30-CDE",
+                "shadowed_from_decision_id": "btc-ensemble-open-48539299",
+                "shadowed_from_provider": "ensemble",
+            },
+            "ensemble_metadata": {
+                "voting_strategy": "debate",
+                "providers_used": ["gemma2:9b", "llama3.1:8b", "deepseek-r1:8b"],
+            },
+            "policy_trace": {"decision_metadata": {"decision_id": "btc-ensemble-open-48539299"}},
+        },
+    ]
+
+    decision_id, lineage_source, attempted_sources = (
+        trading_agent._recover_decision_lineage_for_closed_outcome(
+            {
+                "product": "BIP-20DEC30-CDE",
+                "side": "SHORT",
+                "order_id": "order-bip-close-rich",
+            }
+        )
+    )
+
+    assert decision_id == "new-enriched-recovery-wrapper"
+    assert lineage_source == "decision_store.recovery_metadata_product"
+    assert "decision_store.recovery_metadata_product" in attempted_sources
+
+
 @pytest.mark.asyncio
 async def test_handle_learning_state_skips_when_decision_id_unrecoverable(trading_agent, caplog):
     """handle_learning_state logs SKIPPED and does not call record_trade_outcome when decision_id is absent and all recovery sources fail."""

@@ -3401,6 +3401,7 @@ class TradingLoopAgent:
             attempted_sources.append("decision_store.recovery_metadata_product")
             try:
                 recent_decisions = decision_store.get_recent_decisions(limit=250)
+                matching_recovery_candidates: list[dict[str, Any]] = []
                 for decision in recent_decisions:
                     recovery_metadata = decision.get("recovery_metadata") or {}
                     recovery_product = recovery_metadata.get("product_id")
@@ -3416,8 +3417,31 @@ class TradingLoopAgent:
                         and decision_action != expected_action
                     ):
                         continue
+
+                    matching_recovery_candidates.append(decision)
+
+                if matching_recovery_candidates:
+                    def _candidate_priority(candidate: dict[str, Any]) -> tuple[int, int, int, str]:
+                        recovery_metadata = candidate.get("recovery_metadata") or {}
+                        ensemble_metadata = candidate.get("ensemble_metadata") or {}
+                        has_shadowed_from = bool(recovery_metadata.get("shadowed_from_decision_id"))
+                        preserved_provider = str(candidate.get("ai_provider") or "").lower() != "recovery"
+                        has_rich_metadata = bool(candidate.get("policy_trace")) or bool(
+                            ensemble_metadata.get("provider_decisions")
+                            or ensemble_metadata.get("role_decisions")
+                            or ensemble_metadata.get("voting_strategy")
+                        )
+                        timestamp = str(candidate.get("timestamp") or "")
+                        return (
+                            1 if has_shadowed_from else 0,
+                            1 if preserved_provider else 0,
+                            1 if has_rich_metadata else 0,
+                            timestamp,
+                        )
+
+                    selected = max(matching_recovery_candidates, key=_candidate_priority)
                     return (
-                        decision_id,
+                        normalize_scalar_id(selected.get("id")),
                         "decision_store.recovery_metadata_product",
                         attempted_sources,
                     )

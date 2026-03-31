@@ -1,3 +1,5 @@
+import pytest
+
 from finance_feedback_engine.persistence.decision_store import DecisionStore
 
 
@@ -145,3 +147,41 @@ def test_find_recent_decision_for_position_bridges_ethusd_to_etp_contract_shape(
     assert match is not None
     assert match["id"] == "dec-eth-contract-source"
     assert match["ai_provider"] == "ensemble"
+
+
+def test_get_recent_decisions_should_prefer_newer_timestamp_over_older_same_day_anchor(tmp_path):
+    store = DecisionStore({"storage_path": str(tmp_path)})
+    store.save_decision(
+        {
+            "id": "aaa-old-anchor",
+            "asset_pair": "BIP20DEC30CDE",
+            "timestamp": "2026-03-30T10:00:00Z",
+            "action": "SELL",
+            "confidence": 60,
+            "recommended_position_size": 1.0,
+            "entry_price": 67450.0,
+            "ai_provider": "recovery",
+            "recovery_metadata": {"product_id": "BIP-20DEC30-CDE"},
+        }
+    )
+    store.save_decision(
+        {
+            "id": "zzz-new-wrapper",
+            "asset_pair": "BIP20DEC30CDE",
+            "timestamp": "2026-03-30T11:00:00Z",
+            "action": "SELL",
+            "confidence": 80,
+            "recommended_position_size": 1.0,
+            "entry_price": 67450.0,
+            "ai_provider": "ensemble",
+            "recovery_metadata": {
+                "product_id": "BIP-20DEC30-CDE",
+                "shadowed_from_decision_id": "btc-ensemble-source",
+                "shadowed_from_provider": "ensemble",
+            },
+        }
+    )
+
+    recent = store.get_recent_decisions(limit=2)
+
+    assert recent[0]["id"] == "zzz-new-wrapper"
