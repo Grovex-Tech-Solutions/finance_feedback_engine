@@ -30,7 +30,7 @@ install_requires, extras_require = load_metadata()
 
 setup(
     name="finance-feedback-engine",
-    use_scm_version={"fallback_version": "0.9.11"},
+    use_scm_version={"fallback_version": "0.10.0"},
     description="AI-powered finance tool for automated portfolio simulation and trading decisions",
     long_description=long_description,
     long_description_content_type="text/markdown",

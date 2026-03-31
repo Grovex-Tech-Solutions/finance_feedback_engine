@@ -201,8 +201,8 @@ If a slice cannot produce new proof artifacts, it is probably too fuzzy and need
 - [x] PR-2 live-verified
 - [x] PR-3 landed
 - [x] PR-3 live-verified (after surfacing and then resolving autosave/load compatibility regressions under live conditions)
-- [ ] PR-4 landed
-- [ ] PR-4 live-verified
+- [x] PR-4 landed
+- [x] PR-4 live-verified
 - [ ] PR-5 landed
 - [ ] PR-5 live-verified
 
@@ -210,7 +210,33 @@ If a slice cannot produce new proof artifacts, it is probably too fuzzy and need
 
 - Track 0 is now the immediate top-priority roadmap item because reliable learning/adaptation is the differentiator.
 - A boring runtime is now a feature; the next work is about subtlety, lineage, memory, and proof.
-- If the chain cannot be proved, FFE remains a competent but expensive state-processing machine rather than an adaptive system.
+- PR-4 crossed the line from theory to evidence: live recovery-preserved ensemble attribution now reaches adaptive weight updates with a real before/after delta.
+
+### PR-4 live proof packet (2026-03-31 01:19:42 UTC)
+
+This is the first accepted live packet that checks the PR-4 acceptance box.
+
+Qualifying close:
+- product: `BIP-20DEC30-CDE`
+- decision id: `1f5bcd7e-7634-4d5a-9bad-aba0de70ba7c`
+- close result: `Learning handoff ACCEPTED`
+- realized pnl: `-885.0`
+
+Recovered/provenance-preserved attribution:
+- `ai_provider = ensemble`
+- `recovery_metadata.shadowed_from_decision_id = 2a620bdf-53d5-45f5-8549-6353295471ed`
+
+Adaptive handoff log:
+- `Adaptive learning handoff | decision_id=1f5bcd7e-7634-4d5a-9bad-aba0de70ba7c | ai_provider=ensemble | shadowed_from_decision_id=2a620bdf-53d5-45f5-8549-6353295471ed | provider_decisions=['deepseek-r1:8b'] | actual_outcome=SELL | performance_metric=-1.3322294144211952`
+
+Adaptive mutation log:
+- `Adaptive weights updated | actual_outcome=SELL | performance_metric=-1.3322294144211952 | provider_decisions=['deepseek-r1:8b'] | weights_before={'llama3.1:8b': 0.25, 'deepseek-r1:8b': 0.25, 'gemma2:9b': 0.25, 'gemma3:4b': 0.25} | weights_after={'llama3.1:8b': 0.3333333333333333, 'deepseek-r1:8b': 0.0, 'gemma2:9b': 0.3333333333333333, 'gemma3:4b': 0.3333333333333333} | history_path=data/decisions/ensemble_history.json`
+
+Why this matters:
+- recovery no longer erased ensemble provenance
+- accepted close reached the adaptive path
+- `weights_before != weights_after`
+- live outcome-driven adaptation is now demonstrated rather than inferred
 
 ---
 
