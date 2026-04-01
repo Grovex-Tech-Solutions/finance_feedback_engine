@@ -18,6 +18,7 @@ from .policy_actions import (
     build_policy_package,
     get_legacy_action_compatibility,
     get_policy_action_family,
+    is_derisking_policy_action,
     is_policy_action,
 )
 
@@ -90,6 +91,63 @@ def _judge_hold_override(
     override['judge_hold_override_gap'] = gap
     override['original_judge_decision'] = deepcopy(judge_decision)
     return override
+
+EXIT_OVERRIDE_CONFIDENCE_THRESHOLD = 75
+
+
+def _judge_exit_override(
+    bull_case: Dict[str, Any],
+    bear_case: Dict[str, Any],
+    judge_decision: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Override judge HOLD when a role recommends exit/derisking with high confidence.
+
+    DATA-DRIVEN: Bear calls CLOSE_SHORT 508 times, judge overrules to HOLD 444 times
+    (87% suppressed). The system correctly identifies exit signals but the judge is
+    too conservative about acting on them. Unlike _judge_hold_override (which checks
+    the confidence *gap* for entry signals), this checks if EITHER role recommends a
+    CLOSE_* or REDUCE_* action with absolute confidence >= 75%.
+    """
+    if str(judge_decision.get("action", "")).upper() != "HOLD":
+        return None
+
+    for role_name, role_case in [("bull", bull_case), ("bear", bear_case)]:
+        action = role_case.get("action")
+        if not action or not is_policy_action(action):
+            continue
+
+        if not is_derisking_policy_action(action):
+            continue
+
+        role_conf = int(role_case.get("confidence", 0) or 0)
+        if role_conf < EXIT_OVERRIDE_CONFIDENCE_THRESHOLD:
+            continue
+
+        # This role recommends an exit/derisking action with high confidence.
+        override = deepcopy(role_case)
+        override["reasoning"] = (
+            f"Judge HOLD overridden (exit conservatism fix): {role_name} recommends "
+            f"{action} with confidence {role_conf}% >= {EXIT_OVERRIDE_CONFIDENCE_THRESHOLD}% threshold. | "
+            f"Judge said HOLD ({judge_decision.get('confidence', 0)}%). | "
+            f"Original {role_name} reasoning: {role_case.get('reasoning', '')}"
+        )
+        override["judge_exit_override_applied"] = True
+        override["judge_exit_override_role"] = role_name
+        override["judge_exit_override_action"] = action
+        override["judge_exit_override_confidence"] = role_conf
+        override["original_judge_decision"] = deepcopy(judge_decision)
+        logger.info(
+            "Judge exit override triggered: %s recommends %s (%d%% confidence), "
+            "overriding judge HOLD (%s%% confidence)",
+            role_name,
+            action,
+            role_conf,
+            judge_decision.get("confidence", 0),
+        )
+        return override
+
+    return None
+
 
 class DebateManager:
     """
@@ -168,7 +226,18 @@ class DebateManager:
             raise ValueError(f"Debate results missing required keys - {error_details}")
 
         hold_override = _judge_hold_override(bull_case, bear_case, judge_decision)
-        final_decision_source = hold_override if hold_override is not None else judge_decision
+        # OPT-1: Check exit override when judge says HOLD but a role wants to exit/derisk.
+        # Applied after hold_override so that exit signals aren't masked by the gap check.
+        exit_override = (
+            _judge_exit_override(bull_case, bear_case, judge_decision)
+            if hold_override is None
+            else None
+        )
+        final_decision_source = (
+            hold_override
+            if hold_override is not None
+            else (exit_override if exit_override is not None else judge_decision)
+        )
         final_decision = _with_policy_action_metadata(final_decision_source)
         judge_policy_package = (
             judge_decision.get("policy_package") if isinstance(judge_decision, dict) else None
@@ -183,6 +252,10 @@ class DebateManager:
             "judge_hold_override_applied": bool(hold_override),
             "judge_hold_override_side": hold_override.get("judge_hold_override_side") if hold_override else None,
             "judge_hold_override_gap": hold_override.get("judge_hold_override_gap") if hold_override else None,
+            "judge_exit_override_applied": bool(exit_override),
+            "judge_exit_override_role": exit_override.get("judge_exit_override_role") if exit_override else None,
+            "judge_exit_override_action": exit_override.get("judge_exit_override_action") if exit_override else None,
+            "judge_exit_override_confidence": exit_override.get("judge_exit_override_confidence") if exit_override else None,
         }
         providers_used = list(
             set(
@@ -275,6 +348,9 @@ class DebateManager:
             "judge_hold_override_applied": bool(hold_override),
             "judge_hold_override_side": hold_override.get("judge_hold_override_side") if hold_override else None,
             "judge_hold_override_gap": hold_override.get("judge_hold_override_gap") if hold_override else None,
+            "judge_exit_override_applied": bool(exit_override),
+            "judge_exit_override_role": exit_override.get("judge_exit_override_role") if exit_override else None,
+            "judge_exit_override_action": exit_override.get("judge_exit_override_action") if exit_override else None,
         }
 
         final_decision = build_ai_decision_envelope(

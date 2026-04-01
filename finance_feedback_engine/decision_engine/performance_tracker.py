@@ -69,7 +69,32 @@ class PerformanceTracker:
 
         # Update performance history
         for provider, decision in provider_decisions.items():
-            was_correct = decision.get("action") == actual_outcome
+            # OPT-4: Fix correctness tracking. Previously compared provider action
+            # string (e.g. "OPEN_SMALL_SHORT") against actual executed action (e.g. "SELL")
+            # which almost never matched, leaving correct=0 permanently.
+            # Now: a provider was "correct" if its directional signal aligned with a
+            # profitable outcome, or if it correctly recommended HOLD when the trade lost.
+            provider_action = str(decision.get("action", "HOLD")).upper()
+            is_profitable = performance_metric > 0
+            # Determine if provider was directionally aligned
+            provider_bearish = any(
+                kw in provider_action for kw in ("SHORT", "SELL", "REDUCE_LONG", "CLOSE_LONG")
+            )
+            provider_bullish = any(
+                kw in provider_action for kw in ("LONG", "BUY", "REDUCE_SHORT", "CLOSE_SHORT")
+            )
+            provider_hold = provider_action == "HOLD"
+            outcome_bearish = actual_outcome in ("SELL",)
+            outcome_bullish = actual_outcome in ("BUY",)
+            if is_profitable:
+                # Trade was profitable: provider was correct if it agreed with the direction
+                was_correct = (
+                    (provider_bearish and outcome_bearish)
+                    or (provider_bullish and outcome_bullish)
+                )
+            else:
+                # Trade lost money: provider was correct if it said HOLD (warned against the trade)
+                was_correct = provider_hold
 
             if provider not in self.performance_history:
                 self.performance_history[provider] = {

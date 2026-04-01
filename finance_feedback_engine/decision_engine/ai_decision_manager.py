@@ -137,6 +137,54 @@ class AIDecisionManager:
             "amount": 0.0,
         }
 
+    async def _query_debate_role(
+        self,
+        role: str,
+        provider: str,
+        prompt_suffix: str,
+        base_prompt: str,
+        increment_provider_request,
+    ) -> Dict[str, Any]:
+        """Query a single debate role (bull/bear) with error handling.
+
+        Returns dict with 'case' (the decision or None) and 'failed' (list of
+        failed provider names).  Used by _debate_mode_inference to run bull and
+        bear concurrently via asyncio.gather (OPT-3).
+        """
+        failed: list[str] = []
+        full_prompt = base_prompt + prompt_suffix
+        try:
+            case = await self._query_single_provider(provider, full_prompt)
+            if not self.ensemble_manager._is_valid_provider_response(case, provider):
+                logger.warning("Debate: %s (%s) returned invalid response", provider, role)
+                failed.append(provider)
+                increment_provider_request(provider, "failure")
+                case = None
+            else:
+                logger.info(
+                    "Debate: %s (%s) -> %s (%s%%)",
+                    provider, role, case.get('action'), case.get('confidence'),
+                )
+                increment_provider_request(provider, "success")
+        except asyncio.TimeoutError:
+            logger.error(
+                "Debate: %s provider timed out", role,
+                extra={"provider": provider, "role": role, "timeout_seconds": self.ensemble_timeout},
+            )
+            failed.append(provider)
+            increment_provider_request(provider, "failure")
+            case = None
+        except Exception as e:
+            logger.error(
+                "Debate: %s provider failed with exception", role,
+                extra={"provider": provider, "role": role, "error": str(e), "error_type": type(e).__name__},
+                exc_info=True,
+            )
+            failed.append(provider)
+            increment_provider_request(provider, "failure")
+            case = None
+        return {"case": case, "failed": failed}
+
     async def _debate_mode_inference(self, prompt: str) -> Dict[str, Any]:
         """
         Execute debate mode: structured debate with bull, bear, and judge providers.
@@ -182,10 +230,10 @@ class AIDecisionManager:
             increment_provider_request,
         )
 
-        # Query bull provider (bullish case)
-        try:
-            # Add bull-specific instructions
-            bull_prompt = prompt + """
+        # OPT-3: Parallelize bull/bear LLM calls (asyncio.gather).
+        # DATA: Reasoning is 164s avg / 99.5% of cycle time. Bull and bear are
+        # independent — only the judge needs both outputs. Parallel cuts ~40%.
+        _bull_prompt_suffix = """
 
 DEBATE ROLE: BULLISH ADVOCATE
 ==============================
@@ -232,53 +280,8 @@ Major Risk: <biggest reason the bullish case could fail>
 Thesis Breaker: <specific condition that invalidates the bullish case>
 Data Quality: <good|degraded|stale>
 """
-            
-            bull_case = await self._query_single_provider(bull_provider, bull_prompt)
-            if not self.ensemble_manager._is_valid_provider_response(
-                bull_case, bull_provider
-            ):
-                logger.warning(
-                    f"Debate: {bull_provider} (bull) returned invalid response"
-                )
-                failed_debate_providers.append(bull_provider)
-                increment_provider_request(bull_provider, "failure")
-                bull_case = None
-            else:
-                logger.info(
-                    f"Debate: {bull_provider} (bull) -> {bull_case.get('action')} ({bull_case.get('confidence')}%)"
-                )
-                increment_provider_request(bull_provider, "success")
-        except asyncio.TimeoutError:
-            logger.error(
-                "Debate: bull provider timed out",
-                extra={
-                    "provider": bull_provider,
-                    "role": "bull",
-                    "timeout_seconds": self.ensemble_timeout,
-                }
-            )
-            failed_debate_providers.append(bull_provider)
-            increment_provider_request(bull_provider, "failure")
-            # TODO: Track debate provider timeouts for alerting (THR-XXX)
-        except Exception as e:
-            logger.error(
-                "Debate: bull provider failed with exception",
-                extra={
-                    "provider": bull_provider,
-                    "role": "bull",
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
-                exc_info=True
-            )
-            failed_debate_providers.append(bull_provider)
-            increment_provider_request(bull_provider, "failure")
-            # TODO: Alert on repeated debate provider failures (THR-XXX)
 
-        # Query bear provider (bearish case)
-        try:
-            # Add bear-specific instructions
-            bear_prompt = prompt + """
+        _bear_prompt_suffix = """
 
 DEBATE ROLE: BEARISH ADVOCATE
 ==============================
@@ -325,48 +328,19 @@ Major Risk: <biggest reason the bearish case could fail>
 Thesis Breaker: <specific condition that invalidates the bearish case>
 Data Quality: <good|degraded|stale>
 """
-            
-            bear_case = await self._query_single_provider(bear_provider, bear_prompt)
-            if not self.ensemble_manager._is_valid_provider_response(
-                bear_case, bear_provider
-            ):
-                logger.warning(
-                    f"Debate: {bear_provider} (bear) returned invalid response"
-                )
-                failed_debate_providers.append(bear_provider)
-                increment_provider_request(bear_provider, "failure")
-                bear_case = None
-            else:
-                logger.info(
-                    f"Debate: {bear_provider} (bear) -> {bear_case.get('action')} ({bear_case.get('confidence')}%)"
-                )
-                increment_provider_request(bear_provider, "success")
-        except asyncio.TimeoutError:
-            logger.error(
-                "Debate: bear provider timed out",
-                extra={
-                    "provider": bear_provider,
-                    "role": "bear",
-                    "timeout_seconds": self.ensemble_timeout,
-                }
-            )
-            failed_debate_providers.append(bear_provider)
-            increment_provider_request(bear_provider, "failure")
-            # TODO: Track debate provider timeouts for alerting (THR-XXX)
-        except Exception as e:
-            logger.error(
-                "Debate: bear provider failed with exception",
-                extra={
-                    "provider": bear_provider,
-                    "role": "bear",
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
-                exc_info=True
-            )
-            failed_debate_providers.append(bear_provider)
-            increment_provider_request(bear_provider, "failure")
-            # TODO: Alert on repeated debate provider failures (THR-XXX)
+
+        bull_result, bear_result = await asyncio.gather(
+            self._query_debate_role(
+                "bull", bull_provider, _bull_prompt_suffix, prompt, increment_provider_request,
+            ),
+            self._query_debate_role(
+                "bear", bear_provider, _bear_prompt_suffix, prompt, increment_provider_request,
+            ),
+        )
+        bull_case = bull_result["case"]
+        failed_debate_providers.extend(bull_result.get("failed", []))
+        bear_case = bear_result["case"]
+        failed_debate_providers.extend(bear_result.get("failed", []))
 
         # Query judge provider (final decision)
         try:
