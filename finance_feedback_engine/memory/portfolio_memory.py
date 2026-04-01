@@ -1291,6 +1291,30 @@ class PortfolioMemoryEngine:
                 else:
                     break
 
+        # Compute Sortino ratio (risk-adjusted return penalizing downside)
+        # and churn metrics so models understand round-trip friction cost.
+        pnl_values = [float(o.realized_pnl or 0) for o in outcomes]
+        sortino_ratio = None
+        if len(pnl_values) >= 3:
+            import math
+            mean_return = sum(pnl_values) / len(pnl_values)
+            downside_returns = [r for r in pnl_values if r < 0]
+            if downside_returns:
+                downside_dev = math.sqrt(
+                    sum(r ** 2 for r in downside_returns) / len(downside_returns)
+                )
+                sortino_ratio = round(mean_return / downside_dev, 3) if downside_dev > 0 else None
+
+        # Churn detection: count rapid open-close cycles in recent history
+        hold_times = [
+            float(o.holding_period_hours or 0)
+            for o in outcomes
+            if o.holding_period_hours is not None
+        ]
+        avg_hold_hours = round(sum(hold_times) / len(hold_times), 2) if hold_times else None
+        short_holds = sum(1 for h in hold_times if h < 0.5)  # < 30 min
+        churn_rate = round(short_holds / len(hold_times) * 100, 1) if hold_times else None
+
         context = {
             "has_history": True,
             "total_historical_trades": len(self.trade_outcomes),
@@ -1325,6 +1349,10 @@ class PortfolioMemoryEngine:
                 for provider, stats in provider_stats.items()
             },
             "current_streak": {"type": streak_type, "count": streak_count},
+            "sortino_ratio": sortino_ratio,
+            "avg_hold_hours": avg_hold_hours,
+            "churn_rate_pct": churn_rate,
+            "short_hold_count": short_holds,
             "long_term_performance": long_term_performance,
         }
 

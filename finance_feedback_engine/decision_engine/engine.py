@@ -862,6 +862,29 @@ Format response as a structured technical analysis demonstration.
                     f"({stats.get('count', 0)} trades)"
                 )
 
+        # Risk-adjusted metrics and churn awareness
+        sortino = context.get("sortino_ratio")
+        avg_hold = context.get("avg_hold_hours")
+        churn_rate = context.get("churn_rate_pct")
+        short_holds = context.get("short_hold_count", 0)
+        if sortino is not None or avg_hold is not None:
+            lines.append("\nRisk & Execution Quality:")
+            if sortino is not None:
+                quality = "GOOD" if sortino > 0.5 else "POOR" if sortino < 0 else "MARGINAL"
+                lines.append(f"  Sortino Ratio: {sortino:.3f} ({quality})")
+                if sortino < 0:
+                    lines.append("  ⚠️ NEGATIVE Sortino = losses dominate. Reduce trade frequency.")
+            if avg_hold is not None:
+                lines.append(f"  Average Hold Time: {avg_hold:.1f} hours")
+                if avg_hold < 0.5:
+                    lines.append("  ⚠️ Very short holds = likely churning through spread costs.")
+            if churn_rate is not None and churn_rate > 50:
+                lines.append(
+                    f"  ⚠️ CHURN WARNING: {churn_rate:.0f}% of recent trades held < 30 min "
+                    f"({short_holds} trades). Each round-trip costs spread + fees."
+                )
+                lines.append("  STRONG PREFERENCE: HOLD existing positions unless thesis is clearly broken.")
+
         if context.get("asset_specific"):
             asset_stats = context["asset_specific"]
             lines.append(f"\n{context.get('asset_pair', 'This Asset')} Specific:")
