@@ -84,8 +84,16 @@ class PerformanceTracker:
                 kw in provider_action for kw in ("LONG", "BUY", "REDUCE_SHORT", "CLOSE_SHORT")
             )
             provider_hold = provider_action == "HOLD"
-            outcome_bearish = actual_outcome in ("SELL",)
-            outcome_bullish = actual_outcome in ("BUY",)
+            # Classify outcome direction using same keyword matching as provider
+            # actions. Previously only matched "SELL"/"BUY" but actual outcomes
+            # arrive as policy actions (CLOSE_SHORT, OPEN_SMALL_SHORT, etc.)
+            outcome_upper = str(actual_outcome).upper()
+            outcome_bearish = any(
+                kw in outcome_upper for kw in ("SHORT", "SELL", "REDUCE_LONG", "CLOSE_LONG")
+            )
+            outcome_bullish = any(
+                kw in outcome_upper for kw in ("LONG", "BUY", "REDUCE_SHORT", "CLOSE_SHORT")
+            )
             if is_profitable:
                 # Trade was profitable: provider was correct if it agreed with the direction
                 was_correct = (

@@ -910,6 +910,15 @@ Format response as a structured technical analysis demonstration.
             lines.append(f"Transaction Costs: ~{cost_context.get('avg_total_cost_pct', 0):.3f}% per trade")
             lines.append(f"Break-Even Requirement: price must move {cost_context.get('break_even_requirement', 0):.3f}% in your favor")
 
+
+        # Quality gate awareness: tell the model what will get blocked
+        # so it stops wasting reasoning cycles on low-quality signals
+        lines.append("")
+        lines.append("EXECUTION QUALITY GATES (your signal will be BLOCKED if):")
+        lines.append("• Volatility >= 4% AND confidence < 80% → blocked (high_vol_low_confidence)")
+        lines.append("• Risk/reward ratio < 1.25 → blocked (insufficient_risk_reward)")
+        lines.append("→ Do NOT recommend entries below 80% confidence in volatile markets.")
+        lines.append("→ If you are not highly confident, recommend HOLD instead.")
         lines.append("=" * 60)
         lines.append("")
         return "\n".join(lines)
