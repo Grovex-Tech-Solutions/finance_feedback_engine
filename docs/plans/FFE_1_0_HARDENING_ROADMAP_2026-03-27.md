@@ -276,6 +276,52 @@ Before treating PR-4 as the active implementation section, keep boring-ifying th
 - keep using the new attempted-source / handoff / memory-update logs as the audit spine
 - only then treat adaptation proof as a clean next-stage target
 
+### Live audit notes — 2026-04-01 (v0.10.1)
+
+Major progress on Track 0 acceptance criteria. Data-driven analysis of 15,087 decisions over ~30 days drove a focused optimization and bugfix wave.
+
+#### Exit sizing fix (commit `7227d43`)
+- **Symptom:** All CLOSE_SHORT/CLOSE_LONG executions failing with "Decision missing positive suggested_amount" since the derisking path in `position_sizing.py` intentionally returned 0 for exit actions.
+- **Fix:** `decision_validator.py` now derives `suggested_amount` from `position_state.contracts * current_price` for exit/derisking actions.
+- **Live proof:** CLOSE_SHORT executions immediately succeeded after deploy.
+
+#### Judge exit override (commit `8a09ddfd`)
+- **Symptom:** Bear correctly called CLOSE_SHORT 508 times; judge overruled to HOLD 444 times (87% suppressed). System could identify exit signals but couldn't act on them.
+- **Fix:** `_judge_exit_override()` in `debate_manager.py` — when either advocate recommends CLOSE_*/REDUCE_* with confidence >= 75%, override judge HOLD.
+- **Live proof:** Override firing in production, CLOSE_SHORT/REDUCE_SHORT executing successfully.
+
+#### Bull/bear parallelization (commit `8a09ddfd`)
+- **Fix:** Extracted `_query_debate_role()` helper, bull+bear wrapped in `asyncio.gather()`.
+- **Note:** Minimal improvement on single-GPU Ollama (hardware serializes). Will matter on multi-GPU or remote model setups.
+
+#### Learning correctness tracking fix (commit `8a09ddfd`)
+- **Symptom:** `correct: 0` across all models in ensemble_history despite trades executing. `was_correct` compared provider action strings ("OPEN_SMALL_SHORT") against executed action strings ("SELL") — never matched.
+- **Fix:** `performance_tracker.py` now uses directional alignment: provider correct if its signal matched profitable trade direction, or warned against losing trade.
+
+#### Decision lineage fix (commit `e45583e1`)
+- **Symptom:** Multiple different closes all credited stale decision `146208e1` via `decision_store.recovery_metadata_product` fallback. Async detection pipeline lost lineage because positions close instantly (crypto market orders) before the next sync cycle.
+- **Fix:** CLOSE/REDUCE actions now record outcomes **directly in the execution handler** with the correct `decision_id`.
+- **Live proof:** `Direct learning handoff for REDUCE_SHORT ETHUSD | decision_id=abe24e8f-... | exit_price=2117.16` — unique, correct decision ID.
+
+#### HOLD confidence normalization (commit `e45583e1`)
+- **Symptom:** 72% of HOLD decisions had confidence 0-9%. Models output low confidence meaning "no trade conviction" but downstream interpreted it as "zero confidence in the HOLD decision."
+- **Fix:** `local_llm_provider.py` remaps HOLD confidence < 10% to 50% (neutral prior).
+- **Live proof:** Judge HOLDs now show 45-50% confidence instead of 0.
+
+#### Judge hold override relaxation (commit `e45583e1`)
+- **Symptom:** `_judge_hold_override` never fired (0/4,853 decisions). Required BOTH bull=bullish AND bear=bearish simultaneously — too strict.
+- **Fix:** Now needs only ONE advocate with directional entry signal >= 70% confidence + material confidence gap over the other. Exit/derisking actions excluded (handled by `_judge_exit_override`).
+
+#### Track 0 acceptance status after 2026-04-01
+1. ✅ Execution occurs — confirmed, all trade types
+2. ✅ Durable outcome artifact lands — `data/trade_outcomes/*.jsonl` active
+3. ✅ Decision lineage survives — direct recording at execution time (no more stale fallback)
+4. ✅ Learning ingests the outcome — handoff ACCEPTED with correct decision IDs
+5. ✅ Memory/performance state changes durably — `avg_performance` updating via EMA
+6. ⚠️ Provider/model weighting reflects the update — `correct` counter now fixed, weights updating via `avg_performance`, but behavioral impact not yet proved over sufficient soak window
+
+Track 0 is materially closer to complete. Gate 6 requires extended soak to demonstrate that adaptive weights actually change decision behavior.
+
 #### Regression classification
 Live reliability regressions on the learning chain are explicit **Track 0 regressions**.
 

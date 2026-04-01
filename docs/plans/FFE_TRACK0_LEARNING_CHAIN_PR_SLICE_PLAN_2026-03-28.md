@@ -55,6 +55,7 @@ If lineage is lost, every downstream learning or weight-adaptation claim is comp
 ### Status notes
 - Initial seam patch started 2026-03-28 on `trading_loop_agent.py`
 - Focused test coverage added for trade-monitor fallback enrichment
+- **2026-04-01:** Direct lineage recording at execution time for CLOSE/REDUCE actions (`e45583e1`). Eliminates the async detection race where crypto market orders fill before the next sync cycle. Live-proved: unique decision IDs on every close handoff.
 
 ---
 
@@ -148,6 +149,13 @@ This is the dividing line between a system that records outcomes and a system th
 ### Acceptance
 - outcome-driven adaptation can be demonstrated with before/after evidence
 - no operator needs to guess whether a weight change was learned or merely normalized from config
+
+### Status notes
+- **2026-04-01:** Three critical fixes unblocked the adaptation pipeline:
+  1. `performance_tracker.py` correctness tracking fixed (`8a09ddfd`) — `was_correct` now uses directional alignment instead of broken string comparison
+  2. `debate_manager.py` exit override (`8a09ddfd`) — exit signals no longer suppressed 87% of the time
+  3. `local_llm_provider.py` HOLD confidence normalization (`e45583e1`) — meaningful confidence values for quality gates
+- Adaptation is now mechanically functional: `avg_performance` updates via EMA, `correct` counter increments, weights recalculated. Extended soak required to prove behavioral impact on later decisions.
 
 ---
 

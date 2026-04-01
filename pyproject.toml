@@ -246,7 +246,7 @@ markers = [
 ]
 
 [tool.setuptools_scm]
-fallback_version = "0.10.0"
+fallback_version = "0.10.1"
 write_to = "finance_feedback_engine/_version.py"
 version_scheme = "guess-next-dev"
 local_scheme = "node-and-date"
