@@ -469,10 +469,10 @@ class DecisionValidator:
             "effective_size_basis": "usd_notional" if is_crypto else "asset_units",
             "portfolio_stop_loss_percentage": self.portfolio_stop_loss_percentage,
             "portfolio_take_profit_percentage": self.portfolio_take_profit_percentage,
-            "market_data": context["market_data"],
-            "balance_snapshot": context["balance"],
-            "price_change": context["price_change"],
-            "volatility": context["volatility"],
+            "market_data": context.get("market_data", {}),
+            "balance_snapshot": context.get("balance", {}),
+            "price_change": context.get("price_change", 0.0),
+            "volatility": context.get("volatility", 0.0),
             # Surface portfolio unrealized P&L if available from platform data
             "portfolio_unrealized_pnl": (context.get("portfolio", {}) or {}).get(
                 "unrealized_pnl"
