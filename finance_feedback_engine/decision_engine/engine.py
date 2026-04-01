@@ -633,17 +633,9 @@ Current Value: ${current_holding.get('value_usd', 0):,.2f}
 Allocation: {current_holding.get('allocation_pct', 0):.1f}%
 """
 
-        # Add portfolio memory context if available
-        memory_context = context.get("memory_context")
-        if memory_context and memory_context.get("has_history"):
-            memory_text = self._format_memory_context(memory_context)
-            market_info += f"\n{memory_text}\n"
-
-        # Add transaction cost context if available
-        cost_context = context.get("transaction_cost_context")
-        if cost_context and cost_context.get("has_data"):
-            cost_text = self._format_cost_context(cost_context)
-            market_info += f"\n{cost_text}\n"
+        # NOTE: Portfolio memory and transaction cost context are now front-loaded
+        # in the prompt (before market data) via _build_account_context_section().
+        # They are no longer appended at the tail of market_info.
 
         # Add live monitoring context if available
         monitoring_context = context.get("monitoring_context")
@@ -665,13 +657,15 @@ Allocation: {current_holding.get('allocation_pct', 0):.1f}%
         if regime != "UNKNOWN":
             regime_prefix = f"CURRENT MARKET REGIME: {regime}. Adjust your strategy to favor trend-following indicators.\n\n"
 
+        # Front-load account health context so it anchors reasoning before market data
+        account_section = self._build_account_context_section(context)
+
         prompt = f"""{regime_prefix}You are an educational trading analysis system demonstrating technical and fundamental market analysis for learning purposes.
 
 TASK: Analyze the following market data and demonstrate what a technical analysis would suggest. This is for educational/research purposes only, not actual financial advice.
 
+{account_section}
 {market_info}
-
-Account Balance: {balance}
 
 EDUCATIONAL CONTEXT - Trading Position Types:
 =============================================
@@ -823,6 +817,72 @@ Format response as a structured technical analysis demonstration.
 """
         return prompt
 
+    def _build_account_context_section(self, context: Dict[str, Any]) -> str:
+        """Build front-loaded account health section for the AI prompt.
+
+        This goes BEFORE market data so account health anchors the reasoning
+        before market noise. Policy-driven decisions should be backed by
+        account-driven context, not purely market-driven.
+        """
+        lines = [
+            "=" * 60,
+            "⚠️  ACCOUNT HEALTH & RISK CONTEXT (READ FIRST)  ⚠️",
+            "=" * 60,
+            "Decisions MUST be informed by account health BEFORE market signals.",
+            "",
+        ]
+
+        balance = context.get("balance", {})
+        total_balance = sum(float(v) for v in balance.values() if isinstance(v, (int, float)))
+        lines.append(f"Account Balance: ${total_balance:,.2f}")
+
+        memory_context = context.get("memory_context")
+        if memory_context and memory_context.get("has_history"):
+            perf = memory_context.get("recent_performance", {})
+            lines.append(f"Recent Trades: {memory_context.get('recent_trades_analyzed', 0)}")
+            lines.append(f"Win Rate: {perf.get('win_rate', 0):.1f}%")
+            lines.append(f"Recent P&L: ${perf.get('total_pnl', 0):.2f}")
+
+            sortino = memory_context.get("sortino_ratio")
+            if sortino is not None:
+                quality = "GOOD" if sortino > 0.5 else "POOR" if sortino < 0 else "MARGINAL"
+                lines.append(f"Sortino Ratio: {sortino:.3f} ({quality})")
+                if sortino < 0:
+                    lines.append("⚠️  NEGATIVE RISK-ADJUSTED RETURNS. Losses outweigh gains.")
+                    lines.append("→  REDUCE trade frequency. Prefer HOLD over new entries.")
+
+            avg_hold = memory_context.get("avg_hold_hours")
+            if avg_hold is not None:
+                lines.append(f"Avg Hold Time: {avg_hold:.1f} hours")
+
+            churn_rate = memory_context.get("churn_rate_pct")
+            short_holds = memory_context.get("short_hold_count", 0)
+            if churn_rate is not None and churn_rate > 30:
+                lines.append(f"")
+                lines.append(f"🚨 CHURN ALERT: {churn_rate:.0f}% of trades held < 30 min ({short_holds} trades)")
+                lines.append(f"Each round-trip costs spread + fees. You are LOSING MONEY to friction.")
+                lines.append(f"")
+                lines.append(f"MANDATORY GUIDANCE:")
+                lines.append(f"• Do NOT close a position opened less than 1 hour ago unless P&L > +2%")
+                lines.append(f"• Do NOT open a new position if you just closed one on this asset")
+                lines.append(f"• Prefer HOLD. Let positions work. Patience > activity.")
+
+            streak = memory_context.get("current_streak", {})
+            if streak.get("type") and streak.get("count", 0) >= 3:
+                lines.append(f"Current Streak: {streak['count']} {streak['type']} trades")
+                if streak["type"] == "losing":
+                    lines.append("→  Losing streak. Reduce position sizing or sit out.")
+
+        cost_context = context.get("transaction_cost_context")
+        if cost_context and cost_context.get("has_data"):
+            lines.append(f"")
+            lines.append(f"Transaction Costs: ~{cost_context.get('avg_total_cost_pct', 0):.3f}% per trade")
+            lines.append(f"Break-Even Requirement: price must move {cost_context.get('break_even_requirement', 0):.3f}% in your favor")
+
+        lines.append("=" * 60)
+        lines.append("")
+        return "\n".join(lines)
+
     def _format_memory_context(self, context: Dict[str, Any]) -> str:
         """Format portfolio memory context for AI prompts."""
         if not context or not context.get("has_history"):
@@ -862,28 +922,7 @@ Format response as a structured technical analysis demonstration.
                     f"({stats.get('count', 0)} trades)"
                 )
 
-        # Risk-adjusted metrics and churn awareness
-        sortino = context.get("sortino_ratio")
-        avg_hold = context.get("avg_hold_hours")
-        churn_rate = context.get("churn_rate_pct")
-        short_holds = context.get("short_hold_count", 0)
-        if sortino is not None or avg_hold is not None:
-            lines.append("\nRisk & Execution Quality:")
-            if sortino is not None:
-                quality = "GOOD" if sortino > 0.5 else "POOR" if sortino < 0 else "MARGINAL"
-                lines.append(f"  Sortino Ratio: {sortino:.3f} ({quality})")
-                if sortino < 0:
-                    lines.append("  ⚠️ NEGATIVE Sortino = losses dominate. Reduce trade frequency.")
-            if avg_hold is not None:
-                lines.append(f"  Average Hold Time: {avg_hold:.1f} hours")
-                if avg_hold < 0.5:
-                    lines.append("  ⚠️ Very short holds = likely churning through spread costs.")
-            if churn_rate is not None and churn_rate > 50:
-                lines.append(
-                    f"  ⚠️ CHURN WARNING: {churn_rate:.0f}% of recent trades held < 30 min "
-                    f"({short_holds} trades). Each round-trip costs spread + fees."
-                )
-                lines.append("  STRONG PREFERENCE: HOLD existing positions unless thesis is clearly broken.")
+        # Risk-adjusted metrics now front-loaded in _build_account_context_section.
 
         if context.get("asset_specific"):
             asset_stats = context["asset_specific"]
