@@ -10,6 +10,7 @@ from ..utils.rate_limiter import RateLimiter
 from .alpha_vantage_provider import AlphaVantageProvider
 from .coinbase_data import CoinbaseDataProvider
 from .oanda_data import OandaDataProvider
+from ..utils.product_id import is_cfm_product as _canonical_is_cfm
 
 logger = logging.getLogger(__name__)
 
