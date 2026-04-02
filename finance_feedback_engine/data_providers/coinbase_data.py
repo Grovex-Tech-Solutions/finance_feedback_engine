@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
 from ..utils.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
+from ..utils.product_id import is_cfm_product
 from ..utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)

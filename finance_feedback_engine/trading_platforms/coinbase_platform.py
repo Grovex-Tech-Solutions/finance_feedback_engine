@@ -11,6 +11,7 @@ from requests.exceptions import RequestException
 from ..exceptions import APIConnectionError, APIRateLimitError
 from ..observability.context import get_trace_headers
 from ..utils.shape_normalization import extract_portfolio_positions
+from ..utils.product_id import asset_pair_to_product_id as _pair_to_cfm
 from .base_platform import BaseTradingPlatform, PositionInfo
 from .retry_handler import platform_retry, get_timeout_config, standardize_platform_error
 from finance_feedback_engine.decision_engine.policy_actions import (
@@ -464,20 +465,15 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
         if "USDC" not in preferred_quotes:
             preferred_quotes.append("USDC")
 
-        # CFM (US CFTC-regulated) perpetual-style product mapping.
-        # These are long-dated futures (expire Dec 2030) that function as perpetuals.
+        # CFM (US CFTC-regulated) perpetual-style product mapping via canonical module.
         # US accounts get CFM products, not INTX. INTX returns 403 for US users.
-        CFM_PERP_MAP = {
-            "BTC": "BIP-20DEC30-CDE",   # BTC perpetual-style
-            "ETH": "ETP-20DEC30-CDE",   # ETH perpetual-style
-            "SOL": "SLP-20DEC30-CDE",   # SOL perpetual-style
-        }
+        cfm_product = _pair_to_cfm(f"{base}USD")
 
         candidates: list[str] = []
 
         # Prioritize CFM perpetual-style products (US accounts)
-        if base in CFM_PERP_MAP:
-            candidates.append(CFM_PERP_MAP[base])
+        if cfm_product:
+            candidates.append(cfm_product)
 
         # Then try INTX perpetuals (non-US accounts)
         for q in preferred_quotes:

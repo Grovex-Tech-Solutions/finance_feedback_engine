@@ -43,6 +43,7 @@ CFM_PREFIX_TO_BASE: dict[str, str] = {
 _BASE_TO_PRODUCT_ID: dict[str, str] = {
     "BTC": "BIP-20DEC30-CDE",
     "ETH": "ETP-20DEC30-CDE",
+    "SOL": "SLP-20DEC30-CDE",
 }
 
 # Known canonical asset pairs (for passthrough detection).
