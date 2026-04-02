@@ -74,6 +74,10 @@ def setup_logging(
     # Configure root logger
     logging.basicConfig(level=log_level, handlers=handlers, force=True)
 
+    # Quiet noisy third-party loggers
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance."""
