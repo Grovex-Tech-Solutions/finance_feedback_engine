@@ -174,7 +174,7 @@ class DecisionStore:
             except FileIOError as e:
                 logger.error(f"Error loading decision from {filepath}: {e}")
 
-        logger.info(f"Retrieved {len(decisions)} decisions")
+        logger.debug(f"Retrieved {len(decisions)} decisions")
         return decisions
 
     def get_recent_decisions(

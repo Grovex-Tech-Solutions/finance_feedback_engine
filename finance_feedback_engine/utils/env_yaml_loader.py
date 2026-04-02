@@ -121,7 +121,7 @@ def load_yaml_with_env_substitution(yaml_path: Path) -> Dict[str, Any]:
     # Parse YAML
     config = yaml.safe_load(substituted_content)
 
-    logger.info(f"✅ Loaded config from {yaml_path} with env var substitution")
+    logger.debug(f"Loaded config from {yaml_path} with env var substitution")
     return config
 
 

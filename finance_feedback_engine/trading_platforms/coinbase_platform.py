@@ -810,7 +810,7 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
         Raises:
             TradingError: If credentials are invalid or API call fails
         """
-        logger.info("Fetching account balances (futures + spot USD/USDC)")
+        logger.debug("Fetching account balances (futures + spot USD/USDC)")
 
         # Assumption: The 'available_balance' from client.get_accounts() for spot USD/USDC
         # does not include staked amounts. Staked assets are typically not considered
@@ -835,7 +835,7 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
                     )
                     if futures_buying_power_value:
                         futures_buying_power = _to_float_value(futures_buying_power_value)
-                        logger.info(
+                        logger.debug(
                             "Futures buying power (total collateral): $%.2f USD",
                             futures_buying_power,
                         )
@@ -920,7 +920,7 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
                     balances["SPOT_USDC"] = spot_usdc
 
                 if futures_usd > 0 or futures_usdc > 0:
-                    logger.info(
+                    logger.debug(
                         "Futures collateral split - USD: $%.2f, USDC: $%.2f, total: $%.2f",
                         futures_usd,
                         futures_usdc,
@@ -1108,7 +1108,7 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
             - spot_value_usd: Spot USD/USDC value
             - num_assets: Number of holdings (spot only)
         """
-        logger.info("Fetching complete account breakdown")
+        logger.debug("Fetching complete account breakdown")
 
         try:
             try:

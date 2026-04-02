@@ -320,7 +320,7 @@ def load_tiered_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     if yaml_path.exists():
         try:
             base_config = load_yaml_with_env_substitution(yaml_path) or {}
-            logger.info("Loaded base configuration from %s", yaml_path)
+            logger.debug("Loaded base configuration from %s", yaml_path)
         except Exception as e:
             logger.warning("Failed to load base YAML config %s: %s", yaml_path, e)
 
@@ -626,7 +626,7 @@ def _validate_position_sizing_config(pos_config: Dict[str, Any]) -> None:
             f"This is unusual - dev should be more conservative."
         )
     
-    logger.info(
+    logger.debug(
         f"Position sizing config validated: risk={risk_pct:.1%}, "
         f"caps=[dev=${max_dev:.0f}, prod=${max_prod:.0f}]"
     )

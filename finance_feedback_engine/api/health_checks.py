@@ -15,6 +15,25 @@ from ..utils.ollama_readiness import resolve_debate_providers
 
 logger = logging.getLogger(__name__)
 
+# Config cache to avoid reloading YAML on every health check (~30s interval)
+import time as _time
+
+_config_cache: dict = {}
+_config_cache_ts: float = 0.0
+_CONFIG_CACHE_TTL = 300  # 5 minutes
+
+
+def _get_cached_config() -> dict:
+    global _config_cache, _config_cache_ts
+    now = _time.time()
+    if _config_cache and (now - _config_cache_ts) < _CONFIG_CACHE_TTL:
+        return _config_cache
+    from ..utils.config_loader import load_config
+    _config_cache = load_config(_get_config_path())
+    _config_cache_ts = now
+    return _config_cache
+
+
 # Track startup time
 _startup_time = datetime.now(UTC)
 
@@ -54,13 +73,11 @@ def check_ollama_status_sync() -> Dict[str, Any]:
         Dictionary with Ollama status, available models, and any issues
     """
     import requests
-    from ..utils.config_loader import load_config
-
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
     # Load required models from config
     try:
-        config = load_config(_get_config_path())
+        config = _get_cached_config()
         required_models = config.get("decision_engine", {}).get("local_models", [])
         # Extract base model names (remove version tags like :3b-instruct-fp16)
         required_models = [m.split(":")[0] for m in required_models]
@@ -165,13 +182,11 @@ async def check_ollama_status() -> Dict[str, Any]:
     Returns:
         Dictionary with Ollama status, available models, debate config, and any issues
     """
-    from ..utils.config_loader import load_config
-
     ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
     # Load required models and debate config from config
     try:
-        config = load_config(_get_config_path())
+        config = _get_cached_config()
         required_models = config.get("decision_engine", {}).get("local_models", [])
         # Extract base model names (remove version tags like :3b-instruct-fp16)
         required_models = [m.split(":")[0] for m in required_models]

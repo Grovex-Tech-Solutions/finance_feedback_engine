@@ -420,6 +420,10 @@ def setup_logging(verbose: bool = False, config: dict = None):
     console_handler.setFormatter(logging.Formatter(console_format))
     root_logger.addHandler(console_handler)
 
+    # Quiet noisy third-party loggers
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
     # Attach OTel trace context filter if available
     try:
         from finance_feedback_engine.observability.context import OTelContextFilter
