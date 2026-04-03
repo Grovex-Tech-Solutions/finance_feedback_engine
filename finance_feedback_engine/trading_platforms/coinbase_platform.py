@@ -1143,19 +1143,25 @@ class CoinbaseAdvancedPlatform(BaseTradingPlatform):
                         total_balance_usd = _to_float_value(
                             _get_attr_value(balance_summary, "total_usd_balance", 0)
                         )
-                        # For portfolio valuation, prefer total account balance; fall back to buying power
-                        futures_value_usd = total_balance_usd if total_balance_usd > 0 else buying_power_usd
+                        unrealized_pnl_usd = _to_float_value(
+                            _get_attr_value(balance_summary, "unrealized_pnl", 0)
+                        )
+                        daily_realized_pnl_usd = _to_float_value(
+                            _get_attr_value(balance_summary, "daily_realized_pnl", 0)
+                        )
+                        # Coinbase total_usd_balance is the deposited balance and does NOT
+                        # reflect realized or unrealized P&L.  Compute real equity so that
+                        # portfolio value, position sizing, risk checks, and alerts all see
+                        # the actual account value.
+                        if total_balance_usd > 0:
+                            futures_value_usd = total_balance_usd + daily_realized_pnl_usd + unrealized_pnl_usd
+                        else:
+                            futures_value_usd = buying_power_usd
 
                         futures_summary = {
                             "total_balance_usd": futures_value_usd,
-                            "unrealized_pnl": _to_float_value(
-                                _get_attr_value(balance_summary, "unrealized_pnl", 0)
-                            ),
-                            "daily_realized_pnl": _to_float_value(
-                                _get_attr_value(
-                                    balance_summary, "daily_realized_pnl", 0
-                                )
-                            ),
+                            "unrealized_pnl": unrealized_pnl_usd,
+                            "daily_realized_pnl": daily_realized_pnl_usd,
                             "buying_power": buying_power_usd,
                             "initial_margin": _to_float_value(
                                 _get_attr_value(balance_summary, "initial_margin", 0)
