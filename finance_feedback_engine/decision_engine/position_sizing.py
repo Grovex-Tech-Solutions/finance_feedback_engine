@@ -6,6 +6,11 @@ from typing import Any, Dict, Optional
 
 from .policy_actions import get_legacy_action_compatibility, get_position_orientation
 
+try:
+    from .sortino_gate import SortinoGateResult
+except ImportError:
+    SortinoGateResult = None  # Graceful degradation if sortino_gate not available
+
 logger = logging.getLogger(__name__)
 
 # Minimum order sizes for different platforms (USD notional value)
@@ -344,9 +349,66 @@ class PositionSizingCalculator:
         if should_calculate:
             total_balance = sum(relevant_balance.values())
 
-            # Calculate position size using either Kelly Criterion or risk-based method
-            if use_kelly_criterion and self.kelly_calculator:
-                # Use Kelly Criterion for position sizing
+            # --- Sortino-gated adaptive Kelly (Track SK Phase 2) ---
+            # Check for sortino gate result in context. When present and
+            # non-fixed, it overrides both the legacy use_kelly_criterion
+            # flag and static risk-based sizing.
+            sortino_gate_result = context.get("sortino_gate_result") if isinstance(context, dict) else None
+            _use_sortino_kelly = (
+                sortino_gate_result is not None
+                and SortinoGateResult is not None
+                and isinstance(sortino_gate_result, SortinoGateResult)
+                and sortino_gate_result.sizing_mode != "fixed_risk"
+                and sortino_gate_result.kelly_multiplier > 0
+                and self.kelly_calculator is not None
+            )
+
+            if _use_sortino_kelly:
+                # Dynamic Kelly: set multiplier from sortino gate, then size
+                original_multiplier = getattr(
+                    self.kelly_calculator, "kelly_fraction_multiplier", 0.25
+                )
+                try:
+                    self.kelly_calculator.kelly_fraction_multiplier = (
+                        sortino_gate_result.kelly_multiplier
+                    )
+                    kelly_params = self._get_kelly_parameters(context, kelly_config)
+                    recommended_position_size, kelly_details = (
+                        self.kelly_calculator.calculate_position_size(
+                            account_balance=total_balance,
+                            win_rate=kelly_params["win_rate"],
+                            avg_win=kelly_params["avg_win"],
+                            avg_loss=kelly_params["avg_loss"],
+                            current_price=current_price,
+                            payoff_ratio=kelly_params["payoff_ratio"],
+                        )
+                    )
+                    result["position_sizing_method"] = "sortino_kelly"
+                    result["kelly_details"] = kelly_details
+                    result["sortino_gate"] = {
+                        "sizing_mode": sortino_gate_result.sizing_mode,
+                        "kelly_multiplier": sortino_gate_result.kelly_multiplier,
+                        "weighted_sortino": sortino_gate_result.weighted_sortino,
+                        "trade_count": sortino_gate_result.trade_count,
+                        "windows_used": sortino_gate_result.windows_used,
+                        "short_window_veto": sortino_gate_result.short_window_veto,
+                        "reason": sortino_gate_result.reason,
+                    }
+                    logger.info(
+                        "Sortino-Kelly sizing: %s (multiplier=%.2f, sortino=%.3f, trades=%d)",
+                        sortino_gate_result.sizing_mode,
+                        sortino_gate_result.kelly_multiplier,
+                        sortino_gate_result.weighted_sortino,
+                        sortino_gate_result.trade_count,
+                    )
+                finally:
+                    # Always restore original multiplier to avoid global mutation
+                    self.kelly_calculator.kelly_fraction_multiplier = original_multiplier
+
+            elif use_kelly_criterion and self.kelly_calculator and sortino_gate_result is None:
+                # Legacy Kelly path: only when no sortino gate is present
+                # If sortino gate IS present but says fixed_risk, we respect that
+                # and fall through to risk-based sizing below.
                 kelly_params = self._get_kelly_parameters(context, kelly_config)
                 recommended_position_size, kelly_details = (
                     self.kelly_calculator.calculate_position_size(
