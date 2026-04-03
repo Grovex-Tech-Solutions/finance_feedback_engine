@@ -100,3 +100,8 @@ redis-data/
 # Logs
 logs/
 *.log
+
+# FFE Telegram monitor secrets
+scripts/.ffe-monitor.env
+scripts/.ffe-monitor-state.json
+
