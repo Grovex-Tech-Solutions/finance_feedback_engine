@@ -383,10 +383,11 @@ class TradingLoopAgent:
         self._last_batch_review_time = None
 
         # Track SK: Sortino-gated adaptive Kelly position sizing
-        self._trade_pnl_history: list[float] = []
-        self._trade_pnl_history_max = 500  # Rolling window cap
+        from collections import deque
+        self._trade_pnl_history: deque[float] = deque(maxlen=500)
         self._sortino_gate = SortinoGate() if SortinoGate is not None else None
         self._last_sortino_gate_result: SortinoGateResult | None = None
+        self._preload_trade_pnl_history()  # Phase 4: load from durable outcomes
 
         # Validate notification delivery path on startup
         notification_valid, notification_errors = self._validate_notification_config()
@@ -2651,28 +2652,35 @@ class TradingLoopAgent:
 
             if should_execute:
                 # --- Track SK: Inject sortino gate + performance metrics ---
+                # Single defensive boundary: gate computation + metrics injection.
+                # If anything fails, decision proceeds without gate/metrics (fixed risk).
                 try:
                     if self._sortino_gate is not None:
                         self._last_sortino_gate_result = self._sortino_gate.compute(
-                            self._trade_pnl_history
+                            list(self._trade_pnl_history)
                         )
                         decision["sortino_gate_result"] = self._last_sortino_gate_result
-                except Exception as e:
-                    logger.warning("Sortino gate computation failed: %s", e)
 
-                # Inject performance_metrics for Kelly parameter extraction
-                raw_wr = self._performance_metrics.get("win_rate", 0)
-                decision["performance_metrics"] = {
-                    "win_rate": raw_wr / 100.0 if raw_wr > 1.0 else raw_wr,
-                    "avg_win": self._performance_metrics.get("avg_win", 0),
-                    "avg_loss": self._performance_metrics.get("avg_loss", 0),
-                    "payoff_ratio": (
-                        abs(self._performance_metrics.get("avg_win", 0)
-                            / self._performance_metrics.get("avg_loss", 1))
-                        if self._performance_metrics.get("avg_loss", 0) != 0
-                        else 1.0
-                    ),
-                }
+                    # Inject performance_metrics for Kelly parameter extraction
+                    raw_wr = float(self._performance_metrics.get("win_rate", 0) or 0)
+                    normalized_wr = raw_wr / 100.0 if raw_wr > 1.0 else raw_wr
+                    normalized_wr = max(0.0, min(1.0, normalized_wr))  # clamp [0, 1]
+
+                    avg_win = abs(float(self._performance_metrics.get("avg_win", 0) or 0))
+                    avg_loss = abs(float(self._performance_metrics.get("avg_loss", 0) or 0))
+                    payoff_ratio = avg_win / avg_loss if avg_loss > 0 else 1.0
+
+                    decision["performance_metrics"] = {
+                        "win_rate": normalized_wr,
+                        "avg_win": avg_win,
+                        "avg_loss": avg_loss,
+                        "payoff_ratio": payoff_ratio,
+                    }
+                except Exception as e:
+                    logger.warning(
+                        "Sortino gate / metrics injection failed: %s (sizing will use fixed risk)",
+                        e,
+                    )
 
                 # --- INJECT POSITION SIZING HERE ---
                 try:
@@ -3857,6 +3865,54 @@ class TradingLoopAgent:
         # After processing, end this cycle cleanly; the next process_cycle() call will start PERCEPTION
         await self._transition_to(AgentState.IDLE)
 
+    def _preload_trade_pnl_history(self) -> None:
+        """Phase 4: Pre-load P&L history from durable trade outcome files on startup.
+
+        Reads data/trade_outcomes/*.jsonl to populate _trade_pnl_history so the
+        sortino gate can evaluate immediately instead of cold-starting after
+        every restart. Only non-zero realized_pnl values are loaded, ordered
+        chronologically (oldest first).
+        """
+        import glob
+        import json
+        import os
+
+        outcomes_dir = os.path.join("data", "trade_outcomes")
+        if not os.path.isdir(outcomes_dir):
+            logger.info("Track SK: No trade outcomes directory found, starting with empty P&L history")
+            return
+
+        pnls = []
+        try:
+            files = sorted(glob.glob(os.path.join(outcomes_dir, "*.jsonl")))
+            for fpath in files:
+                try:
+                    with open(fpath) as f:
+                        for line in f:
+                            try:
+                                rec = json.loads(line)
+                                p = float(rec.get("realized_pnl", 0))
+                                if p != 0:
+                                    pnls.append(p)
+                            except (json.JSONDecodeError, TypeError, ValueError):
+                                continue
+                except OSError:
+                    continue
+
+            # deque(maxlen=500) auto-caps, but only load last 500
+            for p in pnls[-500:]:
+                self._trade_pnl_history.append(p)
+
+            logger.info(
+                "Track SK: Pre-loaded %d P&L samples from %d outcome files "
+                "(deque has %d, gate can evaluate immediately)",
+                len(pnls),
+                len(files),
+                len(self._trade_pnl_history),
+            )
+        except Exception as e:
+            logger.warning("Track SK: Failed to pre-load P&L history: %s", e)
+
     def _update_performance_metrics(self, trade_outcome: Dict[str, Any]) -> None:
         """
         Update performance metrics based on a completed trade.
@@ -3869,11 +3925,9 @@ class TradingLoopAgent:
             realized_pnl = trade_outcome.get("realized_pnl", 0)
             is_profitable = trade_outcome.get("was_profitable", realized_pnl > 0)
 
-            # Track SK: append to P&L history for sortino gate
+            # Track SK: append to P&L history for sortino gate (deque auto-caps)
             if realized_pnl != 0:
                 self._trade_pnl_history.append(float(realized_pnl))
-                if len(self._trade_pnl_history) > self._trade_pnl_history_max:
-                    self._trade_pnl_history = self._trade_pnl_history[-self._trade_pnl_history_max:]
 
             # Update basic metrics
             self._performance_metrics["total_trades"] += 1
@@ -3990,7 +4044,8 @@ class TradingLoopAgent:
                     f"\nSortino-Kelly Status: BOOTSTRAP ({len(self._trade_pnl_history)} P&L samples collected)"
                 )
 
-            # Legacy Kelly check (kept for backward compat logging, no longer drives sizing)
+            # Legacy Kelly check (INFORMATIONAL ONLY — does NOT drive sizing decisions.
+            # Sortino gate above is the authoritative sizing controller.)
             if self._performance_metrics["total_trades"] >= 50:
                 kelly_check = self.portfolio_memory.check_kelly_activation_criteria(
                     window=50
@@ -3999,13 +4054,14 @@ class TradingLoopAgent:
                 should_activate = kelly_check.get("should_activate_kelly", False)
                 self._kelly_activated = should_activate
                 logger.info(
-                    f"  Legacy Kelly check: {'ACTIVATED' if should_activate else 'NOT ACTIVATED'} "
-                    f"(PF={kelly_check.get('avg_pf', 0):.3f}, PF_std={kelly_check.get('pf_std', 0):.3f})"
+                    f"  [INFO ONLY] Legacy Kelly: {'ACTIVATED' if should_activate else 'NOT ACTIVATED'} "
+                    f"(PF={kelly_check.get('avg_pf', 0):.3f}, PF_std={kelly_check.get('pf_std', 0):.3f}) "
+                    f"— not used for sizing"
                 )
             else:
                 remaining_trades = 50 - self._performance_metrics["total_trades"]
                 logger.info(
-                    f"\nLegacy Kelly Status: BOOTSTRAP PERIOD ({remaining_trades} trades until eligibility)"
+                    f"  [INFO ONLY] Legacy Kelly: BOOTSTRAP ({remaining_trades} trades to eligibility) — not used for sizing"
                 )
                 logger.info(
                     "  Using platform-specific fixed sizing until 50-trade threshold."
