@@ -9,6 +9,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from opentelemetry import metrics, trace
@@ -3070,6 +3071,7 @@ class TradingLoopAgent:
                                     ),
                                     entry_price=decision.get("entry_price"),
                                     side=execution_intent.get("position_side"),
+                                    policy_action_family=execution_intent.get("policy_action_family"),
                                 )
                                 logger.info(
                                     "Registered executed order %s for outcome tracking on %s",
@@ -3379,6 +3381,29 @@ class TradingLoopAgent:
             )
             logger.warning(f"Failed signals: {'; '.join(failure_reasons)}")
 
+    def _decision_has_recorded_outcome(self, decision_id: Optional[str]) -> bool:
+        """Return True when durable memory already contains an outcome for this decision."""
+        normalized = normalize_scalar_id(decision_id)
+        if not normalized:
+            return False
+
+        memory_engine = getattr(self.engine, "memory_engine", None)
+        legacy_engine = getattr(memory_engine, "_legacy_engine", None)
+        storage_path = getattr(legacy_engine, "storage_path", None)
+        if storage_path is None:
+            return False
+
+        try:
+            outcome_path = Path(storage_path) / f"outcome_{normalized}.json"
+            return outcome_path.exists()
+        except Exception:
+            logger.debug(
+                "Failed to check existing outcome artifact for decision %s",
+                normalized,
+                exc_info=True,
+            )
+            return False
+
     def _recover_decision_lineage_for_closed_outcome(
         self, outcome: Dict[str, Any]
     ) -> tuple[Optional[str], str, list[str]]:
@@ -3535,6 +3560,9 @@ class TradingLoopAgent:
                         and decision_action
                         and decision_action != expected_action
                     ):
+                        continue
+
+                    if self._decision_has_recorded_outcome(decision_id):
                         continue
 
                     matching_recovery_candidates.append(decision)

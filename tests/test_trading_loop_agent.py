@@ -535,6 +535,7 @@ async def test_execution_round_trip_registers_derisk_order_and_forwards_close_in
         size=1.0,
         entry_price=2166.5,
         side="SHORT",
+        policy_action_family="close_short",
     )
     assert trading_agent.daily_trade_count == 11
 
@@ -1516,6 +1517,7 @@ async def test_execution_state_registers_pending_order_from_nested_success_respo
         size=0.25,
         entry_price=50000.0,
         side="LONG",
+        policy_action_family="open_long",
     )
     assert decision["execution_result"]["order_id"] == "nested-abc123"
     assert decision["execution_status"] == "executed"
@@ -2085,3 +2087,46 @@ def test_sync_trade_outcome_recorder_recovers_missing_decision_id_from_closed_tr
         exit_price=1986.0,
         exit_timestamp='2026-03-27T22:25:38+00:00',
     )
+
+
+def test_recover_decision_lineage_for_closed_outcome_skips_candidates_with_existing_outcome(
+    trading_agent, mock_dependencies, tmp_path
+):
+    class _LegacyMemory:
+        def __init__(self, storage_path):
+            self.storage_path = storage_path
+
+    class _MemoryEngine:
+        def __init__(self, storage_path):
+            self._legacy_engine = _LegacyMemory(storage_path)
+
+    memory_dir = tmp_path / "memory"
+    memory_dir.mkdir()
+    (memory_dir / "outcome_decision-recovery-btc.json").write_text("{}")
+    mock_dependencies["engine"].memory_engine = _MemoryEngine(memory_dir)
+    mock_dependencies["engine"].trade_outcome_recorder = MagicMock(open_positions={})
+    mock_dependencies["trade_monitor"].expected_trades = {}
+    mock_dependencies["trade_monitor"].active_trackers = {}
+    mock_dependencies["trade_monitor"].closed_trades_queue = MagicMock(queue=[])
+    mock_dependencies["trade_monitor"].get_decision_id_by_asset.return_value = None
+    mock_dependencies["engine"].decision_store.get_recent_decisions.return_value = [
+        {
+            "id": "decision-recovery-btc",
+            "asset_pair": "BIP20DEC30CDE",
+            "action": "SELL",
+            "ai_provider": "recovery",
+            "recovery_metadata": {"product_id": "BIP-20DEC30-CDE", "platform": "coinbase"},
+        }
+    ]
+
+    decision_id, lineage_source, attempted_sources = trading_agent._recover_decision_lineage_for_closed_outcome(
+        {
+            "product": "BIP-20DEC30-CDE",
+            "side": "SHORT",
+            "order_id": "order-btc-close",
+        }
+    )
+
+    assert decision_id is None
+    assert lineage_source == "no-hit"
+    assert "decision_store.recovery_metadata_product" in attempted_sources

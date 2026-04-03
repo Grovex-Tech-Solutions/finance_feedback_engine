@@ -84,6 +84,7 @@ class OrderStatusWorker:
         size: float,
         entry_price: Optional[float] = None,
         side: Optional[str] = None,
+        policy_action_family: Optional[str] = None,
     ) -> None:
         """
         Add an order to pending outcomes tracking.
@@ -97,6 +98,7 @@ class OrderStatusWorker:
             size: Order size
             entry_price: Entry price (if known)
             side: Canonical position side ("LONG", "SHORT") when known
+            policy_action_family: Canonical policy family (e.g. open_short)
         """
         pending_entry = {
             "decision_id": decision_id,
@@ -104,6 +106,7 @@ class OrderStatusWorker:
             "platform": platform,
             "action": action,
             "side": side,
+            "policy_action_family": policy_action_family,
             "size": str(size),
             "entry_price": str(entry_price) if entry_price else None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -458,7 +461,9 @@ class OrderStatusWorker:
             # both the close-before-annotate and annotate-before-position
             # race conditions.
             action = str(order_data.get("action", "")).upper()
-            if action.startswith("OPEN_") and order_data.get("decision_id") and self._linkage_store:
+            family = str(order_data.get("policy_action_family", "") or "").lower()
+            is_entry_fill = family in {"open_long", "add_long", "open_short", "add_short"}
+            if is_entry_fill and order_data.get("decision_id") and self._linkage_store:
                 try:
                     # Resolve product_id from order status if available
                     product_id = (

@@ -392,3 +392,55 @@ def test_stale_order_log_uses_stale_orphaned_wording(tmp_path, caplog):
         worker._check_pending_orders()
 
     assert "stale/orphaned" in caplog.text
+
+
+class _LinkageStore:
+    def __init__(self):
+        self.calls = []
+
+    def record_fill(self, **kwargs):
+        self.calls.append(kwargs)
+
+
+def test_open_entry_fill_records_linkage_using_policy_action_family(tmp_path):
+    recorder = MagicMock()
+    recorder.record_order_outcome.return_value = {"realized_pnl": "1.23"}
+    order_payload = {
+        "status": "FILLED",
+        "average_filled_price": "50000",
+        "filled_size": "0.1",
+        "total_fees": "1.5",
+        "product_id": "BIP-20DEC30-CDE",
+    }
+    linkage_store = _LinkageStore()
+    worker = OrderStatusWorker(
+        trading_platform=_CoinbaseGetClientPlatform(order_payload),
+        outcome_recorder=recorder,
+        data_dir=str(tmp_path),
+        poll_interval=1,
+        flush_every_cycles=1,
+        max_stale_checks=20,
+        pending_linkage_store=linkage_store,
+    )
+
+    worker.add_pending_order(
+        order_id="cb-open-entry",
+        decision_id="decision-open-entry",
+        asset_pair="BTCUSD",
+        platform="coinbase",
+        action="SELL",
+        side="SHORT",
+        policy_action_family="open_short",
+        size=0.1,
+        entry_price=50000,
+    )
+
+    worker._check_pending_orders()
+
+    assert linkage_store.calls == [{
+        "order_id": "cb-open-entry",
+        "decision_id": "decision-open-entry",
+        "asset_pair": "BTCUSD",
+        "side": "SHORT",
+        "product_id": "BIP-20DEC30-CDE",
+    }]

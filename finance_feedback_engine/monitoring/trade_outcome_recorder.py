@@ -455,7 +455,7 @@ class TradeOutcomeRecorder:
             close_decision_id = trade_data.get("decision_id")
             if not close_decision_id and self._linkage_store:
                 try:
-                    linkage = self._linkage_store.consume(
+                    linkage = self._linkage_store.lookup(
                         product_id=trade_data.get("product", ""),
                         side=trade_data.get("side", ""),
                     )
