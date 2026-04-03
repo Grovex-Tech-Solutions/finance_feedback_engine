@@ -5,7 +5,6 @@ agent:
   approval_policy: on_new_asset
   asset_pairs:
   - BTCUSD
-  - ETHUSD
   asset_parameters:
     BTCUSD:
       position_size_pct: 4.0229
@@ -54,7 +53,6 @@ agent:
   autonomous_execution: true
   core_pairs:
   - BTCUSD
-  - ETHUSD
   correlation_threshold: 0.7
   dashboard_event_queue_size: 500
   development_risk_limits:
@@ -80,7 +78,6 @@ agent:
   var_confidence: 0.95
   watchlist:
   - BTCUSD
-  - ETHUSD
   webhook:
     enabled: false
     retry_attempts: 3
@@ -123,7 +120,6 @@ backtesting:
 benchmark:
   asset_pairs:
   - BTCUSD
-  - ETHUSD
   benchmark_frequency: 5
   end_date: '2024-12-01'
   reports_directory: data/benchmarks
@@ -380,7 +376,6 @@ telegram:
 trading:
   assets:
   - BTCUSD
-  - ETHUSD
   enabled: true
   interval_minutes: 30
   paper_mode: false
