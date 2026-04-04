@@ -34,7 +34,7 @@ _VALID_DATA_QUALITY = {"good", "degraded", "stale"}
 _VALID_VOLUME = {"high", "normal", "low", "thin"}
 
 # Safety defaults
-DEFAULT_MAX_CONSECUTIVE_SKIPS = 1
+DEFAULT_MAX_CONSECUTIVE_SKIPS = 3
 DEFAULT_FORCED_DEBATE_INTERVAL = 3  # cycles_since_last_debate, not consecutive
 DEFAULT_PRE_REASON_TIMEOUT_S = 20
 DEFAULT_CONFIDENCE_FLOOR = 40  # Below this → force debate
