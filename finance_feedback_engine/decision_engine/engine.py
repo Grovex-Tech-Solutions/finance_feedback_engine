@@ -2263,7 +2263,7 @@ Missing Evidence: <what additional evidence would increase confidence>
                 # Use a raw single-provider local LLM call so the market-brief
                 # schema is not contaminated by the trading-decision wrapper.
                 pre_reason_raw_response = await self.ai_manager._query_single_provider_raw(
-                    "local", pre_reason_prompt,
+                    "deepseek-r1:8b", pre_reason_prompt,
                 )
                 logger.debug(
                     "Pre-reasoner raw response for %s: %s",
