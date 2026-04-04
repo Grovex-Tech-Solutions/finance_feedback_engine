@@ -643,6 +643,64 @@ When choosing HOLD:
             provider_decisions=provider_decisions, failed_providers=failed_providers
         )
 
+    async def _local_ai_raw_inference(
+        self,
+        prompt: str,
+        model_name: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        response_format: Optional[str] = "json",
+    ) -> str:
+        """
+        Local raw AI inference using Ollama without the trading-decision wrapper.
+
+        Intended for structured helper tasks that need the model to follow a
+        task-specific schema instead of the standard decision schema.
+        """
+        model_info = f" (model: {model_name})" if model_name else ""
+        logger.info(f"Using local raw AI inference (Ollama){model_info}")
+
+        try:
+            from .local_llm_provider import LocalLLMProvider
+
+            provider_config = dict(
+                self.config,
+                model_name=model_name or self.config.get("model_name", "default"),
+            )
+            provider = LocalLLMProvider(provider_config)
+            return await asyncio.to_thread(
+                provider.raw_query,
+                prompt,
+                model_name,
+                system_prompt,
+                response_format,
+            )
+        except ImportError as e:
+            logger.error(
+                f"Local raw LLM failed due to missing import: {e}",
+                extra={
+                    "provider": "local",
+                    "model": model_name or self.config.get("model_name", "default"),
+                    "failure_type": "dependency",
+                    "error_class": type(e).__name__,
+                    "ensemble_mode": self.ai_provider == "ensemble",
+                },
+            )
+            raise RuntimeError("Local raw LLM import error") from e
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Local raw LLM failed: {e}",
+                extra={
+                    "provider": "local",
+                    "model": model_name or self.config.get("model_name", "default"),
+                    "failure_type": "infrastructure",
+                    "error_class": type(e).__name__,
+                    "ensemble_mode": self.ai_provider == "ensemble",
+                },
+            )
+            raise RuntimeError("Local raw LLM query failed") from e
+
     async def _local_ai_inference(
         self, prompt: str, model_name: Optional[str] = None
     ) -> Dict[str, Any]:
