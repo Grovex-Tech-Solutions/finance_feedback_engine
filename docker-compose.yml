@@ -23,8 +23,8 @@ services:
       - OLLAMA_HOST=http://127.0.0.1:11434
       - AGENT_ASSET_PAIRS=${AGENT_ASSET_PAIRS:-BTCUSD,ETHUSD}
     volumes:
-      - ffe-data:/app/data
-      - ffe-logs:/app/logs
+      - ${FFE_DATA_ROOT:-/mnt/ffe-data/docker-volumes}/ffe-data:/app/data
+      - ${FFE_DATA_ROOT:-/mnt/ffe-data/docker-volumes}/ffe-logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -42,17 +42,9 @@ services:
       POSTGRES_PASSWORD: ffe_pass
       POSTGRES_DB: ffe
     volumes:
-      - ffe-db:/var/lib/postgresql/data
+      - ${FFE_DATA_ROOT:-/mnt/ffe-data/docker-volumes}/ffe-db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ffe_user -d ffe"]
       interval: 10s
       timeout: 5s
       retries: 3
-
-volumes:
-  ffe-data:
-    driver: local
-  ffe-logs:
-    driver: local
-  ffe-db:
-    driver: local
