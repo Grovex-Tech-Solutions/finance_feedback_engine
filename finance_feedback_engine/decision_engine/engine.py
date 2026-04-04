@@ -1,4 +1,5 @@
 """Decision engine for generating AI-powered trading decisions."""
+from finance_feedback_engine.decision_engine.pre_reasoner import MarketBrief, PreReasonGatekeeper, build_pre_reason_prompt, parse_pre_reason_response
 
 import asyncio
 import logging
@@ -206,6 +207,7 @@ class DecisionEngine:
 
         # Monitoring context provider (optional, set via set_monitoring_context)
         self.monitoring_provider = None
+        self._pre_reason_gatekeeper = PreReasonGatekeeper()
 
         # Initialize vector memory for semantic search (optional)
         self.vector_memory = None
@@ -2248,8 +2250,83 @@ Missing Evidence: <what additional evidence would increase confidence>
             # sizing/validation paths can reason about current LONG/SHORT state.
             context["position_state"] = self._extract_position_state(context, asset_pair)
 
+            # --- Track E1: Pre-Reasoning Layer ---
+            # Single fast LLM call to assess market and determine if debate is needed.
+            market_brief = None
+            try:
+                pre_reason_prompt = build_pre_reason_prompt(
+                    market_data=market_data,
+                    position_state=context.get("position_state"),
+                    memory_context=memory_context,
+                )
+                pre_reason_response = await self._query_ai(
+                    pre_reason_prompt,
+                    asset_pair=asset_pair,
+                    market_data=market_data,
+                )
+                market_brief = parse_pre_reason_response(
+                    pre_reason_response,
+                    current_price=float(market_data.get("close", 0)),
+                    position_state=context.get("position_state"),
+                )
+                context["market_brief"] = market_brief
+
+                # No-op gate with safety checks (skip streak, consecutive limit, data quality)
+                force_debate, force_reason = self._pre_reason_gatekeeper.should_force_debate(market_brief)
+
+                if not market_brief.actionable and not force_debate:
+                    self._pre_reason_gatekeeper.record_skip()
+                    logger.info(
+                        "Pre-reasoner: skipping debate for %s | reason=%s | regime=%s | confidence=%d | skips=%s",
+                        asset_pair,
+                        market_brief.skip_reason or "not actionable",
+                        market_brief.regime,
+                        market_brief.regime_confidence,
+                        self._pre_reason_gatekeeper.skip_stats,
+                    )
+                    skip_decision = self._create_decision(
+                        asset_pair,
+                        context,
+                        {
+                            "action": "HOLD",
+                            "policy_action": "HOLD",
+                            "confidence": market_brief.regime_confidence,
+                            "reasoning": (
+                                f"[PRE-REASON SKIP] {market_brief.skip_reason or 'No actionable signal'}. "
+                                f"Regime: {market_brief.regime}, Key question: {market_brief.key_question}"
+                            ),
+                            "amount": 0,
+                        },
+                    )
+                    skip_decision["pre_reason_skipped"] = True
+                    skip_decision["market_brief"] = market_brief.to_dict()
+                    return skip_decision
+                else:
+                    self._pre_reason_gatekeeper.record_debate()
+                    if force_reason:
+                        logger.info(
+                            "Pre-reasoner: forced debate for %s | force_reason=%s | brief_actionable=%s",
+                            asset_pair, force_reason, market_brief.actionable,
+                        )
+                    else:
+                        logger.info(
+                            "Pre-reasoner: proceeding to debate for %s | regime=%s | question=%s",
+                            asset_pair, market_brief.regime, market_brief.key_question,
+                        )
+            except Exception as e:
+                logger.warning(
+                    "Pre-reasoner failed for %s, proceeding to debate without brief: %s",
+                    asset_pair, e,
+                )
+            # --- End Track E1 ---
+
             # Generate AI prompt
             prompt = self._create_ai_prompt(context)
+
+            # Inject market brief into prompt if available
+            if market_brief is not None:
+                brief_section = market_brief.to_prompt_section()
+                prompt = brief_section + "\n\n" + prompt
 
             # Compress context window to reduce token usage
             prompt = self._compress_context_window(prompt, max_tokens=3000)
