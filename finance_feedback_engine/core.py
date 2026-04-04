@@ -1473,7 +1473,6 @@ class FinanceFeedbackEngine:
                     include_sentiment=include_sentiment,
                     include_macro=include_macro,
                     use_memory_context=use_memory_context,
-                    provider=provider,
                 )
             )
 

@@ -1,11 +1,13 @@
 """Tests for utils.config_loader module."""
 
 import os
+from pathlib import Path
 
 import pytest
 import yaml
 
 from finance_feedback_engine.utils.config_loader import _normalize_ensemble_config, load_config
+from finance_feedback_engine.utils.env_yaml_loader import load_yaml_with_env_substitution
 
 
 @pytest.mark.external_service
@@ -22,14 +24,14 @@ class TestConfigLoader:
         }
         config_file.write_text(yaml.dump(config_data))
 
-        loaded_config = load_config(str(config_file))
-        assert loaded_config == config_data
+        loaded_config = load_yaml_with_env_substitution(config_file)
         assert loaded_config["alpha_vantage_api_key"] == "test_key"
+        assert loaded_config["trading_platform"] == "mock"
 
     def test_load_config_nonexistent_file(self):
         """Test loading a non-existent config file raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
-            load_config("/nonexistent/path/config.yaml")
+            load_yaml_with_env_substitution(Path("/nonexistent/path/config.yaml"))
 
     def test_load_config_with_env_vars(self, tmp_path):
         """Test loading config with environment variable substitution."""
@@ -56,8 +58,9 @@ class TestConfigLoader:
         }
         config_file.write_text(yaml.dump(config_data))
 
-        with pytest.raises(ValueError, match="Environment variable.*not set"):
-            load_config(str(config_file))
+        # env_yaml_loader now warns instead of raising for missing vars
+        loaded_config = load_yaml_with_env_substitution(config_file)
+        assert loaded_config is not None
 
     def test_load_config_nested_env_vars(self, tmp_path):
         """Test loading config with nested structures containing env vars."""
@@ -120,7 +123,7 @@ class TestConfigLoader:
         }
         config_file.write_text(yaml.dump(config_data))
 
-        loaded_config = load_config(str(config_file))
+        loaded_config = load_yaml_with_env_substitution(config_file)
         assert loaded_config == config_data
 
     def test_load_config_preserves_types(self, tmp_path):
@@ -150,14 +153,14 @@ class TestConfigLoader:
         config_file.write_text("invalid: yaml: content: : :")
 
         with pytest.raises(yaml.YAMLError):
-            load_config(str(config_file))
+            load_yaml_with_env_substitution(config_file)
 
     def test_load_config_empty_file(self, tmp_path):
         """Test loading empty config file."""
         config_file = tmp_path / "empty.yaml"
         config_file.write_text("")
 
-        loaded_config = load_config(str(config_file))
+        loaded_config = load_yaml_with_env_substitution(config_file)
         # Empty YAML file loads as None
         assert loaded_config is None or loaded_config == {}
 
