@@ -47,6 +47,45 @@ def _normalize_reasoning_payload(reasoning: Any) -> str:
     return str(reasoning).strip()
 
 
+
+# Map of word-based confidence values commonly returned by local LLMs
+# (e.g. deepseek-r1:8b) instead of the requested 0-100 integer.
+_WORD_CONFIDENCE_MAP = {
+    "very low": 15, "verylow": 15,
+    "low": 25,
+    "medium-low": 35, "mediumlow": 35, "medium_low": 35,
+    "medium": 50,
+    "moderate": 50,
+    "medium-high": 65, "mediumhigh": 65, "medium_high": 65,
+    "high": 75,
+    "very high": 90, "veryhigh": 90,
+}
+
+
+def _coerce_confidence_value(raw: Any) -> int:
+    """Coerce a confidence value to an integer in [0, 100].
+
+    Handles: int, float, numeric string, word strings ("medium", "low", etc.).
+    Returns 50 (neutral) when coercion is impossible.
+    """
+    if isinstance(raw, (int, float)):
+        return max(0, min(100, int(raw)))
+
+    if isinstance(raw, str):
+        raw_stripped = raw.strip()
+        # Try numeric parse first
+        try:
+            return max(0, min(100, int(float(raw_stripped))))
+        except (ValueError, TypeError):
+            pass
+        # Try word mapping
+        mapped = _WORD_CONFIDENCE_MAP.get(raw_stripped.lower())
+        if mapped is not None:
+            return mapped
+
+    return 50
+
+
 def normalize_decision_action_payload(decision: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize decision payloads so policy actions become canonical top-level actions.
 
@@ -101,6 +140,10 @@ def normalize_decision_action_payload(decision: Dict[str, Any]) -> Dict[str, Any
         normalized["legacy_action_compatibility"] = normalized.get(
             "legacy_action_compatibility", get_legacy_action_compatibility(canonical)
         )
+
+    # Coerce word-based confidence (e.g. "medium", "low") to integer
+    if "confidence" in normalized:
+        normalized["confidence"] = _coerce_confidence_value(normalized["confidence"])
 
     if "reasoning" in normalized:
         normalized["reasoning"] = _normalize_reasoning_payload(normalized.get("reasoning"))
