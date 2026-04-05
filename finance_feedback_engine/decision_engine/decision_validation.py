@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from .policy_actions import (
@@ -18,6 +19,64 @@ logger = logging.getLogger(__name__)
 
 LEGACY_DIRECTIONAL_ACTIONS = {"BUY", "SELL"}
 POLICY_OR_LEGACY_HOLD = "HOLD"
+
+
+def extract_json_from_text(text: str) -> str:
+    """Extract JSON object from LLM response text.
+
+    Handles common LLM output patterns:
+    - <think>...</think> blocks (deepseek-r1, etc.)
+    - Markdown code fences
+    - Preamble/postamble text around JSON
+    """
+    if not text or not text.strip():
+        return text
+
+    cleaned = text.strip()
+
+    # Strip <think>...</think> blocks (reasoning models)
+    cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL).strip()
+
+    # Strip markdown code fences
+    fence_match = re.search(r"```(?:json)?\s*\n?(\{.*?\})\s*\n?```", cleaned, re.DOTALL)
+    if fence_match:
+        return fence_match.group(1).strip()
+
+    # Find the outermost JSON object
+    start = cleaned.find("{")
+    if start == -1:
+        return text
+
+    depth = 0
+    end = -1
+    in_string = False
+    escape_next = False
+    for i in range(start, len(cleaned)):
+        c = cleaned[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if c == "\\" and in_string:
+            escape_next = True
+            continue
+        if c == '"' and not escape_next:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+
+    if end > start:
+        return cleaned[start : end + 1]
+
+    return text
+
 
 
 def _normalize_reasoning_payload(reasoning: Any) -> str:
@@ -245,7 +304,14 @@ def try_parse_decision_json(payload: str) -> Optional[Dict[str, Any]]:
     try:
         data = json.loads(payload)
     except json.JSONDecodeError:
-        return None
+        # Try extracting JSON from LLM response (think tags, markdown fences, etc.)
+        extracted = extract_json_from_text(payload)
+        if extracted == payload:
+            return None
+        try:
+            data = json.loads(extracted)
+        except json.JSONDecodeError:
+            return None
 
     normalized = normalize_decision_action_payload(data)
 
@@ -256,6 +322,20 @@ def try_parse_decision_json(payload: str) -> Optional[Dict[str, Any]]:
             confidence = -1
         if confidence == 0:
             normalized["confidence"] = 50
+
+    # Normalize confidence to int (handles string/float from LLMs)
+    raw_conf = normalized.get("confidence")
+    if raw_conf is not None and not isinstance(raw_conf, int):
+        try:
+            normalized["confidence"] = int(float(str(raw_conf)))
+        except (ValueError, TypeError):
+            # Non-numeric confidence (e.g. "medium") -> neutral default
+            normalized["confidence"] = 50
+
+    # Ensure non-empty reasoning (empty dict/list normalizes to "")
+    if not normalized.get("reasoning"):
+        action = normalized.get("action", "HOLD")
+        normalized["reasoning"] = f"LLM decision: {action} (reasoning not provided)"
 
     return normalized if is_valid_decision(normalized) else None
 

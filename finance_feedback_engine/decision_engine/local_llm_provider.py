@@ -747,7 +747,7 @@ class LocalLLMProvider:
 
                 logger.info(
                     f"LLM response missing required fields or not JSON on attempt {attempt + 1}, "
-                    f"raw prefix: {response_text[:100]}"
+                    f"raw_len={len(response_text)}, raw prefix: {repr(response_text[:200])}"
                 )
                 self._unload_model()
                 is_structured_fragment = any(fragment in response_text for fragment in ("{", "}"))
@@ -779,10 +779,18 @@ class LocalLLMProvider:
 
     def _parse_text_response(self, text: str) -> Dict[str, Any]:
         """Parse text response for trading decision."""
-        if any(fragment in text for fragment in ("({", "{)", "{", "}")):
-            return build_fallback_decision(
-                "Local LLM returned malformed structured response fragment, using fallback decision.",
-                reason_code="MALFORMED_PROVIDER_RESPONSE",
+        # If text contains JSON fragments, attempt structured extraction first
+        if any(fragment in text for fragment in ("{", "}")):
+            from .decision_validation import extract_json_from_text, try_parse_decision_json
+            extracted = extract_json_from_text(text)
+            decision = try_parse_decision_json(extracted)
+            if decision:
+                logger.info("Recovered valid decision from structured response fragment")
+                return decision
+            logger.warning(
+                f"Could not recover decision from structured fragment "
+                f"(extracted_len={len(extracted)}, raw_len={len(text)}), "
+                f"falling through to text parsing"
             )
 
         text_upper = text.upper()
