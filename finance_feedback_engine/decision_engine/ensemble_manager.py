@@ -890,6 +890,7 @@ class EnsembleDecisionManager:
         bear_case: Dict[str, Any],
         judge_decision: Dict[str, Any],
         failed_debate_providers: Optional[List[str]] = None,
+        position_state: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Synthesize debate decisions from bull, bear, and judge providers.
@@ -905,7 +906,8 @@ class EnsembleDecisionManager:
         """
         # Use the DebateManager component
         return self.debate_manager.synthesize_debate_decision(
-            bull_case, bear_case, judge_decision, failed_debate_providers
+            bull_case, bear_case, judge_decision, failed_debate_providers,
+            position_state=position_state,
         )
 
     def _adjust_weights_for_active_providers(

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from typing import Any, Dict, Optional
 
 from finance_feedback_engine.utils.config_loader import normalize_decision_config
@@ -12,12 +13,77 @@ from .policy_actions import (
     build_ai_decision_envelope,
     get_legacy_action_compatibility,
     is_policy_action,
+    is_structurally_valid,
+    legal_actions_for_position_state,
     normalize_policy_action,
 )
 
 logger = logging.getLogger(__name__)
 
 MAX_WORKERS = 4
+
+
+# ---------------------------------------------------------------------------
+# Position-state awareness for debate roles
+# ---------------------------------------------------------------------------
+
+_POSITION_STATE_RE = re.compile(
+    r"CRITICAL CONSTRAINT: You currently have a (LONG|SHORT) position",
+    re.IGNORECASE,
+)
+
+
+def _extract_position_state_from_prompt(prompt: str) -> str:
+    """Extract canonical position state (flat/long/short) from the base prompt.
+
+    The engine embeds a CRITICAL CONSTRAINT block when a position is open.
+    If not found, the position is flat (or unknown -- treated as flat for
+    gating purposes so we never block valid flat actions).
+    """
+    m = _POSITION_STATE_RE.search(prompt)
+    if m:
+        return m.group(1).lower()  # 'long' or 'short'
+    return "flat"
+
+
+def _coerce_invalid_role_action(
+    case: dict,
+    role: str,
+    position_state: str,
+) -> dict:
+    """If a debate role returned an action invalid for the current position state,
+    coerce it to HOLD *before* the judge sees it.  This prevents structurally
+    invalid actions from polluting the judged outcome.
+
+    Returns the (possibly mutated) case dict.
+    """
+    if case is None:
+        return case
+    action = case.get("action") or case.get("policy_action")
+    if not action or not is_policy_action(action):
+        return case
+    if is_structurally_valid(action, position_state):
+        return case
+    legal = [a.value for a in legal_actions_for_position_state(position_state)]
+    original_action = action
+    logger.warning(
+        "Debate: %s role returned %s which is structurally invalid for "
+        "position_state=%s (legal: %s) -- coercing to HOLD before judge",
+        role, action, position_state, legal,
+    )
+    case["action"] = "HOLD"
+    case["policy_action"] = "HOLD"
+    case["confidence"] = min(int(case.get("confidence", 50) or 50), 40)
+    original_reasoning = case.get("reasoning", "")
+    case["reasoning"] = (
+        f"[POSITION-GATE] Original {role} action {original_action} was structurally "
+        f"invalid for position_state={position_state}. Coerced to HOLD. "
+        f"Original reasoning: {original_reasoning}"
+    )
+    case["position_state_coerced"] = True
+    case["position_state_original_action"] = original_action
+    return case
+
 # ENSEMBLE_TIMEOUT now loaded from config (decision_engine.ensemble_timeout, default 30)
 
 
@@ -351,6 +417,14 @@ Data Quality: <good|degraded|stale>
         bear_case = bear_result["case"]
         failed_debate_providers.extend(bear_result.get("failed", []))
 
+        # Position-state gate: coerce structurally invalid role actions to HOLD
+        # before the judge sees them (prevents e.g. OPEN_SMALL_SHORT when long).
+        _pos_state = _extract_position_state_from_prompt(prompt)
+        if bull_case is not None:
+            bull_case = _coerce_invalid_role_action(bull_case, "bull", _pos_state)
+        if bear_case is not None:
+            bear_case = _coerce_invalid_role_action(bear_case, "bear", _pos_state)
+
         # Query judge provider (final decision)
         try:
             # Add judge-specific instructions with bull/bear context
@@ -491,6 +565,7 @@ When choosing HOLD:
             bear_case=bear_case,
             judge_decision=judge_decision,
             failed_debate_providers=failed_debate_providers,
+            position_state=_pos_state,
         )
 
         return final_decision

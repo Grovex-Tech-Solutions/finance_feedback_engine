@@ -20,6 +20,7 @@ from .policy_actions import (
     get_policy_action_family,
     is_derisking_policy_action,
     is_policy_action,
+    is_structurally_valid,
 )
 
 logger = logging.getLogger(__name__)
@@ -224,6 +225,7 @@ class DebateManager:
         bear_case: Dict[str, Any],
         judge_decision: Dict[str, Any],
         failed_debate_providers: Optional[List[str]] = None,
+        position_state: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Synthesize debate decisions from bull, bear, and judge providers.
@@ -287,6 +289,33 @@ class DebateManager:
             if hold_override is not None
             else (exit_override if exit_override is not None else judge_decision)
         )
+
+        # Defense-in-depth: if the synthesized action is structurally invalid
+        # for the current position state, force HOLD.  This catches cases where
+        # an override promoted an invalid role action that slipped past the
+        # earlier per-role gate.
+        if position_state is not None:
+            synth_action = final_decision_source.get("action") or final_decision_source.get("policy_action")
+            if synth_action and is_policy_action(synth_action) and not is_structurally_valid(synth_action, position_state):
+                logger.warning(
+                    "Debate synthesize: final action %s invalid for position_state=%s — forcing HOLD",
+                    synth_action, position_state,
+                )
+                final_decision_source = deepcopy(final_decision_source)
+                original_action = synth_action
+                final_decision_source["action"] = "HOLD"
+                final_decision_source["policy_action"] = "HOLD"
+                final_decision_source["confidence"] = min(
+                    int(final_decision_source.get("confidence", 50) or 50), 40,
+                )
+                final_decision_source["reasoning"] = (
+                    f"[SYNTH-POSITION-GATE] {original_action} invalid for "
+                    f"position_state={position_state}. "
+                    + str(final_decision_source.get("reasoning", ""))
+                )
+                final_decision_source["position_state_coerced"] = True
+                final_decision_source["position_state_original_action"] = original_action
+
         final_decision = _with_policy_action_metadata(final_decision_source)
         judge_policy_package = (
             judge_decision.get("policy_package") if isinstance(judge_decision, dict) else None
