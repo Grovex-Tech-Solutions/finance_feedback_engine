@@ -269,6 +269,13 @@ def _normalize_ensemble_config(config: Dict[str, Any]) -> None:
     if not isinstance(weights, dict):
         return
 
+    # In debate mode, provider_weights are seat-keyed (bull/bear/judge),
+    # not model-keyed, so skip the enabled_providers alignment.
+    raw_debate = ensemble_cfg.get("debate_mode", False)
+    debate_active = raw_debate.get("enabled", False) if isinstance(raw_debate, dict) else bool(raw_debate)
+    if debate_active:
+        return
+
     aligned_weights: Dict[str, float] = {}
     provider_order = enabled_providers or list(weights.keys())
     for provider in provider_order:
